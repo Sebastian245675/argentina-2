@@ -74,15 +74,18 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({ selectedCatego
   }, [products, searchTerm, selectedCategory, sortBy]);
 
   return (
-    <section id="productos" className="py-16 bg-white">
-      <div className="container">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Nuestros <span className="gradient-text-orange">Productos</span>
+    <section id="productos" className="py-10 md:py-16 bg-white">
+      <div className="container max-w-7xl mx-auto px-4">
+        {/* Header centrado y organizado */}
+        <div className="flex flex-col items-center justify-center mb-8 md:mb-12 w-full">
+          <span className="uppercase tracking-widest text-orange-600 font-bold text-sm md:text-base mb-2 text-center">
+            Compras Bogotá
+          </span>
+          <h2 className="text-4xl md:text-5xl font-extrabold mb-3 text-center tracking-tight">
+            <span className="gradient-text-orange block w-full">Productos</span>
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Descubre nuestra selección de productos de alta calidad con los mejores precios del mercado
+          <p className="text-lg text-gray-600 max-w-2xl text-center">
+            Descubre nuestra selección de productos de alta calidad con los mejores precios del mercado.
           </p>
         </div>
 
@@ -148,7 +151,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({ selectedCatego
         {loading ? (
           <div className="text-center py-12 text-lg text-muted-foreground">Cargando productos...</div>
         ) : filteredAndSortedProducts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 md:gap-8">
             {filteredAndSortedProducts.map((product) => (
               <ProductCard
                 key={product.id}

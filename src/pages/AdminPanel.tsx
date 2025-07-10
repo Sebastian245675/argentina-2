@@ -24,6 +24,8 @@ import { OrdersList } from '@/components/admin/OrdersList';
 import { DashboardStats } from '@/components/admin/DashboardStats';
 import { CategoryManager } from '@/components/admin/CategoryManager';
 import { useNavigate } from 'react-router-dom';
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/firebase";
 
 export const AdminPanel: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -31,6 +33,7 @@ export const AdminPanel: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [orders, setOrders] = useState<any[]>([]);
 
   console.log('AdminPanel rendered, user:', user);
 
@@ -44,6 +47,16 @@ export const AdminPanel: React.FC = () => {
       setLoading(false);
     });
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      const querySnapshot = await getDocs(collection(db, "pedidos"));
+      const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log("Pedidos desde Firestore:", docs); // <-- AGREGA ESTO
+      setOrders(docs);
+    };
+    fetchOrders();
   }, []);
 
   if (loading) {
@@ -93,10 +106,7 @@ export const AdminPanel: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <Button variant="outline" size="sm">
-                <Bell className="h-4 w-4 mr-2" />
-                Notificaciones
-              </Button>
+            
               <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-2 text-sm font-medium">
                 👑 Administrador: {user.name}
               </Badge>
@@ -189,7 +199,15 @@ export const AdminPanel: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-purple-100 text-sm">Pedidos Pendientes</p>
-                      <p className="text-2xl font-bold">8</p>
+                      <p className="text-2xl font-bold">
+                        {
+                          orders.filter(order =>
+                            ["pending", "en espera", "espera"].includes(
+                              String(order.status).toLowerCase().trim()
+                            )
+                          ).length
+                        }
+                      </p>
                     </div>
                     <AlertCircle className="h-8 w-8 text-purple-200" />
                   </div>

@@ -94,67 +94,54 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({ selectedCategory
 
   const handleCategoryFilter = (category: string) => {
     setSelectedCategory(category);
-    // Aquí puedes agregar la lógica para filtrar los productos por categoría
+ 
   };
 
   return (
     <>
       <header className="fixed top-0 z-50 w-full bg-white border-b border-orange-200 shadow-lg">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-2 md:px-4">
           {/* Main header */}
-          <div className="flex h-20 items-center justify-between">
+          <div className="flex h-16 md:h-20 items-center justify-between">
             {/* Logo y Info del Conjunto */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <div className="relative group">
-                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-2xl transform group-hover:rotate-12 group-hover:scale-110 transition-all duration-300">
-                  <Sparkles className="h-6 w-6 text-white" />
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-2xl transform group-hover:rotate-12 group-hover:scale-110 transition-all duration-300">
+                  <Sparkles className="h-5 w-5 md:h-6 md:w-6 text-white" />
                 </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                <div className="absolute -top-1 -right-1 w-3 h-3 md:w-4 md:h-4 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
               </div>
-              <div>
-                <span className="text-2xl font-black bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-                  TiendaUltra
-                </span>
-           
-              </div>
-            </div>
-
-            {/* Search Bar */}
-            <div className="hidden lg:flex flex-1 max-w-md mx-8">
-           
+              <span className="text-xl md:text-2xl font-black bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+                TiendaUltra
+              </span>
             </div>
 
             {/* Actions */}
-            <div className="flex items-center space-x-3">
-              {/* WhatsApp Contact Button */}
-            
-
+            <div className="flex items-center space-x-2 md:space-x-3">
               {/* Cart Button */}
               <div className="relative">
                 <MagneticButton
                   variant="ghost"
                   onClick={() => setShowCart(true)}
-                  className="relative p-3 border-orange-300 hover:bg-orange-50"
+                  className="relative p-2 md:p-3 border-orange-300 hover:bg-orange-50"
                 >
                   <ShoppingCart className="h-5 w-5 text-orange-600" />
                   {itemCount > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold animate-pulse">
+                    <Badge className="absolute -top-2 -right-2 h-5 w-5 md:h-6 md:w-6 flex items-center justify-center p-0 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold animate-pulse">
                       {itemCount}
                     </Badge>
                   )}
                 </MagneticButton>
               </div>
 
-              {/* User Actions - Login/Admin Panel integrado */}
+              {/* User Actions */}
               {isAuthenticated ? (
-                <div className="flex items-center space-x-3">
-                  <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50">
-                    <Bell className="h-4 w-4" />
-                  </Button>
-                  <div className="px-4 py-2 bg-orange-50 rounded-lg border border-orange-200">
-                    <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2 md:space-x-3">
+                
+                  <div className="px-2 py-1 md:px-4 md:py-2 bg-orange-50 rounded-lg border border-orange-200">
+                    <div className="flex items-center space-x-2 md:space-x-3">
                       <div className="hidden lg:block text-right">
-                        <div className="text-sm font-semibold text-orange-800">
+                        <div className="text-xs md:text-sm font-semibold text-orange-800">
                           {userName ? userName.split(' ')[0] : ''}
                         </div>
                         <div className="text-xs text-orange-600">
@@ -166,37 +153,34 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({ selectedCategory
                   </div>
                 </div>
               ) : (
-                <MagneticButton 
+                <MagneticButton
                   onClick={() => setShowAuthModal(true)}
-                  className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                  className="flex items-center gap-2 px-4 py-2 md:px-5 md:py-2 rounded-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold shadow-md transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-orange-400 w-full md:w-auto justify-center text-base md:text-base"
                 >
-                  <LogIn className="h-4 w-4 mr-2" />
+                  <LogIn className="h-5 w-5 mr-2" />
                   Iniciar Sesión
                 </MagneticButton>
               )}
             </div>
           </div>
 
-          {/* Navigation - Productos arriba */}
-          <nav className="flex items-center justify-center space-x-8 py-4 text-sm font-medium border-t border-orange-100 bg-orange-50/50">
+          {/* Navigation - Categorías */}
+          <nav className="flex items-center justify-start md:justify-center gap-2 md:gap-8 overflow-x-auto py-3 text-sm font-medium border-t border-orange-100 bg-orange-50/50 scrollbar-thin scrollbar-thumb-orange-200">
             {categories.map((category) => (
               <button
                 key={category}
                 onClick={() => handleCategoryFilter(category)}
-                className={`text-gray-600 hover:text-orange-600 transition-colors flex items-center space-x-2 ${
-                  selectedCategory === category ? "font-bold text-orange-700 underline" : ""
+                className={`whitespace-nowrap px-3 py-1 rounded-full transition-colors ${
+                  selectedCategory === category
+                    ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold shadow"
+                    : "text-gray-600 hover:text-orange-600 hover:bg-orange-100"
                 }`}
               >
-                <span>{category}</span>
+                {category}
               </button>
             ))}
           </nav>
-
-          {/* Mobile Search */}
-       
-            </div>
-          
-      
+        </div>
       </header>
 
       {/* Modals */}
