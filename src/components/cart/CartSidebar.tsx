@@ -97,7 +97,7 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
       `⏰ Fecha: ${new Date().toLocaleDateString('es-CO')} - ${new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}\n\n` +
       `✅ Por favor confirma la disponibilidad y tiempo de entrega.\n`;
 
-    const storeWhatsApp = '573186218792'; // Cambia por el número real de la tienda
+    const storeWhatsApp = '573053577980'; // Cambia por el número real de la tienda
     const whatsappUrl = `https://wa.me/${storeWhatsApp}?text=${encodeURIComponent(message)}`;
 
     try {
