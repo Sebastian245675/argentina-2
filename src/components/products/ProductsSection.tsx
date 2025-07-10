@@ -103,31 +103,9 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({ selectedCatego
           </div>
 
           {/* Filtro por categoría */}
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-full md:w-48 border-orange-200 focus:border-orange-400 focus:ring-orange-400">
-              <Filter className="h-4 w-4 mr-2 text-orange-500" />
-              <SelectValue placeholder="Categoría" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map((category) => (
-                <SelectItem key={category} value={category}>
-                  {category}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
+        
           {/* Ordenar */}
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-full md:w-48 border-orange-200 focus:border-orange-400 focus:ring-orange-400">
-              <SelectValue placeholder="Ordenar por" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="name">Nombre A-Z</SelectItem>
-              <SelectItem value="price-asc">Precio: Menor a Mayor</SelectItem>
-              <SelectItem value="price-desc">Precio: Mayor a Menor</SelectItem>
-            </SelectContent>
-          </Select>
+          
         </div>
 
         {/* Botón de WhatsApp y aviso de domicilio gratis */}

@@ -155,7 +155,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({ selectedCategory
               ) : (
                 <MagneticButton
                   onClick={() => setShowAuthModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 md:px-5 md:py-2 rounded-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold shadow-md transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-orange-400 w-full md:w-auto justify-center text-base md:text-base"
+                  className="flex items-center gap-2 px-4 py-2 md:px-5 md:py-2 rounded-md bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold shadow-md transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-orange-400 w-full md:w-auto justify-center text-base md:text-base"
                 >
                   <LogIn className="h-5 w-5 mr-2" />
                   Iniciar Sesión
