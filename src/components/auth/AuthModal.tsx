@@ -126,38 +126,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[400px] w-full max-w-[98vw] p-0 overflow-hidden">
         <div className="gradient-orange h-2"></div>
-        
-        <DialogHeader className="p-6 pb-2">
-          <DialogTitle className="text-2xl font-bold text-center gradient-text-orange">
-            Conjunto Residencial Villa Hermosa
+        <DialogHeader className="p-2 sm:p-6 pb-2">
+          <DialogTitle className="text-xl sm:text-2xl font-bold text-center gradient-text-orange">
+            Conjunto Residencial 
           </DialogTitle>
-          <p className="text-center text-gray-600 text-sm">Accede a tu tienda del conjunto</p>
+          <p className="text-center text-gray-600 text-xs sm:text-sm">Accede a tu tienda del conjunto</p>
         </DialogHeader>
 
-        <div className="p-6 pt-2">
-          {/* Panel de Administración - Integrado como parte del login */}
-          <div className="mb-6 p-6 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border-2 border-orange-200">
-            <div className="text-center mb-4">
-              <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
-                <Crown className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="font-bold text-lg text-orange-800 mb-2">Panel de Administración</h3>
-              <p className="text-sm text-orange-700 mb-4">
-                Acceso directo para administradores del conjunto
-              </p>
-              <Button 
-                onClick={handleQuickAdminLogin}
-                disabled={isLoading}
-                className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                {isLoading ? 'Accediendo...' : 'Ingresar como Administrador'}
-              </Button>
-            </div>
-          </div>
+        {/* Cambia aquí: área scrolleable y más compacta */}
+        <div className="p-2 sm:p-4 pt-2" style={{maxHeight: '75vh', overflowY: 'auto'}}>
+          {/* Panel de Administración */}
+         
 
-          <div className="relative mb-6">
+          <div className="relative mb-3 sm:mb-4">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-gray-300" />
             </div>
@@ -167,26 +150,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </div>
 
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="login" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+            <TabsList className="grid w-full grid-cols-2 mb-3 sm:mb-4">
+              <TabsTrigger value="login" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-xs sm:text-base">
                 Iniciar Sesión
               </TabsTrigger>
-              <TabsTrigger value="register" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+              <TabsTrigger value="register" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-xs sm:text-base">
                 Registrarse
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
               <Card className="border-0 shadow-none">
-                <CardHeader className="px-0 pb-4">
-                  <CardTitle className="text-xl text-gray-800">Residentes del Conjunto</CardTitle>
+                <CardHeader className="px-0 pb-2 sm:pb-3">
+                  <CardTitle className="text-base sm:text-lg text-gray-800">Residentes del Conjunto</CardTitle>
                   <CardDescription>
                     Ingresa con tu cuenta de residente
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="px-0">
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    <div className="space-y-2">
+                  <form onSubmit={handleLogin} className="space-y-2 sm:space-y-2">
+                    <div className="space-y-1">
                       <Label htmlFor="login-email">Email</Label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-3 h-4 w-4 text-orange-400" />
@@ -194,7 +177,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                           id="login-email"
                           type="email"
                           placeholder="tu@email.com"
-                          className="pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400"
+                          className="pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 w-full"
                           value={loginData.email}
                           onChange={(e) => setLoginData({...loginData, email: e.target.value})}
                           required
@@ -202,7 +185,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                       </div>
                     </div>
                     
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       <Label htmlFor="login-password">Contraseña</Label>
                       <div className="relative">
                         <Lock className="absolute left-3 top-3 h-4 w-4 text-orange-400" />
@@ -210,7 +193,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                           id="login-password"
                           type="password"
                           placeholder="••••••••"
-                          className="pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400"
+                          className="pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 w-full"
                           value={loginData.password}
                           onChange={(e) => setLoginData({...loginData, password: e.target.value})}
                           required
@@ -220,7 +203,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
                     <Button 
                       type="submit" 
-                      className="w-full gradient-orange hover:opacity-90 transition-opacity"
+                      className="w-full gradient-orange hover:opacity-90 transition-opacity text-base py-2"
                       disabled={isLoading}
                     >
                       {isLoading ? 'Iniciando...' : 'Iniciar Sesión'}
@@ -232,62 +215,67 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
             <TabsContent value="register">
               <Card className="border-0 shadow-none">
-                <CardHeader className="px-0 pb-4">
-                  <CardTitle className="text-xl text-gray-800">Registro de Residente</CardTitle>
+                <CardHeader className="px-0 pb-2 sm:pb-3">
+                  <CardTitle className="text-base sm:text-lg text-gray-800">Registro de Residente</CardTitle>
                   <CardDescription>
                     Completa tus datos como residente del conjunto
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="px-0">
-                  <form onSubmit={handleRegister} className="space-y-4">
-                    <div className="space-y-2">
+                  <form onSubmit={handleRegister} className="space-y-2 sm:space-y-2">
+                    <div className="space-y-1">
                       <Label htmlFor="register-name">Nombre Completo</Label>
                       <Input
                         id="register-name"
                         placeholder="Juan Pérez"
+                        className="w-full"
                         value={registerData.name}
                         onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
                         required
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       <Label htmlFor="register-conjunto">Nombre del Conjunto</Label>
                       <Input
                         id="register-conjunto"
                         placeholder="Conjunto Residencial"
+                        className="w-full"
                         value={registerData.conjunto}
                         onChange={(e) => setRegisterData({ ...registerData, conjunto: e.target.value })}
                         required
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       <Label htmlFor="register-email">Email</Label>
                       <Input
                         id="register-email"
                         type="email"
                         placeholder="tu@email.com"
+                        className="w-full"
                         value={registerData.email}
                         onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
                         required
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       <Label htmlFor="register-password">Contraseña</Label>
                       <Input
                         id="register-password"
                         type="password"
                         placeholder="••••••••"
+                        className="w-full"
                         value={registerData.password}
                         onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
                         required
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       <Label htmlFor="register-phone">Teléfono</Label>
                       <Input
                         id="register-phone"
                         type="tel"
                         placeholder="Ej: 3001234567"
+                        className="w-full"
                         value={registerData.phone}
                         onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
                         required
@@ -295,7 +283,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     </div>
                     <Button
                       type="submit"
-                      className="w-full gradient-orange hover:opacity-90 transition-opacity"
+                      className="w-full gradient-orange hover:opacity-90 transition-opacity text-base py-2"
                       disabled={isLoading}
                     >
                       {isLoading ? 'Creando cuenta...' : 'Crear Cuenta'}
