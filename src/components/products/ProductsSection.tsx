@@ -129,7 +129,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({ selectedCatego
         {loading ? (
           <div className="text-center py-12 text-lg text-muted-foreground">Cargando productos...</div>
         ) : filteredAndSortedProducts.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 md:gap-8">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 md:gap-6 w-full">
             {filteredAndSortedProducts.map((product) => (
               <ProductCard
                 key={product.id}

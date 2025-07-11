@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -64,23 +63,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onViewDetails
         </div>
       </CardContent>
       
-      <CardFooter className="p-4 pt-0 flex gap-2">
+      <CardFooter className="p-2 pt-0 flex gap-2 justify-end">
         <Button
           variant="outline"
           size="sm"
-          className="flex-1"
+          className="flex-1 min-w-0"
           onClick={() => onViewDetails(product)}
         >
-          <Eye className="h-4 w-4 mr-2" />
+          <Eye className="h-4 w-4 mr-1" />
           Ver
         </Button>
         <Button
-          size="sm"
-          className="flex-1 gradient-orange hover:opacity-90 transition-opacity"
+          className="px-2 py-1 text-[11px] sm:px-3 sm:py-2 sm:text-sm rounded font-semibold bg-orange-500 hover:bg-orange-600 transition-colors min-w-0"
           onClick={handleAddToCart}
           disabled={product.stock === 0}
         >
-          <ShoppingCart className="h-4 w-4 mr-2" />
+          <ShoppingCart className="h-4 w-4 mr-1" />
           {product.stock === 0 ? 'Agotado' : 'Agregar'}
         </Button>
       </CardFooter>
