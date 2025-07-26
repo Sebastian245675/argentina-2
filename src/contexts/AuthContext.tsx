@@ -1,6 +1,7 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/firebase";
+import { getDocumentById, createDocumentWithId, updateDocument } from "@/lib/database";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 export interface User {
@@ -11,6 +12,7 @@ export interface User {
   phone: string;
   address: string;
   isAdmin: boolean;
+  subCuenta?: string; // Permite identificar subcuentas
 }
 
 interface AuthContextType {
@@ -40,27 +42,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
+        try {
+          // Usar nuestro helper que maneja errores y fallbacks
+          const userData = await getDocumentById("users", firebaseUser.uid);
+          
+          if (userData) {
+            setUser({
+              id: firebaseUser.uid,
+              email: firebaseUser.email || "",
+              name: userData.name || "",
+              departmentNumber: userData.departmentNumber || userData.conjunto || "",
+              phone: userData.phone || "",
+              address: userData.address || "",
+              isAdmin: firebaseUser.email === "admin@tienda.com",
+              subCuenta: userData.subCuenta || undefined
+            });
+          } else {
+            // Si el usuario no existe en Firestore, crear un documento nuevo
+          const newUserData = {
+            name: firebaseUser.displayName || "",
+            email: firebaseUser.email || "",
+            phone: "",
+            address: "",
+            departmentNumber: "",
+            conjunto: "",
+            createdAt: new Date()
+          };
+          
+          // Solo para usuarios que no son el primer inicio como admin
+          if (firebaseUser.email !== "admin@tienda.com") {
+            // Usar nuestro helper que maneja errores y fallbacks
+            await createDocumentWithId("users", firebaseUser.uid, newUserData);
+            console.log("Documento de usuario creado automáticamente:", firebaseUser.uid);
+          }
+          
           setUser({
             id: firebaseUser.uid,
             email: firebaseUser.email || "",
-            name: data.name || "",
-            departmentNumber: data.departmentNumber || data.conjunto || "",
-            phone: data.phone || "",
-            address: data.address || "",
-            isAdmin: firebaseUser.email === "admin@gmail.com"
-          });
-        } else {
-          setUser({
-            id: firebaseUser.uid,
-            email: firebaseUser.email || "",
-            name: "",
+            name: firebaseUser.displayName || "",
             departmentNumber: "",
             phone: "",
             address: "",
-            isAdmin: firebaseUser.email === "admin@gmail.com"
+            isAdmin: firebaseUser.email === "admin@tienda.com"
+          });
+        }
+        } catch (error) {
+          console.error("Error al acceder a Firestore:", error);
+          // En caso de error de permisos, aún permitimos el acceso con datos básicos
+          setUser({
+            id: firebaseUser.uid,
+            email: firebaseUser.email || "",
+            name: firebaseUser.displayName || "",
+            departmentNumber: "",
+            phone: "",
+            address: "",
+            isAdmin: firebaseUser.email === "admin@tienda.com"
           });
         }
       } else {
@@ -86,16 +122,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (userData: Omit<User, 'id' | 'isAdmin'> & { password: string }): Promise<boolean> => {
     try {
       const result = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
-      await setDoc(doc(db, "users", result.user.uid), {
+      
+      // Usar nuestro helper para guardar datos
+      const userDocData = {
         name: userData.name,
         email: userData.email,
         phone: userData.phone || "",
         address: userData.address || "",
-        conjunto: userData.departmentNumber || "",
-      });
+        departmentNumber: userData.departmentNumber || "",
+        conjunto: userData.departmentNumber || "", // Para mantener compatibilidad con código anterior
+        createdAt: new Date()
+      };
+      
+      await createDocumentWithId("users", result.user.uid, userDocData);
+      console.log("Usuario registrado con éxito");
+      
       // El listener de arriba actualizará el usuario automáticamente
       return true;
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Error al registrar usuario:", error.message || error);
       return false;
     }
   };

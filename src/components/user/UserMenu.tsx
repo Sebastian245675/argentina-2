@@ -72,7 +72,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
           <span>Mi Perfil</span>
         </DropdownMenuItem>
         
-        {user.isAdmin && (
+        {(user?.email === "admin@gmail.com" || user?.subCuenta === "si") && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleAdminPanel} className="cursor-pointer bg-orange-50 hover:bg-orange-100 text-orange-700">

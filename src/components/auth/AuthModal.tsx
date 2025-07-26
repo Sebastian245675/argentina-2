@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { User, Mail, Lock, Phone, MapPin, Building, Shield, Crown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -19,7 +18,6 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
-  const { login, register } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   
@@ -30,7 +28,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   const [registerData, setRegisterData] = useState({
     name: '',
-    conjunto: '',
     email: '',
     password: '',
     phone: ''
@@ -39,28 +36,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const handleQuickAdminLogin = async () => {
     setIsLoading(true);
     try {
-      const success = await login('admin@tienda.com', 'admin123');
-      if (success) {
-        toast({
-          title: "¡Acceso de administrador!",
-          description: "Bienvenido al panel de administración",
-        });
-        onClose();
-        // Navegar al panel de administración
-        setTimeout(() => {
-          navigate('/admin');
-        }, 500);
-      } else {
-        toast({
-          title: "Error",
-          description: "No se pudo acceder como administrador",
-          variant: "destructive",
-        });
-      }
+      await signInWithEmailAndPassword(auth, 'admin@tienda.com', 'admin123');
+      toast({
+        title: "¡Acceso de administrador!",
+        description: "Bienvenido al panel de administración",
+      });
+      onClose();
+      setTimeout(() => {
+        navigate('/admin');
+      }, 500);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Hubo un problema al iniciar sesión",
+        description: "No se pudo acceder como administrador",
         variant: "destructive",
       });
     } finally {
@@ -94,7 +82,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     e.preventDefault();
     setIsLoading(true);
 
-    const { email, password, name, conjunto, phone } = registerData;
+    const { email, password, name, phone } = registerData;
 
     try {
       // Registro en Firebase Auth
@@ -103,7 +91,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       await setDoc(doc(db, "users", userCredential.user.uid), {
         uid: userCredential.user.uid,
         name,
-        conjunto,
         email,
         phone
       });
@@ -130,9 +117,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         <div className="gradient-orange h-2"></div>
         <DialogHeader className="p-2 sm:p-6 pb-2">
           <DialogTitle className="text-xl sm:text-2xl font-bold text-center gradient-text-orange">
-            Conjunto Residencial 
+            Bienvenido a la tienda
           </DialogTitle>
-          <p className="text-center text-gray-600 text-xs sm:text-sm">Accede a tu tienda del conjunto</p>
+          <p className="text-center text-gray-600 text-xs sm:text-sm">Accede a tu cuenta para comprar</p>
         </DialogHeader>
 
         {/* Cambia aquí: área scrolleable y más compacta */}
@@ -145,7 +132,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <span className="w-full border-t border-gray-300" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-gray-500">O ingresa con tu cuenta</span>
+              <span className="bg-white px-2 text-gray-500">Accede con tu cuenta</span>
             </div>
           </div>
 
@@ -155,16 +142,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 Iniciar Sesión
               </TabsTrigger>
               <TabsTrigger value="register" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-xs sm:text-base">
-                Registrarse
+                Crear Cuenta
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
               <Card className="border-0 shadow-none">
                 <CardHeader className="px-0 pb-2 sm:pb-3">
-                  <CardTitle className="text-base sm:text-lg text-gray-800">Residentes del Conjunto</CardTitle>
+                  <CardTitle className="text-base sm:text-lg text-gray-800">Iniciar Sesión</CardTitle>
                   <CardDescription>
-                    Ingresa con tu cuenta de residente
+                    Ingresa con tu cuenta
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="px-0">
@@ -216,9 +203,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <TabsContent value="register">
               <Card className="border-0 shadow-none">
                 <CardHeader className="px-0 pb-2 sm:pb-3">
-                  <CardTitle className="text-base sm:text-lg text-gray-800">Registro de Residente</CardTitle>
+                  <CardTitle className="text-base sm:text-lg text-gray-800">Crear Cuenta</CardTitle>
                   <CardDescription>
-                    Completa tus datos como residente del conjunto
+                    Completa tus datos para registrarte
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="px-0">
@@ -234,17 +221,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                         required
                       />
                     </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="register-conjunto">Nombre del Conjunto</Label>
-                      <Input
-                        id="register-conjunto"
-                        placeholder="Conjunto Residencial"
-                        className="w-full"
-                        value={registerData.conjunto}
-                        onChange={(e) => setRegisterData({ ...registerData, conjunto: e.target.value })}
-                        required
-                      />
-                    </div>
+                    {/* Eliminado campo Nombre del Conjunto */}
                     <div className="space-y-1">
                       <Label htmlFor="register-email">Email</Label>
                       <Input

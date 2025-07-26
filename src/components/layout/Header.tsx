@@ -33,13 +33,9 @@ export const Header: React.FC = () => {
             {/* Logo */}
             <div className="flex items-center space-x-3">
               <div className="relative">
-                <div className="w-10 h-10 gradient-orange rounded-xl flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-lg">T</span>
-                </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                <img src="/logo-nuevo.png" alt="Regala Algo" className="h-14 w-auto" />
               </div>
               <div>
-                <span className="text-xl md:text-2xl font-bold gradient-text-orange">TiendaUltra</span>
                 <p className="text-xs text-muted-foreground hidden sm:block">Tu tienda del conjunto</p>
               </div>
             </div>

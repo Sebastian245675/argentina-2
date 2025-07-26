@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
-import { Plus, Package, Edit, Trash2, Search, Save, X, Image, AlertTriangle } from 'lucide-react';
+import { Plus, Package, Edit, Trash2, Search, Save, X, Image, AlertTriangle, Check, CreditCard, ShieldCheck, Award } from 'lucide-react';
 import { sampleProducts } from '@/data/products';
 import {
   AlertDialog,
@@ -21,8 +21,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { collection, addDoc, getDocs, updateDoc, doc, setDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, updateDoc, doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase";
+import { useAuth } from "@/contexts/AuthContext"; // Asegúrate de tener acceso al usuario
 
 export const ProductForm: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
@@ -33,12 +34,67 @@ export const ProductForm: React.FC = () => {
     description: '',
     price: '',
     category: '',
+    subcategory: '',  // Será "none" en la UI, pero guardamos como "" cuando no hay subcategoría
+    terceraCategoria: '', // Será "none" en la UI, pero guardamos como "" cuando no hay tercera categoría
     stock: '',
-    image: ''
+    image: '',
+    additionalImages: ['', '', ''],
+    specifications: [{ name: '', value: '' }],
+    isOffer: false,
+    discount: '',
+    originalPrice: '',
+    benefits: [] as string[],
+    warranties: [] as string[],
+    paymentMethods: [] as string[],
+    colors: [] as { name: string, hexCode: string, image: string }[]
   });
   const [products, setProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string; parentId?: string | null; }[]>([]);
+  const { user } = useAuth();
+  const [liberta, setLiberta] = useState("si");
+
+  // Lista predefinida de beneficios
+  const predefinedBenefits = [
+    "Envío gratis",
+    "Entrega en 24 horas",
+    "Producto importado",
+    "Producto ecológico",
+    "Ahorro energético",
+    "Fabricación local",
+    "Servicio post-venta",
+    "Producto orgánico",
+    "Soporte técnico incluido",
+    "Materiales premium"
+  ];
+
+  // Lista predefinida de garantías
+  const predefinedWarranties = [
+    "Garantía de 6 meses",
+    "Garantía de 1 año",
+    "Garantía de 2 años",
+    "Garantía de por vida",
+    "Devolución en 30 días",
+    "Reembolso garantizado",
+    "Cambio sin costo",
+    "Reparación incluida",
+    "Repuestos disponibles",
+    "Servicio técnico oficial"
+  ];
+
+  // Lista predefinida de medios de pago
+  const predefinedPaymentMethods = [
+    "Tarjeta de crédito",
+    "Tarjeta de débito",
+    "Transferencia bancaria",
+    "PayPal",
+    "Efectivo",
+    "Contra-reembolso",
+    "Pago en cuotas",
+    "Mercado Pago",
+    "Nequi",
+    "Daviplata"
+  ];
 
   const filteredProducts = sampleProducts.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -55,13 +111,40 @@ export const ProductForm: React.FC = () => {
     fetchProducts();
   }, []);
 
+  // Añadimos un estado para las subcategorías
+  const [subcategory, setSubcategory] = useState<string>("");
+  
   useEffect(() => {
     const fetchCategories = async () => {
       const querySnapshot = await getDocs(collection(db, "categories"));
-      setCategories(querySnapshot.docs.map(doc => doc.data().name));
+      const categoriesList = querySnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      } as { id: string; name: string; parentId?: string | null; }));
+      
+      setCategories(categoriesList);
     };
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    const fetchLiberta = async () => {
+      if (user && (user as any).email) {
+        // Busca el usuario por email en la colección users
+        const usersRef = collection(db, "users");
+        const querySnapshot = await getDocs(usersRef);
+        let foundLiberta = "si";
+        querySnapshot.forEach((docu) => {
+          const data = docu.data();
+          if (data.email === (user as any).email) {
+            foundLiberta = data.liberta || "si";
+          }
+        });
+        setLiberta(foundLiberta);
+      }
+    };
+    fetchLiberta();
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,33 +159,121 @@ export const ProductForm: React.FC = () => {
     }
 
     try {
-      if (isEditing && editingId) {
-        // Actualizar producto existente
-        await updateDoc(doc(db, "products", editingId), {
-          ...formData,
-          price: Number(formData.price),
-          stock: Number(formData.stock),
-        });
-        toast({
-          title: "✅ Producto actualizado",
-          description: `${formData.name} ha sido actualizado exitosamente.`,
-        });
+      if (liberta === "si") {
+        // Permitir cambios directos
+        if (isEditing && editingId) {
+          // Filter out empty additional images
+          const filteredAdditionalImages = formData.additionalImages.filter(img => img.trim() !== '');
+          
+          // Filter out empty specifications
+          const filteredSpecifications = formData.specifications.filter(
+            spec => spec.name.trim() !== '' || spec.value.trim() !== ''
+          );
+          
+          // Filter out colors with empty names
+          const filteredColors = formData.colors.filter(
+            color => color.name.trim() !== '' && color.image.trim() !== ''
+          );
+          
+          // Obtener los nombres de categoría, subcategoría y tercera categoría para una mejor visualización
+          const categoryName = categories.find(cat => cat.id === formData.category)?.name || '';
+          const subcategoryName = formData.subcategory ? 
+            (categories.find(cat => cat.id === formData.subcategory)?.name || '') : '';
+          const terceraCategoriaName = formData.terceraCategoria ? 
+            (categories.find(cat => cat.id === formData.terceraCategoria)?.name || '') : '';
+          
+          await updateDoc(doc(db, "products", editingId), {
+            ...formData,
+            price: Number(formData.price),
+            stock: Number(formData.stock),
+            isOffer: Boolean(formData.isOffer),
+            discount: formData.discount ? Number(formData.discount) : null,
+            originalPrice: formData.originalPrice ? Number(formData.originalPrice) : null,
+            additionalImages: filteredAdditionalImages,
+            specifications: filteredSpecifications,
+            benefits: formData.benefits,
+            warranties: formData.warranties,
+            paymentMethods: formData.paymentMethods,
+            colors: filteredColors,
+            // Guardamos tanto el ID como el nombre para facilitar búsquedas y visualización
+            categoryName: categoryName,
+            subcategoryName: subcategoryName,
+            terceraCategoriaName: terceraCategoriaName
+          });
+          toast({
+            title: "✅ Producto actualizado",
+            description: `${formData.name} ha sido actualizado exitosamente.`,
+          });
+        } else {
+          // Filter out empty additional images
+          const filteredAdditionalImages = formData.additionalImages.filter(img => img.trim() !== '');
+          
+          // Filter out empty specifications
+          const filteredSpecifications = formData.specifications.filter(
+            spec => spec.name.trim() !== '' || spec.value.trim() !== ''
+          );
+          
+          // Filter out colors with empty names
+          const filteredColors = formData.colors.filter(
+            color => color.name.trim() !== '' && color.image.trim() !== ''
+          );
+          
+          // Obtener los nombres de categoría, subcategoría y tercera categoría para una mejor visualización
+          const categoryName = categories.find(cat => cat.id === formData.category)?.name || '';
+          const subcategoryName = formData.subcategory ? 
+            (categories.find(cat => cat.id === formData.subcategory)?.name || '') : '';
+          const terceraCategoriaName = formData.terceraCategoria ? 
+            (categories.find(cat => cat.id === formData.terceraCategoria)?.name || '') : '';
+          
+          await addDoc(collection(db, "products"), {
+            ...formData,
+            price: Number(formData.price),
+            stock: Number(formData.stock),
+            isOffer: Boolean(formData.isOffer),
+            discount: formData.discount ? Number(formData.discount) : null,
+            originalPrice: formData.originalPrice ? Number(formData.originalPrice) : null,
+            additionalImages: filteredAdditionalImages,
+            specifications: filteredSpecifications,
+            benefits: formData.benefits,
+            warranties: formData.warranties,
+            paymentMethods: formData.paymentMethods,
+            colors: filteredColors,
+            // Guardamos tanto el ID como el nombre para facilitar búsquedas y visualización
+            categoryName: categoryName,
+            subcategoryName: subcategoryName,
+            terceraCategoriaName: terceraCategoriaName,
+            createdAt: new Date(),
+          });
+          toast({
+            title: "✅ Producto agregado",
+            description: `${formData.name} ha sido agregado exitosamente al inventario.`,
+          });
+        }
       } else {
-        // Agregar nuevo producto
-        await addDoc(collection(db, "products"), {
-          ...formData,
-          price: Number(formData.price),
-          stock: Number(formData.stock),
+        // Siempre enviar a revisión si liberta es "no"
+        await addDoc(collection(db, "revision"), {
+          type: isEditing ? "edit" : "add",
+          data: {
+            ...formData,
+            price: Number(formData.price),
+            stock: Number(formData.stock),
+            isOffer: Boolean(formData.isOffer),
+            discount: formData.discount ? Number(formData.discount) : null,
+            originalPrice: formData.originalPrice ? Number(formData.originalPrice) : null,
+            ...(isEditing && { id: editingId }),
+          },
+          entity: "products",
+          userId: (user as any)?.uid || (user as any)?.email || "desconocido",
           createdAt: new Date(),
         });
         toast({
-          title: "✅ Producto agregado",
-          description: `${formData.name} ha sido agregado exitosamente al inventario.`,
+          title: "Solicitud enviada",
+          description: "Tu cambio fue enviado para revisión del administrador.",
         });
       }
       resetForm();
-      // Opcional: recargar productos desde Firestore aquí si tienes un estado global/local
     } catch (error) {
+      console.error("Error al guardar:", error); // <-- Agrega esto
       toast({
         title: "Error",
         description: "No se pudo guardar el producto. Intenta de nuevo.",
@@ -117,8 +288,19 @@ export const ProductForm: React.FC = () => {
       description: '',
       price: '',
       category: '',
+      subcategory: '',  // Se mostrará como "none" en la UI
+      terceraCategoria: '', // Se mostrará como "none" en la UI cuando no hay tercera categoría
       stock: '',
-      image: ''
+      image: '',
+      additionalImages: ['', '', ''],
+      specifications: [{ name: '', value: '' }],
+      isOffer: false,
+      discount: '',
+      originalPrice: '',
+      benefits: [] as string[],
+      warranties: [] as string[],
+      paymentMethods: [] as string[],
+      colors: [] as { name: string, hexCode: string, image: string }[]
     });
     setIsEditing(false);
     setEditingId(null);
@@ -130,8 +312,19 @@ export const ProductForm: React.FC = () => {
       description: product.description,
       price: product.price.toString(),
       category: product.category,
+      subcategory: product.subcategory || '',  // Se mostrará como "none" en la UI si está vacío
+      terceraCategoria: product.terceraCategoria || '', // Se mostrará como "none" en la UI si está vacío
       stock: product.stock.toString(),
-      image: product.image
+      image: product.image,
+      additionalImages: product.additionalImages || ['', '', ''],
+      specifications: product.specifications || [{ name: '', value: '' }],
+      isOffer: product.isOffer || false,
+      discount: product.discount?.toString() || '',
+      originalPrice: product.originalPrice?.toString() || '',
+      benefits: product.benefits || [],
+      warranties: product.warranties || [],
+      paymentMethods: product.paymentMethods || [],
+      colors: product.colors || []
     });
     setIsEditing(true);
     setEditingId(product.id);
@@ -143,13 +336,40 @@ export const ProductForm: React.FC = () => {
     });
   };
 
-  const handleDelete = (productId: string, productName: string) => {
-    // Aquí se eliminaría el producto de la base de datos
-    toast({
-      title: "🗑️ Producto eliminado",
-      description: `${productName} ha sido eliminado del inventario`,
-      variant: "destructive"
-    });
+  const handleDelete = async (productId: string, productName: string) => {
+    if (liberta === "si") {
+      // Eliminar realmente el producto de Firestore
+      try {
+        await import('firebase/firestore').then(async ({ deleteDoc, doc }) => {
+          await deleteDoc(doc(db, "products", productId));
+        });
+        toast({
+          title: "🗑️ Producto eliminado",
+          description: `${productName} ha sido eliminado del inventario`,
+          variant: "destructive"
+        });
+        setProducts(products.filter(p => p.id !== productId));
+      } catch (error) {
+        toast({
+          title: "Error al eliminar",
+          description: "No se pudo eliminar el producto. Intenta de nuevo.",
+          variant: "destructive"
+        });
+      }
+    } else {
+      // Enviar solicitud de eliminación a revisión
+      await addDoc(collection(db, "revision"), {
+        type: "delete",
+        data: { id: productId, name: productName },
+        entity: "products",
+        userId: (user as any)?.uid || (user as any)?.email || "desconocido",
+        createdAt: new Date(),
+      });
+      toast({
+        title: "Solicitud enviada",
+        description: "La solicitud de eliminación fue enviada para revisión del administrador.",
+      });
+    }
   };
 
   const getStockStatus = (stock: number) => {
@@ -160,6 +380,13 @@ export const ProductForm: React.FC = () => {
 
   return (
     <div className="space-y-8">
+      {/* Aviso si no tiene libertad */}
+      {liberta === "no" && (
+        <div className="p-4 mb-4 bg-yellow-100 border-l-4 border-yellow-400 text-yellow-800 rounded">
+          Tu cuenta no tiene permisos para publicar cambios directos. Los cambios que realices serán enviados a revisión del administrador.
+        </div>
+      )}
+
       {/* Formulario para agregar/editar productos */}
       <Card id="product-form" className="shadow-xl border-0">
         <CardHeader className="bg-gradient-to-r from-orange-50 to-red-50 rounded-t-lg">
@@ -196,24 +423,110 @@ export const ProductForm: React.FC = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="category" className="text-sm font-semibold">
-                  Categoría <span className="text-red-500">*</span>
+                  Categoría Principal <span className="text-red-500">*</span>
                 </Label>
                 <Select 
                   value={formData.category} 
-                  onValueChange={(value) => setFormData({...formData, category: value})}
+                  onValueChange={(value) => {
+                    setFormData({...formData, category: value, subcategory: ''}); // Reset subcategory when category changes (se mostrará como "none")
+                  }}
                 >
                   <SelectTrigger className="h-11">
-                    <SelectValue placeholder="Seleccionar categoría" />
+                    <SelectValue placeholder="Seleccionar categoría principal" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
+                    {/* Mostrar solo categorías principales */}
+                    {categories
+                      .filter(category => !category.parentId)
+                      .map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
+                {/* Mostrar nombre de la categoría seleccionada */}
+                {formData.category && !formData.subcategory && (
+                  <div className="mt-1 text-xs text-blue-600 font-medium">
+                    Clasificación: {categories.find(cat => cat.id === formData.category)?.name || 'Categoría seleccionada'}
+                  </div>
+                )}
               </div>
+              
+              {/* Subcategoría (opcional) - solo mostrado si se ha seleccionado una categoría */}
+              {formData.category && (
+                <div className="space-y-2">
+                  <Label htmlFor="subcategory" className="text-sm font-semibold flex items-center">
+                    Subcategoría <span className="ml-1 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs font-medium">Opcional</span>
+                  </Label>
+                  <Select 
+                    value={formData.subcategory || "none"} 
+                    onValueChange={(value) => setFormData({
+                      ...formData, 
+                      subcategory: value === "none" ? "" : value,
+                      terceraCategoria: "" // Reset tercera categoría cuando cambia la subcategoría
+                    })}
+                  >
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Seleccionar subcategoría (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Ninguna - Usar solo categoría principal</SelectItem>
+                      {/* Mostrar subcategorías de la categoría seleccionada */}
+                      {categories
+                        .filter(category => category.parentId === formData.category)
+                        .map((subCategory) => (
+                          <SelectItem key={subCategory.id} value={subCategory.id}>
+                            {subCategory.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  {/* Tercera categoría (opcional) - solo mostrada si se ha seleccionado una subcategoría */}
+                  {formData.subcategory && formData.subcategory !== "none" && (
+                    <div className="mt-4 space-y-2">
+                      <Label htmlFor="terceraCategoria" className="text-sm font-semibold flex items-center">
+                        Tercera categoría <span className="ml-1 px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full text-xs font-medium">Opcional</span>
+                      </Label>
+                      <Select 
+                        value={formData.terceraCategoria || "none"} 
+                        onValueChange={(value) => setFormData({...formData, terceraCategoria: value === "none" ? "" : value})}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Seleccionar tercera categoría (opcional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Ninguna - Usar solo hasta subcategoría</SelectItem>
+                          {/* Mostrar terceras categorías de la subcategoría seleccionada */}
+                          {categories
+                            .filter(category => category.parentId === formData.subcategory)
+                            .map((terceraCategoria) => (
+                              <SelectItem key={terceraCategoria.id} value={terceraCategoria.id}>
+                                {terceraCategoria.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
+                  {/* Mostrar la clasificación completa */}
+                  {formData.subcategory && formData.subcategory !== "none" && (
+                    <div className="mt-2 text-xs text-blue-600 font-medium">
+                      Clasificación: {categories.find(cat => cat.id === formData.category)?.name || ''} 
+                      {' > '} 
+                      {categories.find(cat => cat.id === formData.subcategory)?.name || ''}
+                      {formData.terceraCategoria && formData.terceraCategoria !== "none" && (
+                        <>
+                          {' > '} 
+                          {categories.find(cat => cat.id === formData.terceraCategoria)?.name || ''}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="price" className="text-sm font-semibold">
@@ -244,6 +557,58 @@ export const ProductForm: React.FC = () => {
                   className="h-11"
                 />
               </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Label htmlFor="isOffer" className="text-sm font-semibold flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id="isOffer"
+                      className="rounded border-gray-300 text-orange-600 shadow-sm focus:border-orange-300 focus:ring focus:ring-orange-200 focus:ring-opacity-50 mr-2"
+                      checked={!!formData.isOffer}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        isOffer: e.target.checked
+                      })}
+                    />
+                    <span>Marcar como oferta</span>
+                  </Label>
+                </div>
+              </div>
+              
+              {!!formData.isOffer && (
+                <div className="space-y-2">
+                  <Label htmlFor="discount" className="text-sm font-semibold">
+                    Porcentaje de descuento
+                  </Label>
+                  <div className="flex items-center">
+                    <Input
+                      id="discount"
+                      type="number"
+                      min="1"
+                      max="99"
+                      value={formData.discount || ''}
+                      onChange={(e) => {
+                        const discount = parseInt(e.target.value);
+                        const price = parseFloat(formData.price);
+                        // Calcular originalPrice si hay descuento
+                        const originalPrice = discount > 0 ? 
+                          Math.round(price / (1 - discount/100)) : 
+                          price;
+                          
+                        setFormData({
+                          ...formData,
+                          discount: e.target.value,
+                          originalPrice: originalPrice.toString()
+                        });
+                      }}
+                      placeholder="10"
+                      className="h-11 mr-2"
+                    />
+                    <span className="text-lg font-bold">%</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -261,10 +626,73 @@ export const ProductForm: React.FC = () => {
               />
             </div>
 
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">
+                  Especificaciones Técnicas
+                </Label>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setFormData({
+                    ...formData, 
+                    specifications: [...formData.specifications, { name: '', value: '' }]
+                  })}
+                  className="flex items-center gap-1 text-xs h-7"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Añadir especificación
+                </Button>
+              </div>
+              
+              <div className="space-y-3 border rounded-lg p-4 bg-gray-50">
+                {formData.specifications.map((spec, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={spec.name}
+                      onChange={(e) => {
+                        const newSpecs = [...formData.specifications];
+                        newSpecs[index] = { ...newSpecs[index], name: e.target.value };
+                        setFormData({...formData, specifications: newSpecs});
+                      }}
+                      placeholder="Nombre (ej: Peso, Material)"
+                      className="h-10"
+                    />
+                    <Input
+                      value={spec.value}
+                      onChange={(e) => {
+                        const newSpecs = [...formData.specifications];
+                        newSpecs[index] = { ...newSpecs[index], value: e.target.value };
+                        setFormData({...formData, specifications: newSpecs});
+                      }}
+                      placeholder="Valor (ej: 500g, Algodón)"
+                      className="h-10"
+                    />
+                    {formData.specifications.length > 1 && (
+                      <Button 
+                        type="button"
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => {
+                          const newSpecs = [...formData.specifications];
+                          newSpecs.splice(index, 1);
+                          setFormData({...formData, specifications: newSpecs});
+                        }}
+                        className="h-8 w-8 rounded-full text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="image" className="text-sm font-semibold flex items-center gap-2">
                 <Image className="h-4 w-4" />
-                URL de la Imagen <span className="text-red-500">*</span>
+                URL de la Imagen Principal <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="image"
@@ -287,12 +715,462 @@ export const ProductForm: React.FC = () => {
                   />
                 </div>
               )}
+
+              <div className="mt-6">
+                <Label className="text-sm font-semibold flex items-center gap-2 mb-3">
+                  <Image className="h-4 w-4" />
+                  Imágenes Adicionales (Máximo 3)
+                </Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {formData.additionalImages.map((img, index) => (
+                    <div key={index} className="space-y-2">
+                      <Input
+                        type="url"
+                        value={img}
+                        onChange={(e) => {
+                          const newImages = [...formData.additionalImages];
+                          newImages[index] = e.target.value;
+                          setFormData({...formData, additionalImages: newImages});
+                        }}
+                        placeholder={`Imagen adicional ${index + 1}`}
+                        className="h-11"
+                      />
+                      {img && (
+                        <div className="mt-2">
+                          <img 
+                            src={img} 
+                            alt={`Preview ${index + 1}`} 
+                            className="w-20 h-20 object-cover rounded-lg border-2 border-orange-200"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <div className="flex gap-3 pt-4 border-t">
+            {/* Sección para colores del producto */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">
+                  Colores del Producto (Opcional)
+                </Label>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setFormData({
+                    ...formData, 
+                    colors: [...formData.colors, { name: '', hexCode: '#ffffff', image: '' }]
+                  })}
+                  className="flex items-center gap-1 text-xs h-7"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Añadir color
+                </Button>
+              </div>
+              
+              <div className="space-y-3 border rounded-lg p-4 bg-gray-50">
+                {formData.colors.map((color, index) => (
+                  <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                    {/* Nombre del color */}
+                    <div className="col-span-3">
+                      <Input
+                        value={color.name}
+                        onChange={(e) => {
+                          const newColors = [...formData.colors];
+                          newColors[index] = { ...newColors[index], name: e.target.value };
+                          setFormData({...formData, colors: newColors});
+                        }}
+                        placeholder="Nombre (ej: Rojo)"
+                        className="h-10"
+                      />
+                    </div>
+                    
+                    {/* Código hexadecimal del color */}
+                    <div className="col-span-2">
+                      <div className="flex items-center">
+                        <input 
+                          type="color"
+                          value={color.hexCode}
+                          onChange={(e) => {
+                            const newColors = [...formData.colors];
+                            newColors[index] = { ...newColors[index], hexCode: e.target.value };
+                            setFormData({...formData, colors: newColors});
+                          }}
+                          className="h-10 w-10 p-0 cursor-pointer rounded border border-gray-200"
+                        />
+                        <Input
+                          value={color.hexCode}
+                          onChange={(e) => {
+                            const newColors = [...formData.colors];
+                            newColors[index] = { ...newColors[index], hexCode: e.target.value };
+                            setFormData({...formData, colors: newColors});
+                          }}
+                          placeholder="#RRGGBB"
+                          className="h-10 ml-2"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* URL de la imagen para este color */}
+                    <div className="col-span-6">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={color.image}
+                          onChange={(e) => {
+                            const newColors = [...formData.colors];
+                            newColors[index] = { ...newColors[index], image: e.target.value };
+                            setFormData({...formData, colors: newColors});
+                          }}
+                          placeholder="URL de imagen para este color"
+                          className="h-10"
+                        />
+                        
+                        {/* Previsualización de la imagen */}
+                        {color.image && (
+                          <div className="flex-shrink-0 w-10 h-10 rounded-md overflow-hidden border border-gray-200">
+                            <img 
+                              src={color.image} 
+                              alt={`Color ${color.name}`} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Botón para eliminar este color */}
+                        {formData.colors.length > 0 && (
+                          <Button 
+                            type="button"
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => {
+                              const newColors = [...formData.colors];
+                              newColors.splice(index, 1);
+                              setFormData({...formData, colors: newColors});
+                            }}
+                            className="h-8 w-8 rounded-full text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {formData.colors.length === 0 && (
+                  <div className="text-center py-3 text-gray-500 text-sm">
+                    No hay colores añadidos. Haz clic en "Añadir color" para incluir variantes de color para este producto.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Nuevas secciones para beneficios, garantías y métodos de pago */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">
+                  Beneficios
+                </Label>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setFormData({
+                    ...formData, 
+                    benefits: [...formData.benefits, '']
+                  })}
+                  className="flex items-center gap-1 text-xs h-7"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Añadir beneficio
+                </Button>
+              </div>
+              
+              <div className="space-y-3 border rounded-lg p-4 bg-gray-50">
+                {formData.benefits.map((benefit, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={benefit}
+                      onChange={(e) => {
+                        const newBenefits = [...formData.benefits];
+                        newBenefits[index] = e.target.value;
+                        setFormData({...formData, benefits: newBenefits});
+                      }}
+                      placeholder="Beneficio (ej: Envío gratis, 2 años de garantía)"
+                      className="h-10"
+                    />
+                    {formData.benefits.length > 1 && (
+                      <Button 
+                        type="button"
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => {
+                          const newBenefits = [...formData.benefits];
+                          newBenefits.splice(index, 1);
+                          setFormData({...formData, benefits: newBenefits});
+                        }}
+                        className="h-8 w-8 rounded-full text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">
+                  Garantías
+                </Label>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setFormData({
+                    ...formData, 
+                    warranties: [...formData.warranties, '']
+                  })}
+                  className="flex items-center gap-1 text-xs h-7"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Añadir garantía
+                </Button>
+              </div>
+              
+              <div className="space-y-3 border rounded-lg p-4 bg-gray-50">
+                {formData.warranties.map((warranty, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={warranty}
+                      onChange={(e) => {
+                        const newWarranties = [...formData.warranties];
+                        newWarranties[index] = e.target.value;
+                        setFormData({...formData, warranties: newWarranties});
+                      }}
+                      placeholder="Garantía (ej: 6 meses, 1 año)"
+                      className="h-10"
+                    />
+                    {formData.warranties.length > 1 && (
+                      <Button 
+                        type="button"
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => {
+                          const newWarranties = [...formData.warranties];
+                          newWarranties.splice(index, 1);
+                          setFormData({...formData, warranties: newWarranties});
+                        }}
+                        className="h-8 w-8 rounded-full text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">
+                  Métodos de Pago
+                </Label>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setFormData({
+                    ...formData, 
+                    paymentMethods: [...formData.paymentMethods, '']
+                  })}
+                  className="flex items-center gap-1 text-xs h-7"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Añadir método de pago
+                </Button>
+              </div>
+              
+              <div className="space-y-3 border rounded-lg p-4 bg-gray-50">
+                {formData.paymentMethods.map((method, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={method}
+                      onChange={(e) => {
+                        const newMethods = [...formData.paymentMethods];
+                        newMethods[index] = e.target.value;
+                        setFormData({...formData, paymentMethods: newMethods});
+                      }}
+                      placeholder="Método de pago (ej: Efectivo, Tarjeta de crédito)"
+                      className="h-10"
+                    />
+                    {formData.paymentMethods.length > 1 && (
+                      <Button 
+                        type="button"
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => {
+                          const newMethods = [...formData.paymentMethods];
+                          newMethods.splice(index, 1);
+                          setFormData({...formData, paymentMethods: newMethods});
+                        }}
+                        className="h-8 w-8 rounded-full text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Beneficios del Producto */}
+            <div className="space-y-4 mt-6">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Award className="h-4 w-4 text-blue-600" />
+                  Beneficios del Producto
+                </Label>
+              </div>
+              
+              <div className="border rounded-lg p-4 bg-slate-50">
+                <div className="flex flex-wrap gap-2">
+                  {predefinedBenefits.map((benefit) => (
+                    <Badge 
+                      key={benefit} 
+                      variant={formData.benefits.includes(benefit) ? "default" : "outline"}
+                      className={`cursor-pointer py-1.5 px-3 ${
+                        formData.benefits.includes(benefit) 
+                          ? "bg-blue-500 hover:bg-blue-600" 
+                          : "hover:bg-slate-100"
+                      }`}
+                      onClick={() => {
+                        if (formData.benefits.includes(benefit)) {
+                          setFormData({
+                            ...formData,
+                            benefits: formData.benefits.filter(b => b !== benefit)
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            benefits: [...formData.benefits, benefit]
+                          });
+                        }
+                      }}
+                    >
+                      {formData.benefits.includes(benefit) && (
+                        <Check className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      {benefit}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Garantías del Producto */}
+            <div className="space-y-4 mt-6">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-blue-600" />
+                  Garantías y Respaldo
+                </Label>
+              </div>
+              
+              <div className="border rounded-lg p-4 bg-slate-50">
+                <div className="flex flex-wrap gap-2">
+                  {predefinedWarranties.map((warranty) => (
+                    <Badge 
+                      key={warranty} 
+                      variant={formData.warranties.includes(warranty) ? "default" : "outline"}
+                      className={`cursor-pointer py-1.5 px-3 ${
+                        formData.warranties.includes(warranty) 
+                          ? "bg-green-500 hover:bg-green-600" 
+                          : "hover:bg-slate-100"
+                      }`}
+                      onClick={() => {
+                        if (formData.warranties.includes(warranty)) {
+                          setFormData({
+                            ...formData,
+                            warranties: formData.warranties.filter(w => w !== warranty)
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            warranties: [...formData.warranties, warranty]
+                          });
+                        }
+                      }}
+                    >
+                      {formData.warranties.includes(warranty) && (
+                        <Check className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      {warranty}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Medios de pago */}
+            <div className="space-y-4 mt-6">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-blue-600" />
+                  Medios de Pago Aceptados
+                </Label>
+              </div>
+              
+              <div className="border rounded-lg p-4 bg-slate-50">
+                <div className="flex flex-wrap gap-2">
+                  {predefinedPaymentMethods.map((method) => (
+                    <Badge 
+                      key={method} 
+                      variant={formData.paymentMethods.includes(method) ? "default" : "outline"}
+                      className={`cursor-pointer py-1.5 px-3 ${
+                        formData.paymentMethods.includes(method) 
+                          ? "bg-purple-500 hover:bg-purple-600" 
+                          : "hover:bg-slate-100"
+                      }`}
+                      onClick={() => {
+                        if (formData.paymentMethods.includes(method)) {
+                          setFormData({
+                            ...formData,
+                            paymentMethods: formData.paymentMethods.filter(m => m !== method)
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            paymentMethods: [...formData.paymentMethods, method]
+                          });
+                        }
+                      }}
+                    >
+                      {formData.paymentMethods.includes(method) && (
+                        <Check className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      {method}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-6 mt-6 border-t">
               <Button 
                 type="submit" 
                 className="gradient-orange hover:opacity-90 transition-all shadow-lg"
+                disabled={liberta === "no" && isEditing} // Solo permite agregar, no editar directo
               >
                 <Save className="h-4 w-4 mr-2" />
                 {isEditing ? 'Actualizar Producto' : 'Agregar Producto'}
@@ -351,9 +1229,19 @@ export const ProductForm: React.FC = () => {
                         <h4 className="font-bold text-lg">{product.name}</h4>
                         <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{product.description}</p>
                         <div className="flex items-center gap-3 mt-2">
-                          <Badge variant="outline" className="font-medium">
-                            {product.category}
-                          </Badge>
+                          <div className="flex flex-wrap gap-1">
+                            <Badge variant="outline" className="font-medium bg-orange-50 text-orange-700 border-orange-200">
+                              <span className="text-xs text-gray-500 mr-1">Categoría:</span> {product.categoryName || product.category}
+                            </Badge>
+                            {product.subcategoryName && (
+                              <div className="flex items-center">
+                                <svg className="h-3 w-3 text-gray-400 mx-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                <Badge variant="outline" className="font-medium bg-blue-50 text-blue-700 border-blue-200">
+                                  <span className="text-xs text-gray-500 mr-1">Subcategoría:</span> {product.subcategoryName}
+                                </Badge>
+                              </div>
+                            )}
+                          </div>
                           <span className="text-lg font-bold text-green-600">
                             ${product.price.toLocaleString()}
                           </span>
@@ -369,6 +1257,7 @@ export const ProductForm: React.FC = () => {
                         variant="outline"
                         onClick={() => handleEdit(product)}
                         className="hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                        disabled={liberta === "no"}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -378,6 +1267,7 @@ export const ProductForm: React.FC = () => {
                             size="sm"
                             variant="outline"
                             className="text-red-600 hover:bg-red-50 hover:border-red-300 transition-colors"
+                            disabled={liberta === "no"}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -397,6 +1287,7 @@ export const ProductForm: React.FC = () => {
                             <AlertDialogAction 
                               onClick={() => handleDelete(product.id, product.name)}
                               className="bg-red-600 hover:bg-red-700"
+                              disabled={liberta === "no"}
                             >
                               Eliminar
                             </AlertDialogAction>

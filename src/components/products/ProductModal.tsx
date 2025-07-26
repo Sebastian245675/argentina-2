@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,8 @@ import { Product } from '@/contexts/CartContext';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
 import { ShoppingCart, Plus, Minus, Star, Shield, Truck } from 'lucide-react';
+import { recordProductView } from '@/lib/product-analytics';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ProductModalProps {
   product: Product | null;
@@ -17,7 +19,22 @@ interface ProductModalProps {
 
 export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onClose }) => {
   const { addToCart } = useCart();
+  const { user } = useAuth();
   const [quantity, setQuantity] = useState(1);
+  const [viewRecorded, setViewRecorded] = useState(false);
+
+  useEffect(() => {
+    // Registrar vista solo cuando el modal se abre y tenemos un producto
+    if (isOpen && product && !viewRecorded) {
+      recordProductView(product.id, product.name, user?.id);
+      setViewRecorded(true);
+    }
+    
+    // Resetear el estado cuando el modal se cierra
+    if (!isOpen) {
+      setViewRecorded(false);
+    }
+  }, [isOpen, product, user?.id, viewRecorded]);
 
   if (!product) return null;
 

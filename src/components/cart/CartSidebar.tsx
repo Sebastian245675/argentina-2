@@ -6,11 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { ShoppingCart, Plus, Minus, Trash2, MessageCircle, X } from 'lucide-react';
 import { doc, getDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "@/firebase";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -87,11 +87,17 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
 
     // Mensaje con datos del usuario
     const message =
-      `🛒 *NUEVO PEDIDO - TiendaUltra*\n\n` +
+      `🛒 *NUEVO PEDIDO - REGALA ALGO*\n\n` +
       `👤 *Nombre:* ${userName}\n` +
       `📧 *Email:* ${userEmail}\n` +
       `🏢 *Conjunto:* ${userConjunto}\n` +
-      `\n*📦 PRODUCTOS SOLICITADOS:*\n${items.map(item => `${item.name} x${item.quantity}`).join('\n')}\n\n` +
+      `\n*📦 PRODUCTOS SOLICITADOS:*\n${items.map(item => {
+        let itemText = `${item.name} x${item.quantity}`;
+        if (item.selectedColor) {
+          itemText += ` (Color: ${item.selectedColor.name})`;
+        }
+        return itemText;
+      }).join('\n')}\n\n` +
       (orderNotes ? `*📝 Notas adicionales:*\n${orderNotes}\n\n` : '') +
       `💰 *TOTAL A PAGAR: $${getTotal().toLocaleString()}*\n\n` +
       `⏰ Fecha: ${new Date().toLocaleDateString('es-CO')} - ${new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}\n\n` +
@@ -113,6 +119,7 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
           price: item.price,
           image: item.image,
           category: item.category,
+          selectedColor: item.selectedColor || null,
         })),
         orderNotes,
         total: getTotal(),
@@ -181,7 +188,18 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
                     <div className="flex-1 min-w-0">
                       <h4 className="font-medium text-sm leading-tight">{item.name}</h4>
                       <p className="text-sm text-muted-foreground">${item.price.toLocaleString()}</p>
-                      <Badge variant="outline" className="text-xs mt-1">{item.category}</Badge>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs">{item.category}</Badge>
+                        {item.selectedColor && (
+                          <div className="flex items-center gap-1">
+                            <span 
+                              className="w-3 h-3 rounded-full border border-gray-300" 
+                              style={{ backgroundColor: item.selectedColor.hexCode }}
+                            ></span>
+                            <span className="text-xs text-gray-500">{item.selectedColor.name}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Button
