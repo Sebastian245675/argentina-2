@@ -229,8 +229,8 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
           {/* Navigation - Categorías */}
           {/* Sub barra de navegación - Visible solo en desktop por defecto */}
-          <div className={`w-full bg-slate-50 border-b-2 border-slate-200 shadow-sm mt-2 ${showMobileMenu ? 'block' : 'hidden sm:block'}`}>
-            <nav className="container mx-auto px-4 py-4 text-base font-bold text-neutral-800 tracking-wide">
+  <div className={`fixed left-0 right-0 border-b-2 border-slate-200 shadow-sm ${showMobileMenu ? 'block' : 'hidden sm:block'}`} style={{ background: '#1ab8e8', width: '100vw', zIndex: 49 }}>
+          <nav className="container mx-auto px-4 py-4 text-base font-bold text-neutral-800 tracking-wide" style={{ fontWeight: 'bold' }}>
           {/* Navegación para móvil - lista vertical */}
           <div className={`sm:hidden ${showMobileMenu ? 'block' : 'hidden'} space-y-4`}>
             {/* Sección de productos en móvil */}
@@ -300,7 +300,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
               {/* Navegación para desktop - horizontal */}
               <div className="hidden sm:flex justify-between">
-                <div className="flex gap-3 md:gap-8 items-center">
+                <div className="flex gap-3 md:gap-8 items-center font-bold">
                   {/* Dropdown Productos */}
                   <div
                     className="relative"
@@ -383,7 +383,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                   <a href="#novedades" className="hover:text-blue-600 transition-colors text-sm md:text-base">Novedades</a>
                   <button type="button" className="hover:text-blue-600 transition-colors text-sm md:text-base bg-transparent" style={{outline: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer'}} onClick={() => navigate('/sobre-nosotros')}>Sobre nosotros</button>
                 </div>
-                <div className="flex gap-3 md:gap-8">
+                <div className="flex gap-3 md:gap-8 font-bold">
                       <button type="button" className="hover:text-blue-600 transition-colors text-sm md:text-base bg-transparent" style={{outline: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer'}} onClick={() => navigate('/envios')}>Envíos</button>
                   <a href="#costos-envio" className="hover:text-blue-600 transition-colors text-sm md:text-base">Costos de envío</a>
                   <button type="button" className="hover:text-blue-600 transition-colors text-sm md:text-base bg-transparent" style={{outline: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer'}} onClick={() => navigate('/retiros')}>Retiros</button>

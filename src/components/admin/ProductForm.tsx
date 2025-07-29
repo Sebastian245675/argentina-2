@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
-import { Plus, Package, Edit, Trash2, Search, Save, X, Image, AlertTriangle, Check, CreditCard, ShieldCheck, Award } from 'lucide-react';
+import { Plus, Package, Edit, Trash2, Search, Save, X, Image, AlertTriangle, Check, CreditCard, ShieldCheck, Award, Wand2 } from 'lucide-react';
 import { sampleProducts } from '@/data/products';
 import {
   AlertDialog,
@@ -1167,6 +1167,23 @@ export const ProductForm: React.FC = () => {
             </div>
 
             <div className="flex gap-3 pt-6 mt-6 border-t">
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                onClick={() => {
+                  setFormData({
+                    ...formData,
+                    name: "Indefinido",
+                    price: "4444",
+                    stock: "50",
+                    description: "Hola, este es un producto con datos de prueba."
+                  });
+                }}
+              >
+                <Wand2 className="h-4 w-4 mr-2" />
+                Auto-Rellenar
+              </Button>
               <Button 
                 type="submit" 
                 className="gradient-orange hover:opacity-90 transition-all shadow-lg"

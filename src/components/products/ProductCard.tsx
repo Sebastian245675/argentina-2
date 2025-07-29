@@ -24,10 +24,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
   const [isHeartActive, setIsHeartActive] = useState(false);
+  const [addedToCart, setAddedToCart] = useState(false);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation(); // Evita navegación al hacer clic en "Agregar al carrito"
     addToCart(product);
+    setAddedToCart(true);
     toast({
       title: "¡Producto agregado!",
       description: `${product.name} se agregó a tu carrito`,
@@ -74,12 +76,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
         {/* Overlay con gradiente para mejor contraste */}
         <div className="absolute inset-0 bg-gradient-to-t from-blue-900/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"></div>
         
-        <div className="bg-gradient-to-br from-blue-100 via-white to-slate-100 p-4 flex items-center justify-center h-[180px] sm:h-[200px] md:h-[220px] relative overflow-hidden rounded-2xl border border-blue-100">
-          <img
-            src={product.image}
-            alt={product.name}
-            className="max-h-56 w-auto max-w-full object-contain transition-all duration-500 group-hover:scale-110 drop-shadow-xl" 
-            style={{objectPosition: "center"}}
+        <div className="bg-gradient-to-br from-blue-100 via-white to-slate-100 p-4 flex items-center justify-center h-[480px] relative overflow-hidden rounded-2xl border border-blue-100">
+              <img
+                src={product.image}
+                alt={product.name}
+                className="object-contain transition-all duration-500 group-hover:scale-105 drop-shadow-xl rounded-2xl mx-auto"
+                style={{
+                  objectPosition: "center",
+                  width: "auto",
+                  height: "auto",
+                  maxWidth: "100%",
+                  maxHeight: "400px",
+                  display: "block"
+                }}
           />
           {/* Efecto de brillo al pasar el mouse */}
           <div className="absolute inset-0 bg-gradient-to-tr from-white via-blue-100/80 to-white opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-xl"></div>
@@ -290,7 +299,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
           Ver detalles
         </Button>
         <Button
-          className="w-full sm:flex-1 py-3 sm:py-2 bg-gradient-to-r from-blue-600 to-slate-700 hover:opacity-90 text-white font-medium rounded-lg shadow-md transform hover:-translate-y-0.5 transition-all text-base sm:text-sm"
+          className={`w-full sm:flex-1 py-3 sm:py-2 font-bold rounded-lg shadow-md transform hover:-translate-y-0.5 transition-all text-base sm:text-sm ${addedToCart ? 'bg-red-600 text-white' : 'bg-gradient-to-r from-blue-600 to-slate-700 hover:opacity-90 text-white'}`}
           onClick={handleAddToCart}
           disabled={product.stock === 0}
           style={{fontFamily: "'Poppins', sans-serif"}}

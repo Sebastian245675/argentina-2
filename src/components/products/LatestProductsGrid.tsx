@@ -5,7 +5,15 @@ import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { db } from "@/firebase";
 import { useNavigate } from "react-router-dom";
 
-const LatestProductsGrid: React.FC = () => {
+
+
+interface LatestProductsGridProps {
+  maxItems?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}
+
+const LatestProductsGrid: React.FC<LatestProductsGridProps> = ({ maxItems = 4, sortBy = "createdAt", sortOrder = "desc" }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -13,12 +21,15 @@ const LatestProductsGrid: React.FC = () => {
   useEffect(() => {
     const fetchLatest = async () => {
       setLoading(true);
-      // Intenta ordenar por fecha de creación si existe, si no por id
       let q;
       try {
-        q = query(collection(db, "products"), orderBy("createdAt", "desc"), limit(4)); // Solo 4 productos
+        q = query(
+          collection(db, "products"),
+          orderBy(sortBy, sortOrder),
+          limit(maxItems)
+        );
       } catch {
-        q = query(collection(db, "products"), limit(4)); // Solo 4 productos
+        q = query(collection(db, "products"), limit(maxItems));
       }
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as object) })) as Product[];
@@ -26,7 +37,7 @@ const LatestProductsGrid: React.FC = () => {
       setLoading(false);
     };
     fetchLatest();
-  }, []);
+  }, [maxItems, sortBy, sortOrder]);
 
   return (
     <div className="w-full">

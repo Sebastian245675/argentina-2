@@ -320,21 +320,21 @@ const AdvancedIndex = () => {
               {/* Título con insignia para móvil y desktop */}
               <div className="flex flex-col items-center mb-8">
                 <div className="bg-gradient-to-r from-blue-500 to-blue-700 text-white px-6 py-2 rounded-full text-sm font-semibold mb-3 shadow-md">
-                  Selección Especial
+                  Lo Nuevo
                 </div>
                 <h2 className="text-3xl md:text-4xl lg:text-5xl font-black text-gradient bg-gradient-to-r from-slate-700 via-blue-600 to-gray-800 bg-clip-text text-transparent text-center">
-                  Productos Destacados
+                  Últimos productos agregados
                 </h2>
                 <div className="h-1.5 w-24 md:w-32 bg-gradient-to-r from-blue-500 to-slate-700 mx-auto mt-4 rounded-full"></div>
                 <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto mt-5 text-center">
-                  Nuestra selección de productos destacados que no te puedes perder. Descubre lo mejor de nuestro catálogo.
+                  Descubre lo más nuevo que hemos agregado a la tienda. ¡No te lo pierdas!
                 </p>
               </div>
               
               {/* Contenedor con sombras y bordes mejorados */}
               <div className="w-[95%] md:w-[90%] lg:w-[85%] max-w-7xl mx-auto bg-white/30 backdrop-blur-sm rounded-2xl p-3 md:p-6 shadow-lg border border-white/20">
-                {/* Grid optimizado para móvil y desktop */}
-                <LatestProductsGrid />
+                {/* Mostrar solo los 3 últimos productos agregados */}
+                <LatestProductsGrid maxItems={3} sortBy="createdAt" sortOrder="desc" />
               </div>
               
               {/* Botón "Ver más" - solo visible en móvil */}

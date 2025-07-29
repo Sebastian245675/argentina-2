@@ -548,65 +548,55 @@ const ProductDetailPage = () => {
           {/* Columna izquierda: galería y productos similares en desktop */}
           <div className="space-y-4 flex flex-col">
             {/* Imagen principal con zoom efecto */}
-            <div className="relative rounded-xl overflow-hidden shadow-xl bg-white p-4 border border-gray-100 group">
-              <div className="overflow-hidden rounded-lg bg-white flex items-center justify-center">
+            <div className="relative rounded-xl overflow-hidden shadow-xl bg-white p-4 border border-gray-100 group flex flex-row gap-6">
+              {/* Miniaturas en columna */}
+              <div className="flex flex-col gap-3 justify-start items-center py-2">
+                {[
+                  product.image,
+                  ...(product.additionalImages || []).filter(img => img)
+                ].map((img, i) => (
+                  <button 
+                    key={i}
+                    onClick={() => {
+                      setActiveImageUrl(img);
+                      setActiveImageIndex(i);
+                    }}
+                    className={`flex-shrink-0 rounded-xl overflow-hidden bg-white ${
+                      activeImageIndex === i 
+                        ? 'border-4 border-orange-500 ring-2 ring-orange-200' 
+                        : 'border-2 border-gray-200 hover:border-orange-300'
+                    }`}
+                    style={{ width: '70px', height: '150px', padding: '0px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <div className="w-full h-full flex items-center justify-center">
+                      <img 
+                        src={img} 
+                        alt={`${product.name} vista ${i+1}`} 
+                        className="w-full h-full object-cover" 
+                        style={{ maxWidth: '60px', maxHeight: '140px', margin: '0 auto' }}
+                      />
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {/* Imagen principal */}
+              <div className="overflow-hidden rounded-lg bg-white flex items-center justify-center flex-1">
                 <img 
                   src={activeImageUrl || product.image}
                   alt={product.name}
-                  className="w-full transition-transform duration-500 group-hover:scale-105"
+                  className="object-cover transition-transform duration-500 group-hover:scale-105"
                   style={{
-                    height: "480px",
-                    maxHeight: "480px",
-                    objectFit: "contain",
+                    height: "540px",
+                    width: "460px",
+                    maxWidth: "100%",
+                    objectFit: "cover",
                     objectPosition: "center",
-                    padding: "10px"
+                    padding: "10px",
+                    borderRadius: "16px"
                   }}
                 />
               </div>
-              
-              {/* Image Gallery Navigation - Always show if there's at least one image */}
-              <div className="absolute top-1/2 left-0 right-0 flex justify-between px-3 transform -translate-y-1/2">
-                <button 
-                  onClick={() => {
-                    const allImages = [product.image, ...(product.additionalImages || []).filter(img => img)];
-                    if (allImages.length <= 1) return;
-                    const newIndex = (activeImageIndex - 1 + allImages.length) % allImages.length;
-                    setActiveImageIndex(newIndex);
-                    setActiveImageUrl(allImages[newIndex]);
-                  }}
-                  className={`rounded-full bg-white hover:bg-gray-100 p-2 shadow-lg border border-gray-200 text-gray-700 hover:text-orange-500 transition-all ${
-                    (!product.additionalImages || product.additionalImages.filter(img => img).length === 0) 
-                      ? 'opacity-30 cursor-not-allowed' 
-                      : 'opacity-90 hover:opacity-100'
-                  }`}
-                  aria-label="Previous image"
-                  disabled={!product.additionalImages || product.additionalImages.filter(img => img).length === 0}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M15 18l-6-6 6-6"/>
-                  </svg>
-                </button>
-                <button 
-                  onClick={() => {
-                    const allImages = [product.image, ...(product.additionalImages || []).filter(img => img)];
-                    if (allImages.length <= 1) return;
-                    const newIndex = (activeImageIndex + 1) % allImages.length;
-                    setActiveImageIndex(newIndex);
-                    setActiveImageUrl(allImages[newIndex]);
-                  }}
-                  className={`rounded-full bg-white hover:bg-gray-100 p-2 shadow-lg border border-gray-200 text-gray-700 hover:text-orange-500 transition-all ${
-                    (!product.additionalImages || product.additionalImages.filter(img => img).length === 0) 
-                      ? 'opacity-30 cursor-not-allowed' 
-                      : 'opacity-90 hover:opacity-100'
-                  }`}
-                  aria-label="Next image"
-                  disabled={!product.additionalImages || product.additionalImages.filter(img => img).length === 0}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 18l6-6-6-6"/>
-                  </svg>
-                </button>
-              </div>
+              {/* Navegación de imágenes (mantener si lo deseas) */}
               <Badge 
                 className="absolute top-6 right-6 bg-white/90 text-foreground border-0 shadow-md px-3 py-1.5 text-sm"
               >
@@ -629,71 +619,6 @@ const ProductDetailPage = () => {
                   </div>
                 </div>
               )}
-            </div>
-            {/* Miniaturas */}
-            <div className="flex gap-3 justify-center mt-4 overflow-x-auto px-2 pb-2">
-              <button 
-                onClick={() => {
-                  setActiveImageUrl(product.image);
-                  setActiveImageIndex(0);
-                }}
-                className={`flex-shrink-0 rounded-lg overflow-hidden bg-white ${
-                  activeImageIndex === 0 
-                    ? 'border-2 border-orange-500 ring-2 ring-orange-200' 
-                    : 'border border-gray-200 hover:border-orange-300'
-                }`}
-                style={{ width: '80px', height: '80px' }}
-              >
-                <div className="w-full h-full flex items-center justify-center p-1">
-                  <img 
-                    src={product.image} 
-                    alt={product.name} 
-                    className="max-h-full max-w-full object-contain" 
-                  />
-                </div>
-              </button>
-              
-              {product.additionalImages && product.additionalImages.map((img, i) => (
-                img ? (
-                  <button 
-                    key={i}
-                    onClick={() => {
-                      setActiveImageUrl(img);
-                      setActiveImageIndex(i + 1);
-                    }}
-                    className={`flex-shrink-0 rounded-lg overflow-hidden bg-white ${
-                      activeImageIndex === i + 1 
-                        ? 'border-2 border-orange-500 ring-2 ring-orange-200' 
-                        : 'border border-gray-200 hover:border-orange-300'
-                    }`}
-                    style={{ width: '80px', height: '80px' }}
-                  >
-                    <div className="w-full h-full flex items-center justify-center p-1">
-                      <img 
-                        src={img} 
-                        alt={`${product.name} vista ${i+1}`} 
-                        className="max-h-full max-w-full object-contain" 
-                      />
-                    </div>
-                  </button>
-                ) : null
-              ))}
-              
-              {(!product.additionalImages || product.additionalImages.filter(img => img).length === 0) && [...Array(3)].map((_, i) => (
-                <button 
-                  key={i} 
-                  className="flex-shrink-0 rounded-lg overflow-hidden border border-gray-200 hover:border-orange-300 transition-colors bg-white opacity-60"
-                  style={{ width: '80px', height: '80px' }}
-                >
-                  <div className="w-full h-full flex items-center justify-center p-1">
-                    <img 
-                      src={product.image} 
-                      alt={`${product.name} vista ${i+1}`} 
-                      className="max-h-full max-w-full object-contain" 
-                    />
-                  </div>
-                </button>
-              ))}
             </div>
             {/* Productos similares solo en desktop (lg+) */}
             <div className="hidden lg:block">
@@ -726,7 +651,7 @@ const ProductDetailPage = () => {
                           <h3 className="text-sm font-bold text-gray-800 text-center line-clamp-2 mb-1">{similar.name}</h3>
                           <p className="text-lg font-extrabold text-orange-600 mb-1">${similar.price.toLocaleString()}</p>
                           {similar.originalPrice && similar.isOffer && (
-                            <span className="text-xs text-red-600 font-bold bg-red-100 px-2 py-0.5 rounded-full">{Math.round((1 - (similar.price / similar.originalPrice)) * 100)}% OFF</span>
+                            <span className="text-xs text-red-600 font-bold bg-red-100 px-2 py-0.5 rounded-full font-bold">{Math.round((1 - (similar.price / similar.originalPrice)) * 100)}% OFF</span>
                           )}
                           {/* Badge cuotas */}
                           <span className="text-[11px] text-green-600 bg-green-100 px-2 py-0.5 rounded-full mt-1 font-semibold">12x sin interés</span>
@@ -815,7 +740,7 @@ const ProductDetailPage = () => {
                     <span className="text-base sm:text-lg text-gray-500 line-through">
                       ${product.originalPrice.toLocaleString()}
                     </span>
-                    <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded">
+                    <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded font-bold">
                       {Math.round((1 - (product.price / (product.originalPrice || product.price + 1000))) * 100)}% OFF
                     </span>
                   </>
@@ -925,7 +850,7 @@ const ProductDetailPage = () => {
                         <Truck className="h-5 w-5 text-blue-600" />
                       </div>
                       <div>
-                        <span className="font-medium block text-sm">Envío gratis</span>
+                        <span className="font-medium block text-sm font-bold">Envío gratis</span>
                         <span className="text-xs text-gray-500">En compras mayores a $50.000</span>
                       </div>
                     </div>
@@ -986,12 +911,12 @@ const ProductDetailPage = () => {
               ) : product.stock > 0 ? (
                 <>
                   <div className="h-3 w-3 bg-amber-500 rounded-full mr-2 animate-pulse"></div>
-                  <p className="text-sm font-medium text-gray-700">¡Últimas unidades disponibles!</p>
+                  <p className="text-sm font-medium text-gray-700 font-bold">¡Últimas unidades disponibles!</p>
                 </>
               ) : (
                 <>
                   <div className="h-3 w-3 bg-red-500 rounded-full mr-2"></div>
-                  <p className="text-sm font-medium text-gray-700">Agotado - Disponible bajo pedido</p>
+                  <p className="text-sm font-medium text-gray-700 font-bold">Agotado - Disponible bajo pedido</p>
                 </>
               )}
             </div>
@@ -1071,7 +996,7 @@ const ProductDetailPage = () => {
                 <label className="text-sm font-medium mb-2 flex justify-between">
                   <span>Cantidad</span>
                   <span className="text-orange-600">
-                    {product.stock > 0 ? `${product.stock} disponibles` : "Agotado"}
+                    {product.stock > 0 ? <span className="font-bold">{`${product.stock} disponibles`}</span> : <span className="font-bold">Agotado</span>}
                   </span>
                 </label>
                 <div className="flex items-center mt-2">
