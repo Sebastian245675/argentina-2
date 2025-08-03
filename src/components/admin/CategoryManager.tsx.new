@@ -2,11 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Trash2, Plus, Edit } from "lucide-react";
+import { Trash2, Plus, Edit, ChevronDown, ChevronRight, Filter, RefreshCcw, List, Eye } from "lucide-react";
 import { db } from "@/firebase";
 import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Filter } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 export const CategoryManager = () => {
   // Actualizamos el modelo para incluir parentId (categoría padre)
@@ -24,12 +26,37 @@ export const CategoryManager = () => {
   const [editingImage, setEditingImage] = useState("");
   const [editingParentId, setEditingParentId] = useState<string | null>(null);
   
+  // Estado para la carga progresiva
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
+  const [loadedItems, setLoadedItems] = useState<number>(10); // Número inicial de categorías cargadas
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  
   // Filtrado de categorías
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<string>("main");
   
   // Separamos las categorías principales (sin padre) de las subcategorías
   const mainCategories = categories.filter(cat => !cat.parentId);
   const subCategories = categories.filter(cat => cat.parentId);
+  
+  // Función para manejar la expansión/colapso de categorías
+  const toggleCategoryExpansion = (categoryId: string) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
+    }));
+  };
+  
+  // Función para cargar más categorías
+  const loadMoreItems = () => {
+    setIsLoading(true);
+    // Simulamos un pequeño retraso para mostrar el efecto de carga
+    setTimeout(() => {
+      setLoadedItems(prev => prev + 10);
+      setIsLoading(false);
+    }, 500);
+  };
 
   const fetchCategories = async () => {
     const querySnapshot = await getDocs(collection(db, "categories"));
@@ -109,22 +136,77 @@ export const CategoryManager = () => {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Categorías de Productos</CardTitle>
+      <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50 pb-4">
+        <div className="flex justify-between items-center">
+          <CardTitle className="flex items-center gap-2">
+            <List className="h-5 w-5 text-orange-600" />
+            <span>Categorías de Productos</span>
+          </CardTitle>
+          
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="flex items-center gap-1 text-xs border-orange-200"
+              onClick={() => fetchCategories()}
+            >
+              <RefreshCcw className="h-3 w-3" /> Actualizar
+            </Button>
+            <div className="bg-orange-100 text-orange-800 rounded-md px-2 py-1 text-sm">
+              {categories.length} categorías
+            </div>
+          </div>
+        </div>
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+          <TabsList className="grid grid-cols-3 mb-2">
+            <TabsTrigger value="main">Principales</TabsTrigger>
+            <TabsTrigger value="sub">Subcategorías</TabsTrigger>
+            <TabsTrigger value="all">Ver Todo</TabsTrigger>
+          </TabsList>
+          
+          <div className="flex items-center justify-between pt-4">
+            <div className="text-sm text-slate-600">
+              {activeTab === "main" ? "Mostrando categorías principales" : 
+               activeTab === "sub" ? "Mostrando subcategorías" : "Mostrando todas las categorías"}
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className={`text-xs ${viewMode === 'compact' ? 'bg-orange-100' : ''}`}
+                onClick={() => setViewMode('compact')}
+              >
+                <List className="h-3.5 w-3.5 mr-1" /> Compacto
+              </Button>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className={`text-xs ${viewMode === 'detailed' ? 'bg-orange-100' : ''}`}
+                onClick={() => setViewMode('detailed')}
+              >
+                <Eye className="h-3.5 w-3.5 mr-1" /> Detallado
+              </Button>
+            </div>
+          </div>
+        </Tabs>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4 mb-6 border rounded-lg p-4 bg-gray-50">
+      
+      <CardContent className="p-4">
+        <div className="space-y-4 mb-6 border rounded-lg p-4 bg-gradient-to-r from-orange-50 to-amber-50">
           <h3 className="font-medium text-lg mb-2">Agregar nueva categoría</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Input
               placeholder="Nombre de categoría"
               value={newCategory}
               onChange={e => setNewCategory(e.target.value)}
+              className="border-orange-200 focus:border-orange-400"
             />
             <Input
               placeholder="URL de imagen"
               value={newImage}
               onChange={e => setNewImage(e.target.value)}
+              className="border-orange-200 focus:border-orange-400"
             />
           </div>
           

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Product } from '@/contexts/CartContext';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
-import { ShoppingCart, Eye, Star, Heart, ShoppingBag } from 'lucide-react';
+import { ShoppingCart, Eye, Star, Heart, ShoppingBag, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Importamos estilos para fuentes
@@ -25,6 +25,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
   const [isHovered, setIsHovered] = useState(false);
   const [isHeartActive, setIsHeartActive] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation(); // Evita navegación al hacer clic en "Agregar al carrito"
@@ -77,10 +78,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
         <div className="absolute inset-0 bg-gradient-to-t from-blue-900/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"></div>
         
         <div className="bg-gradient-to-br from-blue-100 via-white to-slate-100 p-4 flex items-center justify-center h-[480px] relative overflow-hidden rounded-2xl border border-blue-100">
+              {imageLoading && (
+                <div className="absolute inset-0 flex items-center justify-center z-20">
+                  <Loader2 className="h-12 w-12 text-blue-500 animate-spin" />
+                </div>
+              )}
               <img
                 src={product.image}
                 alt={product.name}
-                className="object-contain transition-all duration-500 group-hover:scale-105 drop-shadow-xl rounded-2xl mx-auto"
+                className={`object-contain transition-all duration-500 group-hover:scale-105 drop-shadow-xl rounded-2xl mx-auto ${imageLoading ? 'opacity-0' : 'opacity-100'}`}
                 style={{
                   objectPosition: "center",
                   width: "auto",
@@ -89,7 +95,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
                   maxHeight: "400px",
                   display: "block"
                 }}
-          />
+                onLoad={() => setImageLoading(false)}
+                onError={() => setImageLoading(false)}
+              />
           {/* Efecto de brillo al pasar el mouse */}
           <div className="absolute inset-0 bg-gradient-to-tr from-white via-blue-100/80 to-white opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-xl"></div>
         </div>

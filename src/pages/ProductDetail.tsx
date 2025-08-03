@@ -1,5 +1,5 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { AdvancedHeader } from '@/components/layout/AdvancedHeader';
 import { TopPromoBar } from '@/components/layout/TopPromoBar';
@@ -25,7 +25,8 @@ import {
   Share2,
   ArrowLeft,
   MapPin,
-  Mail
+  Mail,
+  Loader2
 } from 'lucide-react';
 
 import { Product } from '@/contexts/CartContext';
@@ -221,6 +222,9 @@ const ProductDetailPage = () => {
   const [activeImageUrl, setActiveImageUrl] = useState('');
   const [activeTab, setActiveTab] = useState<'descripcion' | 'especificaciones'>('descripcion');
   const [selectedColor, setSelectedColor] = useState<{name: string, hexCode: string, image: string} | null>(null);
+  const [imageLoading, setImageLoading] = useState(true);
+  const [mostViewedProducts, setMostViewedProducts] = useState<Product[]>([]);
+  const [loadingMostViewed, setLoadingMostViewed] = useState(true);
   const { addToCart } = useCart();
   const { user } = useAuth();
   const [categories, setCategories] = useState<string[]>([]);
@@ -289,6 +293,7 @@ const ProductDetailPage = () => {
     const fetchProduct = async () => {
       if (!productId) return;
       setLoading(true);
+      setImageLoading(true);
       try {
         const productDoc = await getDoc(doc(db, "products", productId));
         if (productDoc.exists()) {
@@ -380,6 +385,44 @@ const ProductDetailPage = () => {
     };
     fetchCategories();
   }, []);
+
+  // Cargar productos más vistos
+  useEffect(() => {
+    const fetchMostViewedProducts = async () => {
+      setLoadingMostViewed(true);
+      try {
+        const { getMostViewedProducts } = await import('@/lib/product-analytics');
+        const productAnalytics = await getMostViewedProducts(8); // Obtener los 8 productos más vistos
+        
+        // Para cada producto en analytics, obtener los datos completos del producto
+        const productsPromises = productAnalytics.map(async (item) => {
+          try {
+            const productDoc = await getDoc(doc(db, "products", item.id));
+            if (productDoc.exists()) {
+              return { id: productDoc.id, ...productDoc.data() } as Product;
+            }
+            return null;
+          } catch (err) {
+            console.error(`Error al obtener producto ${item.id}:`, err);
+            return null;
+          }
+        });
+        
+        const products = (await Promise.all(productsPromises)).filter(p => p !== null) as Product[];
+        
+        // Filtrar para no incluir el producto actual
+        const filteredProducts = products.filter(p => p.id !== productId);
+        
+        setMostViewedProducts(filteredProducts.slice(0, 6)); // Limitamos a 6 productos máximo
+      } catch (error) {
+        console.error("Error al cargar productos más vistos:", error);
+      } finally {
+        setLoadingMostViewed(false);
+      }
+    };
+    
+    fetchMostViewedProducts();
+  }, [productId]);
 
   // Manejadores
   const handleAddToCart = () => {
@@ -520,27 +563,31 @@ const ProductDetailPage = () => {
       />
       
       <main className="w-full px-0 sm:px-4 pt-24 pb-16 md:pt-32 md:pb-24">
-        {/* Navegación con breadcrumbs */}
-        <div className="flex flex-wrap items-center mb-8 md:mb-12 text-xs sm:text-sm text-gray-600 bg-gray-50 p-3 sm:p-4 rounded-lg">
+        {/* Navegación con breadcrumbs - Diseño avanzado */}
+        <div className="flex flex-wrap items-center mb-8 md:mb-12 text-xs sm:text-sm text-slate-600 bg-slate-50 dark:bg-slate-800/30 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-900/10 dark:to-indigo-900/10 opacity-50"></div>
           <Button
             variant="ghost"
             size="sm"
-            className="p-0 h-auto font-normal hover:bg-transparent hover:text-orange-600"
+            className="relative p-0 h-auto font-medium hover:bg-transparent hover:text-blue-600 dark:hover:text-blue-400"
             onClick={() => navigate('/')}
           >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1.5 inline-block" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+            </svg>
             Inicio
           </Button>
-          <span className="mx-1 sm:mx-2">/</span>
+          <span className="relative mx-2 sm:mx-3 text-slate-400">/</span>
           <Button
             variant="ghost"
             size="sm"
-            className="p-0 h-auto font-normal hover:bg-transparent hover:text-orange-600 max-w-[120px] sm:max-w-none truncate"
+            className="relative p-0 h-auto font-medium hover:bg-transparent hover:text-blue-600 dark:hover:text-blue-400 max-w-[120px] sm:max-w-none truncate"
             onClick={() => navigate('/?category=' + encodeURIComponent(product.category))}
           >
             {product.category}
           </Button>
-          <span className="mx-1 sm:mx-2">/</span>
-          <span className="text-gray-900 font-medium truncate max-w-[150px] sm:max-w-[300px]">{product.name}</span>
+          <span className="relative mx-2 sm:mx-3 text-slate-400">/</span>
+          <span className="relative text-slate-900 dark:text-slate-100 font-semibold truncate max-w-[150px] sm:max-w-[300px]">{product.name}</span>
         </div>
         
         {/* Detalles del producto */}
@@ -560,31 +607,56 @@ const ProductDetailPage = () => {
                     onClick={() => {
                       setActiveImageUrl(img);
                       setActiveImageIndex(i);
+                      setImageLoading(true);
                     }}
                     className={`flex-shrink-0 rounded-xl overflow-hidden bg-white ${
                       activeImageIndex === i 
-                        ? 'border-4 border-orange-500 ring-2 ring-orange-200' 
-                        : 'border-2 border-gray-200 hover:border-orange-300'
+                        ? 'border-4 border-blue-500 ring-2 ring-blue-200 dark:border-blue-600 dark:ring-blue-900' 
+                        : 'border-2 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700'
                     }`}
                     style={{ width: '70px', height: '150px', padding: '0px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
-                    <div className="w-full h-full flex items-center justify-center">
+                    <div className="w-full h-full flex items-center justify-center relative">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+                      </div>
                       <img 
                         src={img} 
                         alt={`${product.name} vista ${i+1}`} 
                         className="w-full h-full object-cover" 
                         style={{ maxWidth: '60px', maxHeight: '140px', margin: '0 auto' }}
+                        onLoad={(e) => {
+                          // Hide the loader when image loads
+                          const parent = (e.target as HTMLElement).parentElement;
+                          if (parent) {
+                            const loader = parent.querySelector('div');
+                            if (loader) loader.style.display = 'none';
+                          }
+                        }}
+                        onError={(e) => {
+                          // Hide the loader when image fails to load
+                          const parent = (e.target as HTMLElement).parentElement;
+                          if (parent) {
+                            const loader = parent.querySelector('div');
+                            if (loader) loader.style.display = 'none';
+                          }
+                        }}
                       />
                     </div>
                   </button>
                 ))}
               </div>
               {/* Imagen principal */}
-              <div className="overflow-hidden rounded-lg bg-white flex items-center justify-center flex-1">
+              <div className="overflow-hidden rounded-lg bg-white flex items-center justify-center flex-1 relative">
+                {imageLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center z-20 bg-white/40">
+                    <Loader2 className="h-16 w-16 text-blue-500 animate-spin" />
+                  </div>
+                )}
                 <img 
                   src={activeImageUrl || product.image}
                   alt={product.name}
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  className={`object-cover transition-transform duration-500 group-hover:scale-105 ${imageLoading ? 'opacity-30' : 'opacity-100'}`}
                   style={{
                     height: "540px",
                     width: "460px",
@@ -594,6 +666,8 @@ const ProductDetailPage = () => {
                     padding: "10px",
                     borderRadius: "16px"
                   }}
+                  onLoad={() => setImageLoading(false)}
+                  onError={() => setImageLoading(false)}
                 />
               </div>
               {/* Navegación de imágenes (mantener si lo deseas) */}
@@ -612,7 +686,7 @@ const ProductDetailPage = () => {
               )}
               {product.isOffer && (
                 <div className="absolute top-0 right-0 w-24 h-24 overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-red-500 to-orange-600 rotate-45 transform origin-bottom-left shadow-lg">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500 to-indigo-600 rotate-45 transform origin-bottom-left shadow-lg">
                     <span className="absolute bottom-0 left-6 text-sm font-extrabold text-white transform -rotate-45">
                       OFERTA
                     </span>
@@ -620,80 +694,157 @@ const ProductDetailPage = () => {
                 </div>
               )}
             </div>
-            {/* Productos similares solo en desktop (lg+) */}
+            {/* Productos similares solo en desktop (lg+) - Diseño avanzado */}
             <div className="hidden lg:block">
-              <div className="bg-white rounded-xl p-5 mt-8 border border-gray-200 shadow-2xl">
-                <div className="border-b pb-3 mb-4">
-                  <span className="text-orange-600 font-medium text-xs block">TAMBIÉN TE PUEDE GUSTAR</span>
-                  <h2 className="text-lg font-bold text-gray-800">Productos similares</h2>
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-6 mt-8 border border-slate-200 dark:border-slate-700 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100 dark:bg-blue-900/20 rounded-full filter blur-3xl opacity-20 -mr-10 -mt-10"></div>
+                
+                <div className="flex items-center justify-between mb-6 relative">
+                  <div>
+                    <span className="text-blue-600 dark:text-blue-400 font-medium text-xs tracking-wider uppercase block mb-1">RECOMENDACIONES PERSONALIZADAS</span>
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center">
+                      <span>Productos similares</span>
+                      <span className="ml-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs py-1 px-2 rounded-full">{similarProducts?.length || 0}</span>
+                    </h2>
+                  </div>
+                  <button className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium text-sm flex items-center transition-colors">
+                    <span>Ver todos</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
                 </div>
+                
                 {similarProducts && similarProducts.length > 0 ? (
-                  <div className="flex gap-6 justify-center">
+                  <div className="grid grid-cols-4 gap-5">
                     {similarProducts.slice(0, 4).map((similar) => (
                       <div
                         key={similar.id}
                         onClick={() => goToProduct(similar)}
-                        className="w-56 h-56 bg-gradient-to-br from-orange-50 via-white to-orange-100 border border-orange-200 rounded-2xl shadow-2xl flex flex-col items-center justify-between cursor-pointer hover:shadow-orange-400 hover:-translate-y-1 hover:brightness-105 transition-all duration-200 group relative overflow-hidden"
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex flex-col cursor-pointer hover:shadow-lg dark:hover:shadow-slate-700/30 transition-all duration-300 transform hover:-translate-y-1 group relative overflow-hidden"
                       >
-                        {/* Imagen grande con icono carrito */}
-                        <div className="w-full h-32 flex items-center justify-center bg-white rounded-t-2xl border-b border-gray-100 group-hover:bg-orange-50 transition-all relative">
+                        {/* Imagen con efecto hover avanzado */}
+                        <div className="relative w-full aspect-square overflow-hidden bg-white dark:bg-slate-800 rounded-t-xl">
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-10"></div>
                           <img
                             src={similar.image}
                             alt={similar.name}
-                            className="max-h-28 max-w-full object-contain transition-transform duration-200 group-hover:scale-110 drop-shadow-lg"
+                            className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-110"
                           />
-                          <span className="absolute top-2 left-2 bg-orange-500 text-white rounded-full p-1 shadow-lg">
-                            <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' viewBox='0 0 24 24'><circle cx='9' cy='21' r='1'/><circle cx='20' cy='21' r='1'/><path d='M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61l1.38-7.39H6'/></svg>
-                          </span>
+                          <div className="absolute top-3 left-3 z-20">
+                            <div className="flex space-x-1">
+                              {similar.isOffer && (
+                                <span className="inline-flex items-center bg-blue-600 text-white text-xs font-medium px-2 py-1 rounded-md">
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                    <path fillRule="evenodd" d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm4.707 3.707a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L8.414 9H10a3 3 0 013 3v1a1 1 0 102 0v-1a5 5 0 00-5-5H8.414l1.293-1.293z" clipRule="evenodd" />
+                                  </svg>
+                                  Oferta
+                                </span>
+                              )}
+                              {similar.stock < 5 && (
+                                <span className="inline-flex items-center bg-red-600 text-white text-xs font-medium px-2 py-1 rounded-md">
+                                  Últimas unidades
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Quick action button */}
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Add to cart logic here
+                            }}
+                            className="absolute right-3 bottom-3 z-20 bg-blue-600 text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                          </button>
                         </div>
-                        {/* Nombre y precio */}
-                        <div className="flex-1 flex flex-col justify-center items-center px-3 py-2 w-full">
-                          <h3 className="text-sm font-bold text-gray-800 text-center line-clamp-2 mb-1">{similar.name}</h3>
-                          <p className="text-lg font-extrabold text-orange-600 mb-1">${similar.price.toLocaleString()}</p>
-                          {similar.originalPrice && similar.isOffer && (
-                            <span className="text-xs text-red-600 font-bold bg-red-100 px-2 py-0.5 rounded-full font-bold">{Math.round((1 - (similar.price / similar.originalPrice)) * 100)}% OFF</span>
-                          )}
-                          {/* Badge cuotas */}
-                          <span className="text-[11px] text-green-600 bg-green-100 px-2 py-0.5 rounded-full mt-1 font-semibold">12x sin interés</span>
+                        
+                        {/* Detalles del producto con diseño avanzado */}
+                        <div className="p-4 flex flex-col">
+                          <div className="flex-1">
+                            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 line-clamp-2 mb-1 leading-tight">
+                              {similar.name}
+                            </h3>
+                            <div className="flex items-center mb-2">
+                              <div className="flex">
+                                {[...Array(5)].map((_, i) => (
+                                  <svg 
+                                    key={i} 
+                                    className={`w-3 h-3 ${i < 4 ? 'text-blue-500' : 'text-slate-300 dark:text-slate-600'}`} 
+                                    fill="currentColor" 
+                                    viewBox="0 0 20 20"
+                                  >
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                  </svg>
+                                ))}
+                                <span className="text-xs text-slate-500 ml-1">(4.0)</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Precios */}
+                          <div className="flex items-end justify-between mt-auto">
+                            <div>
+                              <div className="text-lg font-bold text-slate-900 dark:text-white">
+                                ${similar.price.toLocaleString()}
+                              </div>
+                              {similar.originalPrice && similar.isOffer && (
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs text-slate-500 line-through">${similar.originalPrice.toLocaleString()}</span>
+                                  <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 rounded-full px-1.5 py-0.5">
+                                    {Math.round((1 - (similar.price / similar.originalPrice)) * 100)}% OFF
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="text-xs font-medium text-green-600 dark:text-green-400">
+                              En stock
+                            </div>
+                          </div>
                         </div>
-                        {/* Botón ver más */}
-                        <div className="w-full py-2 text-center border-t border-gray-100 bg-white group-hover:bg-orange-50 transition-all">
-                          <span className="text-xs text-orange-500 font-semibold">Ver producto</span>
-                        </div>
-                        {/* Sombra decorativa y animación brillo */}
-                        <span className="absolute left-0 bottom-0 w-full h-2 bg-gradient-to-r from-orange-200 via-orange-400 to-orange-200 opacity-20"></span>
-                        <span className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-white via-orange-100 to-white opacity-40 animate-pulse"></span>
+                        
+                        {/* Decorative elements */}
+                        <div className="absolute left-0 bottom-0 w-full h-0.5 bg-gradient-to-r from-blue-400 to-indigo-500 opacity-70"></div>
                       </div>
                     ))}
                   </div>
                   ) : (
-                  <div className="py-4 text-center">
-                    <div className="mx-auto mb-2 bg-orange-100 text-orange-500 w-12 h-12 rounded-full flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="mx-auto mb-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 w-14 h-14 rounded-full flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect width="20" height="20" x="2" y="2" rx="5" ry="5"></rect>
                         <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
                         <line x1="17.5" y1="6.5" x2="17.5" y2="6.5"></line>
                       </svg>
                     </div>
-                    <h3 className="text-base font-semibold mb-1">No hay productos similares</h3>
-                    <p className="text-gray-500 text-sm mb-3">Pronto tendremos más productos en <b>{product.category}</b></p>
+                    <h3 className="text-base font-semibold mb-2 text-slate-800 dark:text-slate-200">No hay productos similares</h3>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">Pronto agregaremos más productos en <b>{product.category}</b></p>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                      className="border-blue-300 text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/30"
                       onClick={() => navigate('/')}
                     >
-                      Ver catálogo
+                      Explorar catálogo
                     </Button>
                   </div>
                 )}
                 <Button
                   variant="outline"
                   size="sm"
-                  className="mt-4 border-orange-300 text-orange-600 hover:text-orange-700 hover:bg-orange-50 w-full"
+                  className="mt-6 border-blue-300 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/30 w-full flex items-center justify-center gap-1 py-2"
                   onClick={() => navigate('/?category=' + encodeURIComponent(product.category || ''))}
                 >
-                  Ver todos <span className="ml-1">→</span>
+                  <span>Ver todos los productos</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
                 </Button>
               </div>
             </div>
@@ -701,111 +852,219 @@ const ProductDetailPage = () => {
           
           {/* Info del producto */}
           <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm space-y-6">
-            {/* Encabezado con marca y código */}
-            <div className="flex items-center justify-between mb-2">
-              <span className="bg-orange-100 text-orange-800 text-xs px-3 py-1 rounded-full font-medium">
+            {/* Encabezado con marca y código - Diseño avanzado */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs px-4 py-2 rounded-md font-medium shadow-sm flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
                 REGALA ALGO
-              </span>
-              <span className="text-xs text-gray-500">
-                Código: {product.id?.substring(0, 8) || 'FS-' + Math.floor(Math.random() * 10000)}
-              </span>
-            </div>
-            
-            <div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight">{product.name}</h1>
-              
-              {/* Rating */}
-              <div className="flex flex-wrap items-center gap-2 mt-3">
-                <div className="flex">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`h-4 w-4 sm:h-5 sm:w-5 ${i < 4 ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
-                    />
-                  ))}
-                </div>
-                <span className="text-xs sm:text-sm text-muted-foreground">(128 reseñas)</span>
-                {/* <Button variant="link" className="text-xs sm:text-sm p-0 h-auto text-orange-600">Ver reseñas</Button> */}
               </div>
-            </div>
-            
-            {/* Precio con badge de descuento */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-orange-500">
-                  ${product.price.toLocaleString()}
+              <div className="bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-md">
+                <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  Código: {product.id?.substring(0, 8) || 'FS-' + Math.floor(Math.random() * 10000)}
                 </span>
-                {(product.discount || product.isOffer) && product.originalPrice && (
-                  <>
-                    <span className="text-base sm:text-lg text-gray-500 line-through">
-                      ${product.originalPrice.toLocaleString()}
-                    </span>
-                    <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded font-bold">
-                      {Math.round((1 - (product.price / (product.originalPrice || product.price + 1000))) * 100)}% OFF
-                    </span>
-                  </>
-                )}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Precio incluye impuestos • Envío calculado al finalizar la compra
-              </p>
+            </div>
+            
+            <div className="relative">
+              <div className="absolute -left-1 top-0 h-full w-1 bg-gradient-to-b from-blue-500 to-indigo-500"></div>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight pl-4 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300">{product.name}</h1>
+              
+              {/* Rating con diseño mejorado */}
+              <div className="flex flex-wrap items-center gap-3 mt-4 pl-4">
+                <div className="bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg flex items-center">
+                  <div className="flex">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`h-4 w-4 sm:h-5 sm:w-5 ${i < 4 ? 'fill-blue-500 text-blue-500' : 'text-slate-300 dark:text-slate-600'}`}
+                      />
+                    ))}
+                  </div>
+                  <div className="h-4 w-px bg-slate-300 dark:bg-slate-600 mx-3"></div>
+                  <span className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium">128 reseñas</span>
+                </div>
+                <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-medium px-3 py-1.5 rounded-lg flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                  </svg>
+                  Producto verificado
+                </div>
+              </div>
+            </div>
+            
+            {/* Precio con badge de descuento - Diseño avanzado */}
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 relative overflow-hidden mt-6">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-blue-100 dark:bg-blue-900/20 rounded-full filter blur-3xl opacity-20 -mr-20 -mt-20"></div>
+              
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-3">
+                  <span className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">Precio</span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white relative">
+                      <span className="absolute -top-3 -left-2 text-base text-blue-600 dark:text-blue-400">$</span>
+                      {product.price.toLocaleString()}
+                    </span>
+                    {(product.discount || product.isOffer) && product.originalPrice && (
+                      <>
+                        <span className="text-base sm:text-lg text-slate-500 dark:text-slate-400 line-through">
+                          ${product.originalPrice.toLocaleString()}
+                        </span>
+                        <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400 text-xs font-bold px-2 py-1 rounded-md inline-flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                          </svg>
+                          {Math.round((1 - (product.price / (product.originalPrice || product.price + 1000))) * 100)}% OFF
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="bg-white dark:bg-slate-800 px-4 py-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 flex items-center">
+                  <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <span className="block text-xs text-slate-500 dark:text-slate-400">Estado</span>
+                    <span className="font-medium text-green-600 dark:text-green-400">En stock</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Precio incluye impuestos • Envío calculado al finalizar la compra
+                </p>
+                
+                <div className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+                  Hasta 12 cuotas sin interés
+                </div>
+              </div>
             </div>
             
             <Separator />
             
-            {/* Descripción con tabs */}
-            <div className="rounded-lg border overflow-hidden">
-              <div className="flex text-sm border-b">
+            {/* Descripción con tabs - Diseño avanzado */}
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+              <div className="flex text-sm border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
                 <button 
                   onClick={() => setActiveTab('descripcion')}
-                  className={`px-4 py-2 font-medium flex-1 sm:flex-none transition-colors ${
+                  className={`px-6 py-4 font-medium flex-1 sm:flex-none transition-all relative ${
                     activeTab === 'descripcion' 
-                      ? 'bg-orange-50 text-orange-700 border-b-2 border-orange-500' 
-                      : 'text-gray-600 hover:text-gray-800'
+                      ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400' 
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                   }`}
                 >
-                  Descripción
+                  {activeTab === 'descripcion' && (
+                    <div className="absolute top-0 left-0 w-full h-0.5 bg-blue-500 dark:bg-blue-600"></div>
+                  )}
+                  <div className="flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Descripción
+                  </div>
                 </button>
                 <button 
                   onClick={() => setActiveTab('especificaciones')}
-                  className={`px-4 py-2 font-medium flex-1 sm:flex-none transition-colors ${
+                  className={`px-6 py-4 font-medium flex-1 sm:flex-none transition-all relative ${
                     activeTab === 'especificaciones' 
-                      ? 'bg-orange-50 text-orange-700 border-b-2 border-orange-500' 
-                      : 'text-gray-600 hover:text-gray-800'
+                      ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400' 
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                   }`}
                 >
-                  Especificaciones
+                  {activeTab === 'especificaciones' && (
+                    <div className="absolute top-0 left-0 w-full h-0.5 bg-blue-500 dark:bg-blue-600"></div>
+                  )}
+                  <div className="flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    Especificaciones
+                  </div>
                 </button>
-                {/* <button className="px-4 py-2 text-gray-600 hover:text-gray-800 hidden sm:block">Reseñas</button> */}
-                {/* <button className="px-4 py-2 text-gray-600 hover:text-gray-800 hidden md:block">Preguntas</button> */}
               </div>
               
-              {/* Tab content */}
-              <div className="p-4 bg-white">
+              {/* Tab content - Advanced */}
+              <div className="p-6 bg-white dark:bg-slate-800">
                 {activeTab === 'descripcion' ? (
-                  <div>
-                    <p className="text-gray-700 leading-relaxed">{product.description}</p>
+                  <div className="relative">
+                    <div className="absolute -left-6 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-400 to-indigo-500 rounded-r-full opacity-70"></div>
+                    <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-5 border border-slate-200 dark:border-slate-700">
+                      <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{product.description}</p>
+                    </div>
+                    
+                    <div className="mt-5 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800/30 flex items-start">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-sm text-slate-700 dark:text-slate-300">
+                        Todos nuestros productos cuentan con <span className="font-semibold">garantía de calidad</span> para asegurar tu completa satisfacción.
+                      </p>
+                    </div>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    <h4 className="font-medium text-base">Especificaciones del producto</h4>
-                    {product.specifications && product.specifications.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mt-3">
-                        {product.specifications.map((spec, index) => (
-                          <div key={index} className="flex flex-col">
-                            <span className="text-sm font-medium text-gray-900">{spec.name}</span>
-                            <span className="text-sm text-gray-600">{spec.value}</span>
-                          </div>
-                        ))}
+                  <div className="space-y-5">
+                    <div className="flex items-center">
+                      <div className="h-8 w-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mr-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                        </svg>
                       </div>
-                    ) : (
-                      <ul className="list-disc list-inside space-y-1 text-gray-600 text-sm pl-2">
-                        <li>Material de alta calidad</li>
-                        <li>Ideal para uso diario</li>
-                        <li>Perfecto para regalo</li>
-                        <li>Fabricado con estándares internacionales</li>
-                      </ul>
-                    )}
+                      <h4 className="font-medium text-base text-slate-900 dark:text-slate-100">Especificaciones del producto</h4>
+                    </div>
+                    
+                    <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                      {product.specifications && product.specifications.length > 0 ? (
+                        <div className="divide-y divide-slate-200 dark:divide-slate-700">
+                          {product.specifications.map((spec, index) => (
+                            <div key={index} className="grid grid-cols-1 sm:grid-cols-2 p-4 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors">
+                              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{spec.name}</span>
+                              <span className="text-sm text-slate-600 dark:text-slate-400">{spec.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-5">
+                          <ul className="space-y-3 text-slate-700 dark:text-slate-300 text-sm">
+                            <li className="flex items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Material de alta calidad
+                            </li>
+                            <li className="flex items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Ideal para uso diario
+                            </li>
+                            <li className="flex items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Perfecto para regalo
+                            </li>
+                            <li className="flex items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Fabricado con estándares internacionales
+                            </li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -991,208 +1250,379 @@ const ProductDetailPage = () => {
                 </div>
               )}
               
-              {/* Selector de cantidad */}
-              <div className="bg-white rounded-lg border p-4">
-                <label className="text-sm font-medium mb-2 flex justify-between">
-                  <span>Cantidad</span>
-                  <span className="text-orange-600">
-                    {product.stock > 0 ? <span className="font-bold">{`${product.stock} disponibles`}</span> : <span className="font-bold">Agotado</span>}
-                  </span>
-                </label>
-                <div className="flex items-center mt-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-10 w-10 rounded-l-lg rounded-r-none border-r-0"
-                    onClick={decrementQuantity}
-                    disabled={quantity <= 1 || product.stock === 0}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  
-                  <div className="h-10 border-y px-4 flex items-center justify-center min-w-[60px]">
-                    <span className="font-medium text-lg">{quantity}</span>
+              {/* Selector de cantidad - Diseño avanzado */}
+              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 dark:bg-blue-900/20 rounded-full filter blur-2xl opacity-20 -mr-10 -mt-10"></div>
+                
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mr-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                      </svg>
+                    </div>
+                    <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Cantidad</span>
                   </div>
                   
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-10 w-10 rounded-r-lg rounded-l-none border-l-0"
-                    onClick={incrementQuantity}
-                    disabled={quantity >= product.stock || product.stock === 0}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                  <div className={`flex items-center px-3 py-1 rounded-full ${
+                    product.stock > 10 
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                      : product.stock > 0 
+                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                  }`}>
+                    <span className={`h-2 w-2 rounded-full mr-2 ${
+                      product.stock > 10 ? 'bg-green-500' : product.stock > 0 ? 'bg-amber-500' : 'bg-red-500'
+                    }`}></span>
+                    <span className="text-xs font-medium">
+                      {product.stock > 0 
+                        ? `${product.stock} disponibles` 
+                        : 'Agotado'
+                      }
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="bg-slate-50 dark:bg-slate-700/30 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center">
+                    <button
+                      className={`h-12 w-12 flex items-center justify-center rounded-l-lg ${
+                        quantity <= 1 || product.stock === 0 
+                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed' 
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                      } border border-slate-300 dark:border-slate-600`}
+                      onClick={decrementQuantity}
+                      disabled={quantity <= 1 || product.stock === 0}
+                    >
+                      <Minus className="h-5 w-5" />
+                    </button>
+                    
+                    <div className="h-12 border-t border-b border-slate-300 dark:border-slate-600 px-5 flex items-center justify-center min-w-[60px] bg-white dark:bg-slate-800">
+                      <span className="font-semibold text-lg text-slate-800 dark:text-slate-200">{quantity}</span>
+                    </div>
+                    
+                    <button
+                      className={`h-12 w-12 flex items-center justify-center rounded-r-lg ${
+                        quantity >= product.stock || product.stock === 0 
+                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed' 
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                      } border border-slate-300 dark:border-slate-600`}
+                      onClick={incrementQuantity}
+                      disabled={quantity >= product.stock || product.stock === 0}
+                    >
+                      <Plus className="h-5 w-5" />
+                    </button>
+                    
+                    <div className="ml-4 flex-1">
+                      <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-blue-500 to-indigo-500" 
+                          style={{ width: `${Math.min(100, (quantity / product.stock) * 100)}%` }}
+                        ></div>
+                      </div>
+                      <div className="mt-1 flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                        <span>Mínimo: 1</span>
+                        <span>Máximo: {product.stock}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Subtotal:</span>
+                    <span className="text-lg font-semibold text-slate-900 dark:text-white">${(product.price * quantity).toLocaleString()}</span>
+                  </div>
                 </div>
               </div>
               
-              {/* Botones de acción */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              {/* Botones de acción - Diseño avanzado */}
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
                 <Button
                   onClick={handleAddToCart}
-                  className="sm:col-span-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:opacity-90 text-white py-6 rounded-xl shadow-lg shadow-orange-100"
+                  className="sm:col-span-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-6 rounded-xl shadow-lg shadow-blue-100 dark:shadow-blue-900/20 relative overflow-hidden"
                   disabled={product.stock === 0}
                 >
-                  <ShoppingCart className="h-5 w-5 mr-2" />
-                  {product.stock === 0 
-                    ? 'Producto Agotado' 
-                    : `Agregar al Carrito - $${(product.price * quantity).toLocaleString()}`
-                  }
+                  <span className="absolute inset-0 overflow-hidden">
+                    <span className="absolute -inset-[10px] opacity-30 bg-gradient-to-r from-transparent via-white to-transparent skew-x-12 animate-shimmer"></span>
+                  </span>
+                  <div className="relative flex items-center justify-center">
+                    {product.stock === 0 ? (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Producto Agotado</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        <span className="font-medium">Agregar al Carrito - ${(product.price * quantity).toLocaleString()}</span>
+                      </>
+                    )}
+                  </div>
                 </Button>
                 
                 <Button
                   variant="outline"
-                  className="py-6 rounded-xl hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 border-2"
+                  className="py-6 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-2 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 shadow-sm"
                   onClick={handleShare}
                 >
-                  <Share2 className="h-5 w-5 sm:mr-0 md:mr-2" />
-                  <span className="hidden md:inline">Compartir</span>
+                  <div className="flex items-center justify-center">
+                    <Share2 className="h-5 w-5 sm:mr-0 md:mr-2 text-blue-600 dark:text-blue-400" />
+                    <span className="hidden md:inline font-medium">Compartir</span>
+                  </div>
                 </Button>
               </div>
               
-              {/* Métodos de pago */}
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-xs text-gray-500 mb-2">Métodos de pago aceptados:</p>
-                <div className="flex flex-wrap gap-2">
-                  <div className="bg-white p-1 rounded shadow-sm"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/visa.svg" alt="Visa" className="w-8 h-5 object-contain" /></div>
-                  <div className="bg-white p-1 rounded shadow-sm"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/mastercard.svg" alt="Mastercard" className="w-8 h-5 object-contain" /></div>
-                  <div className="bg-white p-1 rounded shadow-sm"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/americanexpress.svg" alt="American Express" className="w-8 h-5 object-contain" /></div>
-                  <div className="bg-white p-1 rounded shadow-sm"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/paypal.svg" alt="PayPal" className="w-8 h-5 object-contain" /></div>
-                  <div className="bg-white p-1 rounded shadow-sm"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/mercadopago.svg" alt="Mercado Pago" className="w-8 h-5 object-contain" /></div>
+              {/* Métodos de pago - Diseño avanzado */}
+              <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div className="flex items-center mb-4">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-medium text-slate-800 dark:text-slate-200">Métodos de pago aceptados</h3>
+                </div>
+                
+                <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
+                  <div className="bg-slate-50 dark:bg-slate-700/30 p-3 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all">
+                    <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/visa.svg" alt="Visa" className="w-10 h-6 object-contain" />
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-700/30 p-3 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all">
+                    <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/mastercard.svg" alt="Mastercard" className="w-10 h-6 object-contain" />
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-700/30 p-3 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all">
+                    <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/americanexpress.svg" alt="American Express" className="w-10 h-6 object-contain" />
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-700/30 p-3 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all">
+                    <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/paypal.svg" alt="PayPal" className="w-10 h-6 object-contain" />
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-700/30 p-3 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all">
+                    <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/mercadopago.svg" alt="Mercado Pago" className="w-10 h-6 object-contain" />
+                  </div>
+                </div>
+                
+                <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    <span className="text-xs text-slate-600 dark:text-slate-400">Pagos 100% seguros</span>
+                  </div>
+                  
+                  <div className="bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6-6" />
+                    </svg>
+                    <span className="text-xs text-blue-700 dark:text-blue-400 font-medium">Cuotas sin interés</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
         
-        {/* Productos similares - Siempre se muestra, con fallback */}
-        <div className="mb-20 bg-white py-12 -mx-4 px-4 sm:px-6 lg:px-8 border-t border-gray-200">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8">
-              <div>
-                <span className="text-orange-600 font-medium text-sm mb-1 block">PRODUCTOS RELACIONADOS</span>
-                <h2 className="text-2xl font-bold text-gray-800">
-                  {similarProducts.length > 0 ? 'Productos más vistos' : 'Te podría interesar'}
-                </h2>
-              </div>
-              <Button 
-                variant="ghost"
-                className="mt-3 sm:mt-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50/50 font-medium"
-                onClick={() => navigate('/?category=' + encodeURIComponent(product.category || ''))}
-              >
-                Ver todos <span className="ml-1">→</span>
-              </Button>
-            </div>
-            
-            <div className="relative">
-              {similarProducts && similarProducts.length > 0 ? (
-                <div className="flex flex-wrap gap-6 justify-center">
-                  {similarProducts.slice(0, 8).map((similar) => (
-                    <div
-                      key={similar.id}
-                      onClick={() => goToProduct(similar)}
-                      className="w-56 h-56 bg-gradient-to-br from-orange-50 via-white to-orange-100 border border-orange-200 rounded-2xl shadow-2xl flex flex-col items-center justify-between cursor-pointer hover:shadow-orange-400 hover:-translate-y-1 hover:brightness-105 transition-all duration-200 group relative overflow-hidden"
-                    >
-                      {/* Imagen grande con icono carrito */}
-                      <div className="w-full h-32 flex items-center justify-center bg-white rounded-t-2xl border-b border-gray-100 group-hover:bg-orange-50 transition-all relative">
-                        <img
-                          src={similar.image}
-                          alt={similar.name}
-                          className="max-h-28 max-w-full object-contain transition-transform duration-200 group-hover:scale-110 drop-shadow-lg"
-                        />
-                        <span className="absolute top-2 left-2 bg-orange-500 text-white rounded-full p-1 shadow-lg">
-                          <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' viewBox='0 0 24 24'><circle cx='9' cy='21' r='1'/><circle cx='20' cy='21' r='1'/><path d='M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61l1.38-7.39H6'/></svg>
-                        </span>
-                      </div>
-                      {/* Nombre y precio */}
-                      <div className="flex-1 flex flex-col justify-center items-center px-3 py-2 w-full">
-                        <h3 className="text-sm font-bold text-gray-800 text-center line-clamp-2 mb-1">{similar.name}</h3>
-                        <p className="text-lg font-extrabold text-orange-600 mb-1">${similar.price.toLocaleString()}</p>
-                        {similar.originalPrice && similar.isOffer && (
-                          <span className="text-xs text-red-600 font-bold bg-red-100 px-2 py-0.5 rounded-full">{Math.round((1 - (similar.price / similar.originalPrice)) * 100)}% OFF</span>
-                        )}
-                        {/* Badge cuotas */}
-                        <span className="text-[11px] text-green-600 bg-green-100 px-2 py-0.5 rounded-full mt-1 font-semibold">12x sin interés</span>
-                      </div>
-                      {/* Botón ver más */}
-                      <div className="w-full py-2 text-center border-t border-gray-100 bg-white group-hover:bg-orange-50 transition-all">
-                        <span className="text-xs text-orange-500 font-semibold">Ver producto</span>
-                      </div>
-                      {/* Sombra decorativa y animación brillo */}
-                      <span className="absolute left-0 bottom-0 w-full h-2 bg-gradient-to-r from-orange-200 via-orange-400 to-orange-200 opacity-20"></span>
-                      <span className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-white via-orange-100 to-white opacity-40 animate-pulse"></span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-10 px-6 text-center bg-gray-50 rounded-xl border border-gray-100">
-                  <div className="mx-auto mb-4 bg-orange-100 text-orange-500 w-16 h-16 rounded-full flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect width="20" height="20" x="2" y="2" rx="5" ry="5"></rect>
-                      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                      <line x1="17.5" y1="6.5" x2="17.5" y2="6.5"></line>
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">No hay productos similares en esta categoría</h3>
-                  <p className="text-gray-500 mb-4">Pronto tendremos más productos de <b>{product.category}</b></p>
-                  <Button 
-                    variant="outline"
-                    className="border-orange-400 text-orange-600 hover:bg-orange-50"
-                    onClick={() => navigate('/')}
-                  >
-                    Ver catálogo completo
-                  </Button>              </div>
-              )}
-            </div>
-            {/* Fin del carrusel de productos similares */}
-          </div>
-        </div>
+        {/* Espacio para separación visual */}
+        <div className="my-6"></div>
         
         {/* Características destacadas */}
         <div className="my-16 px-4">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-2xl font-bold text-center mb-10">Características Destacadas</h2>
+            <div className="flex flex-col items-center mb-8">
+              <span className="text-blue-600 dark:text-blue-400 font-medium text-xs tracking-wider uppercase mb-2">POR QUÉ ELEGIRNOS</span>
+              <h2 className="text-2xl md:text-3xl font-bold text-center mb-3 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300">Características Destacadas</h2>
+              <div className="w-20 h-1 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full"></div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="bg-white rounded-xl p-6 text-center shadow-md border border-gray-100 hover:shadow-lg transition-shadow">
-                <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-600">
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-6 text-center shadow-md border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-all">
+                <div className="bg-blue-100 dark:bg-blue-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600 dark:text-blue-400">
                     <path d="m9 12 2 2 4-4"></path>
                     <path d="M5 7c0-1.1.9-2 2-2h10a2 2 0 0 1 2 2v12H5V7Z"></path>
                     <path d="M22 19H2"></path>
                   </svg>
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Alta Calidad</h3>
-                <p className="text-gray-600 text-sm">
+                <p className="text-slate-600 dark:text-slate-300 text-sm">
                   Nuestros productos son seleccionados cuidadosamente para garantizar la mejor calidad.
                 </p>
               </div>
               
-              <div className="bg-white rounded-xl p-6 text-center shadow-md border border-gray-100 hover:shadow-lg transition-shadow">
-                <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-600">
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-6 text-center shadow-md border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-all">
+                <div className="bg-blue-100 dark:bg-blue-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600 dark:text-blue-400">
                     <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"></path>
                     <path d="M4 6v12c0 1.1.9 2 2 2h14v-4"></path>
                     <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path>
                   </svg>
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Garantía Extendida</h3>
-                <p className="text-gray-600 text-sm">
+                <p className="text-slate-600 dark:text-slate-300 text-sm">
                   Todos nuestros productos cuentan con garantía extendida para tu tranquilidad.
                 </p>
               </div>
               
-              <div className="bg-white rounded-xl p-6 text-center shadow-md border border-gray-100 hover:shadow-lg transition-shadow">
-                <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-600">
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-6 text-center shadow-md border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-all">
+                <div className="bg-blue-100 dark:bg-blue-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600 dark:text-blue-400">
                     <path d="M7 10v12"></path>
                     <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"></path>
                   </svg>
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Satisfacción 100%</h3>
-                <p className="text-gray-600 text-sm">
+                <p className="text-slate-600 dark:text-slate-300 text-sm">
                   Si no estás satisfecho con tu compra, te devolvemos el dinero sin preguntas.
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Productos más vistos - Sección mejorada */}
+        <div className="my-16 px-4">
+          <div className="max-w-6xl mx-auto bg-gradient-to-b from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-xl relative">
+            {/* Decorative elements */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100 dark:bg-blue-900/20 rounded-full filter blur-3xl opacity-20 -mr-10 -mt-10"></div>
+            
+            <div className="p-8">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                <div className="flex items-center">
+                  <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-lg mr-4 shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path>
+                      <path d="m12 5 2 2"></path>
+                      <path d="m15 8-3 1"></path>
+                    </svg>
+                  </div>
+                  <div>
+                    <span className="text-blue-600 dark:text-blue-400 font-medium text-xs tracking-wider uppercase block mb-1">DESCUBRE</span>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200 flex items-center">
+                      Los más populares
+                      <span className="ml-3 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 py-1 px-2 rounded-full">¡Lo más vendido!</span>
+                    </h2>
+                  </div>
+                </div>
+                
+                <Button
+                  variant="outline"
+                  className="border-blue-300 text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/30 hover:shadow-md transition-all"
+                  onClick={() => navigate('/')}
+                >
+                  <span>Ver catálogo completo</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </Button>
+              </div>
+              
+              {loadingMostViewed ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 animate-pulse">
+                  {[...Array(6)].map((_, index) => (
+                    <div key={index} className="bg-slate-100 dark:bg-slate-700/30 rounded-xl h-64"></div>
+                  ))}
+                </div>
+              ) : mostViewedProducts.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                  {mostViewedProducts.map((product) => (
+                    <div 
+                      key={product.id}
+                      onClick={() => goToProduct(product)} 
+                      className="group bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer relative flex flex-col h-full"
+                    >
+                      {/* Ribbon si es oferta */}
+                      {product.isOffer && (
+                        <div className="absolute top-0 right-0 z-10">
+                          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs py-1 px-3 font-medium shadow-sm transform rotate-45 translate-x-2 -translate-y-1">
+                            OFERTA
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Imagen con overlay y efecto hover */}
+                      <div className="aspect-square w-full overflow-hidden bg-white dark:bg-slate-800 relative">
+                        <img 
+                          src={product.image} 
+                          alt={product.name}
+                          className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        
+                        {/* Quick view button */}
+                        <button 
+                          className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-medium py-1 px-3 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0 flex items-center"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            goToProduct(product);
+                          }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          Ver detalle
+                        </button>
+                      </div>
+                      
+                      {/* Información del producto */}
+                      <div className="p-3 flex flex-col flex-grow">
+                        {/* Nombre del producto */}
+                        <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200 line-clamp-2 mb-1 leading-tight">
+                          {product.name}
+                        </h3>
+                        
+                        {/* Precio */}
+                        <div className="flex items-end justify-between mt-auto pt-2">
+                          <div>
+                            <span className="text-base font-bold text-slate-900 dark:text-white">${product.price?.toLocaleString()}</span>
+                            {product.originalPrice && product.isOffer && (
+                              <div className="flex items-center space-x-1 mt-1">
+                                <span className="text-xs text-slate-500 dark:text-slate-400 line-through">${product.originalPrice?.toLocaleString()}</span>
+                                <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 rounded-full px-1.5 py-0.5">
+                                  {Math.round((1 - (product.price / product.originalPrice)) * 100)}% OFF
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Stock indicator */}
+                          {product.stock && product.stock > 0 ? (
+                            <span className="text-xs font-medium text-green-600 dark:text-green-400">En stock</span>
+                          ) : (
+                            <span className="text-xs font-medium text-red-600 dark:text-red-400">Sin stock</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Decorative bottom bar */}
+                      <div className="h-1 w-full bg-gradient-to-r from-blue-400 to-indigo-600 opacity-80"></div>
+                      
+                      {/* Animation dot */}
+                      <div className="absolute bottom-2 right-2 h-2 w-2 bg-blue-500 rounded-full animate-ping"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-10 px-6 text-center bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <div className="mx-auto mb-4 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 w-16 h-16 rounded-full flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <path d="m21 21-4.3-4.3"></path>
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2 text-slate-800 dark:text-slate-200">No hay suficiente información de productos vistos</h3>
+                  <p className="text-slate-500 dark:text-slate-400 mb-4">Explora más productos en nuestra tienda para ver recomendaciones personalizadas.</p>
+                  <Button 
+                    variant="outline"
+                    className="border-blue-300 text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/30"
+                    onClick={() => navigate('/')}
+                  >
+                    Explorar catálogo
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1200,7 +1630,7 @@ const ProductDetailPage = () => {
       
       {/* Preguntas frecuentes */}
       <div className="container mx-auto px-4 mb-20">
-        <h2 className="text-2xl font-bold mb-6 text-center">Preguntas Frecuentes</h2>
+        <h2 className="text-2xl font-bold mb-6 text-center text-slate-800 dark:text-slate-200">Preguntas Frecuentes</h2>
         <div className="max-w-3xl mx-auto">
           <div className="space-y-4">
             {[
@@ -1222,9 +1652,9 @@ const ProductDetailPage = () => {
               }
             ].map((faq, i) => (
               <div key={i} className="bg-white border rounded-lg overflow-hidden">
-                <div className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50">
+                <div className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/70">
                   <h3 className="font-medium">{faq.q}</h3>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500 dark:text-blue-400">
                     <path d="m6 9 6 6 6-6"/>
                   </svg>
                 </div>
@@ -1244,46 +1674,27 @@ const ProductDetailPage = () => {
         </div>
       </div>
       
-      {/* Newsletter */}
-      <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white py-12 mb-16">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <h3 className="text-2xl font-bold mb-4">¡Suscríbete a nuestro newsletter!</h3>
-            <p className="mb-6 opacity-90">Recibe ofertas exclusivas, novedades y descuentos directamente en tu correo.</p>
-            <div className="flex flex-col sm:flex-row gap-2 max-w-md mx-auto">
-              <input 
-                type="email" 
-                placeholder="Tu correo electrónico" 
-                className="px-4 py-2 rounded-lg flex-1 text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-300"
-              />
-              <Button className="bg-white text-orange-600 hover:bg-gray-100">
-                Suscribirse
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
       
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-16">
+      <footer className="bg-slate-900 text-white py-16">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="space-y-4">
-              <h3 className="text-xl font-bold mb-4 text-orange-400">REGALA ALGO</h3>
-              <p className="text-gray-400 text-sm">
+              <h3 className="text-xl font-bold mb-4 text-blue-400">REGALA ALGO</h3>
+              <p className="text-slate-400 text-sm">
                 La mejor tienda online para encontrar productos exclusivos y de alta calidad. Desde 2020 brindando la mejor experiencia de compra con envíos rápidos y atención personalizada.
               </p>
               <div className="flex gap-4 pt-2">
-                <a href="#" className="bg-gray-800 p-2 rounded-full hover:bg-orange-600 transition-colors">
+                <a href="#" className="bg-slate-800 p-2 rounded-full hover:bg-blue-600 transition-colors">
                   <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/facebook.svg" alt="Facebook" className="w-5 h-5 text-white" />
                 </a>
-                <a href="#" className="bg-gray-800 p-2 rounded-full hover:bg-orange-600 transition-colors">
+                <a href="#" className="bg-slate-800 p-2 rounded-full hover:bg-blue-600 transition-colors">
                   <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/twitter.svg" alt="Twitter" className="w-5 h-5 text-white" />
                 </a>
-                <a href="#" className="bg-gray-800 p-2 rounded-full hover:bg-orange-600 transition-colors">
+                <a href="#" className="bg-slate-800 p-2 rounded-full hover:bg-blue-600 transition-colors">
                   <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/instagram.svg" alt="Instagram" className="w-5 h-5 text-white" />
                 </a>
-                <a href="#" className="bg-gray-800 p-2 rounded-full hover:bg-orange-600 transition-colors">
+                <a href="#" className="bg-slate-800 p-2 rounded-full hover:bg-blue-600 transition-colors">
                   <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/youtube.svg" alt="YouTube" className="w-5 h-5 text-white" />
                 </a>
               </div>
@@ -1291,42 +1702,42 @@ const ProductDetailPage = () => {
             
             <div>
               <h3 className="text-lg font-semibold mb-4">Enlaces rápidos</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><Button variant="link" className="p-0 h-auto text-gray-400 hover:text-orange-400" onClick={() => navigate('/')}>Inicio</Button></li>
-                <li><Button variant="link" className="p-0 h-auto text-gray-400 hover:text-orange-400" onClick={() => navigate('/')}>Categorías</Button></li>
-                <li><Button variant="link" className="p-0 h-auto text-gray-400 hover:text-orange-400" onClick={() => navigate('/')}>Ofertas</Button></li>
-                <li><Button variant="link" className="p-0 h-auto text-gray-400 hover:text-orange-400" onClick={() => navigate('/')}>Blog</Button></li>
+              <ul className="space-y-2 text-slate-400">
+                <li><Button variant="link" className="p-0 h-auto text-slate-400 hover:text-blue-400" onClick={() => navigate('/')}>Inicio</Button></li>
+                <li><Button variant="link" className="p-0 h-auto text-slate-400 hover:text-blue-400" onClick={() => navigate('/')}>Categorías</Button></li>
+                <li><Button variant="link" className="p-0 h-auto text-slate-400 hover:text-blue-400" onClick={() => navigate('/')}>Ofertas</Button></li>
+                <li><Button variant="link" className="p-0 h-auto text-slate-400 hover:text-blue-400" onClick={() => navigate('/')}>Blog</Button></li>
               </ul>
             </div>
             
             <div>
               <h3 className="text-lg font-semibold mb-4">Ayuda</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><Button variant="link" className="p-0 h-auto text-gray-400 hover:text-orange-400">Preguntas Frecuentes</Button></li>
-                <li><Button variant="link" className="p-0 h-auto text-gray-400 hover:text-orange-400">Política de Privacidad</Button></li>
-                <li><Button variant="link" className="p-0 h-auto text-gray-400 hover:text-orange-400">Términos y Condiciones</Button></li>
-                <li><Button variant="link" className="p-0 h-auto text-gray-400 hover:text-orange-400">Política de Envío</Button></li>
+              <ul className="space-y-2 text-slate-400">
+                <li><Button variant="link" className="p-0 h-auto text-slate-400 hover:text-blue-400">Preguntas Frecuentes</Button></li>
+                <li><Button variant="link" className="p-0 h-auto text-slate-400 hover:text-blue-400">Política de Privacidad</Button></li>
+                <li><Button variant="link" className="p-0 h-auto text-slate-400 hover:text-blue-400">Términos y Condiciones</Button></li>
+                <li><Button variant="link" className="p-0 h-auto text-slate-400 hover:text-blue-400">Política de Envío</Button></li>
               </ul>
             </div>
             
             <div>
               <h3 className="text-lg font-semibold mb-4">Contacto</h3>
-              <div className="space-y-3 text-sm text-gray-400">
+              <div className="space-y-3 text-sm text-slate-400">
                 <div className="flex items-center gap-3">
-                  <div className="bg-gray-800 p-2 rounded">
-                    <MapPin className="h-4 w-4 text-orange-400" />
+                  <div className="bg-slate-800 p-2 rounded">
+                    <MapPin className="h-4 w-4 text-blue-400" />
                   </div>
                   <span>Calle Principal #123, Ciudad</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="bg-gray-800 p-2 rounded">
-                    <Mail className="h-4 w-4 text-orange-400" />
+                  <div className="bg-slate-800 p-2 rounded">
+                    <Mail className="h-4 w-4 text-blue-400" />
                   </div>
                   <span>info@regalaalgo.com</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="bg-gray-800 p-2 rounded">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-400">
+                  <div className="bg-slate-800 p-2 rounded">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400">
                       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
                     </svg>
                   </div>
@@ -1336,21 +1747,21 @@ const ProductDetailPage = () => {
             </div>
           </div>
           
-          <div className="border-t border-gray-800 mt-10 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-gray-500 text-sm">
+          <div className="border-t border-slate-800 mt-10 pt-8 flex flex-col md:flex-row justify-between items-center">
+            <p className="text-slate-500 text-sm">
               &copy; {new Date().getFullYear()} REGALA ALGO. Todos los derechos reservados.
             </p>
             <div className="flex gap-4 mt-4 md:mt-0">
-              <div className="bg-gray-800 p-1 rounded">
+              <div className="bg-slate-800 p-1 rounded">
                 <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/visa.svg" alt="Visa" className="w-10 h-6 object-contain" />
               </div>
-              <div className="bg-gray-800 p-1 rounded">
+              <div className="bg-slate-800 p-1 rounded">
                 <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/mastercard.svg" alt="Mastercard" className="w-10 h-6 object-contain" />
               </div>
-              <div className="bg-gray-800 p-1 rounded">
+              <div className="bg-slate-800 p-1 rounded">
                 <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/americanexpress.svg" alt="American Express" className="w-10 h-6 object-contain" />
               </div>
-              <div className="bg-gray-800 p-1 rounded">
+              <div className="bg-slate-800 p-1 rounded">
                 <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/paypal.svg" alt="PayPal" className="w-10 h-6 object-contain" />
               </div>
             </div>

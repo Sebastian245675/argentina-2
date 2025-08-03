@@ -46,6 +46,48 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   const [loading, setLoading] = useState(true);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('Todas');
   const [selectedTerceraCategoria, setSelectedTerceraCategoria] = useState<string>('Todas');
+  
+  // Estado para carga progresiva de categorías
+  const [visibleCategories, setVisibleCategories] = useState({
+    main: 5, // Mostrar primeras 5 categorías principales
+    sub: {}, // Objeto para controlar subcategorías visibles por categoría principal
+    third: {} // Objeto para controlar terceras categorías visibles por subcategoría
+  });
+  
+  // Estado para carga progresiva de productos por categoría
+  const [visibleProductsPerCategory, setVisibleProductsPerCategory] = useState<Record<string, number>>({});
+  const PRODUCTS_PER_ROW = 12; // Número de productos a mostrar inicialmente por cada categoría (3 filas de 4)
+  const [loadingMoreProducts, setLoadingMoreProducts] = useState<Record<string, boolean>>({});
+
+  // Función para obtener productos por categoría, incluyendo sus subcategorías si corresponde
+  const getProductsByCategory = (categoryName: string) => {
+    // Productos directamente asignados a esta categoría
+    const directProducts = products.filter(p => 
+      p.category === categoryName || p.categoryName === categoryName
+    );
+    
+    // Obtener subcategorías de esta categoría principal
+    const categoryObj = categories.find(cat => cat.name === categoryName);
+    const subCats = categories.filter(cat => 
+      (cat.parentName === categoryName) || 
+      (categoryObj && cat.parentId === categoryObj.id)
+    );
+    
+    // Productos en subcategorías
+    const subCategoryProducts = subCats.flatMap(subCat => 
+      products.filter(p => p.subcategory === subCat.id || p.subcategoryName === subCat.name)
+    );
+    
+    // Combinar productos directos y de subcategorías, evitando duplicados
+    const allProducts = [...directProducts];
+    subCategoryProducts.forEach(p => {
+      if (!allProducts.some(existing => existing.id === p.id)) {
+        allProducts.push(p);
+      }
+    });
+    
+    return allProducts;
+  };
 
   // Cargar productos reales de Firestore
   useEffect(() => {
@@ -61,6 +103,96 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
     };
     fetchProducts();
   }, []);
+  
+  // Ordenar categorías principales por importancia o cantidad de productos
+  const sortedMainCategories = useMemo(() => {
+    const mainCats = categories.filter(cat => cat.name !== "Todos" && !cat.parentId);
+    
+    // Ordenar por cantidad de productos (de mayor a menor)
+    return mainCats.sort((a, b) => {
+      const aProducts = getProductsByCategory(a.name).length;
+      const bProducts = getProductsByCategory(b.name).length;
+      return bProducts - aProducts;
+    });
+  }, [categories, products]);
+  
+  // Función para cargar más categorías principales
+  const loadMoreMainCategories = () => {
+    setVisibleCategories(prev => ({
+      ...prev,
+      main: prev.main + 5
+    }));
+  };
+  
+  // Función para expandir/contraer subcategorías de una categoría principal
+  const toggleSubcategoriesVisibility = (categoryId: string) => {
+    setVisibleCategories(prev => ({
+      ...prev,
+      sub: {
+        ...prev.sub,
+        [categoryId]: prev.sub[categoryId] ? 
+          (prev.sub[categoryId] === -1 ? 5 : -1) : // -1 significa ver todas
+          5 // Mostrar primeras 5 subcategorías
+      }
+    }));
+  };
+  
+  // Función para expandir/contraer terceras categorías de una subcategoría
+  const toggleThirdCategoriesVisibility = (subcategoryId: string) => {
+    setVisibleCategories(prev => ({
+      ...prev,
+      third: {
+        ...prev.third,
+        [subcategoryId]: prev.third[subcategoryId] ? 
+          (prev.third[subcategoryId] === -1 ? 5 : -1) : // -1 significa ver todas
+          5 // Mostrar primeras 5 terceras categorías
+      }
+    }));
+  };
+  
+  // Función para cargar más subcategorías de una categoría principal
+  const loadMoreSubcategories = (categoryId: string) => {
+    setVisibleCategories(prev => ({
+      ...prev,
+      sub: {
+        ...prev.sub,
+        [categoryId]: prev.sub[categoryId] + 5
+      }
+    }));
+  };
+  
+  // Función para cargar más terceras categorías de una subcategoría
+  const loadMoreThirdCategories = (subcategoryId: string) => {
+    setVisibleCategories(prev => ({
+      ...prev,
+      third: {
+        ...prev.third,
+        [subcategoryId]: prev.third[subcategoryId] + 5
+      }
+    }));
+  };
+  
+  // Función para cargar más productos por categoría
+  const loadMoreProductsForCategory = (categoryId: string) => {
+    // Marcamos esta categoría como cargando
+    setLoadingMoreProducts(prev => ({
+      ...prev,
+      [categoryId]: true
+    }));
+    
+    // Simulamos un pequeño retraso para la carga
+    setTimeout(() => {
+      setVisibleProductsPerCategory(prev => ({
+        ...prev,
+        [categoryId]: (prev[categoryId] || PRODUCTS_PER_ROW) + 4
+      }));
+      
+      setLoadingMoreProducts(prev => ({
+        ...prev,
+        [categoryId]: false
+      }));
+    }, 500);
+  };
 
   // Obtener subcategorías para la categoría seleccionada
   const subcategories = useMemo(() => {
@@ -201,54 +333,203 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
         {/* Botón de WhatsApp y aviso de domicilio gratis */}
         
 
-        {/* CategoryBar - Usar una barra de desplazamiento horizontal en móviles */}
-        <div className="flex overflow-x-auto pb-4 gap-4 sm:gap-6 md:gap-8 mb-10 md:mb-14 justify-start md:justify-center">
-          {categories
-            // Filtrar solo categorías principales para el selector principal (sin parentId)
-            .filter(cat => cat.name === "Todos" || !cat.parentId)
-            .map((cat) => (
+        {/* CategoryBar - Usar una barra de desplazamiento horizontal en móviles con carga progresiva */}
+        <div className="flex flex-col w-full">
+          {/* Categorías principales */}
+          <div className="flex overflow-x-auto pb-4 gap-4 sm:gap-6 md:gap-8 mb-6 justify-start md:justify-center">
+            {categories
+              // Filtrar solo categorías principales para el selector principal (sin parentId)
+              .filter(cat => cat.name === "Todos" || !cat.parentId)
+              // Mostrar solo un número limitado de categorías principales
+              .slice(0, visibleCategories.main)
+              .map((cat) => (
+                <button
+                  key={cat.name}
+                  onClick={() => {
+                    setSelectedCategory(cat.name);
+                    // Resetear la subcategoría cuando se cambia la categoría principal
+                    setSelectedSubcategory('Todas');
+                    // Expandir las subcategorías de esta categoría
+                    toggleSubcategoriesVisibility(cat.id || cat.name);
+                  }}
+                  className={`flex-shrink-0 flex flex-row items-center bg-transparent px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 rounded-xl transition-all hover:bg-slate-50 focus:outline-none
+                    ${selectedCategory === cat.name ? "ring-2 ring-blue-400" : ""}
+                  `}
+                  style={{ minWidth: 120, maxWidth: 260 }}
+                >
+                  <img
+                    src={cat.image || "https://via.placeholder.com/80x80?text=?"}
+                    alt={cat.name}
+                    className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 object-cover mr-3 sm:mr-4 md:mr-6"
+                    loading="lazy"
+                    style={{ boxShadow: "none", border: "none", background: "none" }}
+                  />
+                  <div className="text-left">
+                    <h3 className="text-md md:text-lg font-bold text-slate-900">{cat.name}</h3>
+                    <p className="text-xs md:text-sm text-slate-500">
+                      {products.filter(p => {
+                        if (cat.name === "Todos") return true;
+                        
+                        // Contar productos que pertenecen directamente a esta categoría
+                        // O que pertenecen a alguna de sus subcategorías
+                        const directMatch = p.category === cat.name || p.categoryName === cat.name;
+                        
+                        // También contar productos en subcategorías de esta categoría principal
+                        const subCategories = categories.filter(sc => sc.parentId && 
+                                                                (sc.parentName === cat.name || sc.parentName === cat.id));
+                        const inSubCategory = subCategories.some(sc => 
+                          p.subcategory === sc.id || p.subcategoryName === sc.name
+                        );
+                        
+                        return directMatch || inSubCategory;
+                      }).length} productos
+                    </p>
+                  </div>
+                </button>
+              ))}
+              
+            {/* Botón "Ver más categorías" si hay más categorías principales */}
+            {categories.filter(cat => cat.name === "Todos" || !cat.parentId).length > visibleCategories.main && (
               <button
-                key={cat.name}
-                onClick={() => {
-                  setSelectedCategory(cat.name);
-                  // Resetear la subcategoría cuando se cambia la categoría principal
-                  setSelectedSubcategory('Todas');
-                }}
-                className={`flex-shrink-0 flex flex-row items-center bg-transparent px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 rounded-xl transition-all hover:bg-slate-50 focus:outline-none
-                  ${selectedCategory === cat.name ? "ring-2 ring-blue-400" : ""}
-                `}
-                style={{ minWidth: 120, maxWidth: 260 }}
+                onClick={loadMoreMainCategories}
+                className="flex-shrink-0 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 px-4 py-4 rounded-xl transition-all min-w-[120px]"
               >
-                <img
-                  src={cat.image || "https://via.placeholder.com/80x80?text=?"}
-                  alt={cat.name}
-                  className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 object-cover mr-3 sm:mr-4 md:mr-6"
-                  loading="lazy"
-                  style={{ boxShadow: "none", border: "none", background: "none" }}
-                />
-                <div className="text-left">
-                  <h3 className="text-md md:text-lg font-bold text-slate-900">{cat.name}</h3>
-                  <p className="text-xs md:text-sm text-slate-500">
-                    {products.filter(p => {
-                      if (cat.name === "Todos") return true;
-                      
-                      // Contar productos que pertenecen directamente a esta categoría
-                      // O que pertenecen a alguna de sus subcategorías
-                      const directMatch = p.category === cat.name || p.categoryName === cat.name;
-                      
-                      // También contar productos en subcategorías de esta categoría principal
-                      const subCategories = categories.filter(sc => sc.parentId && 
-                                                              (sc.parentName === cat.name || sc.parentName === cat.id));
-                      const inSubCategory = subCategories.some(sc => 
-                        p.subcategory === sc.id || p.subcategoryName === sc.name
-                      );
-                      
-                      return directMatch || inSubCategory;
-                    }).length} productos
-                  </p>
+                <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center mb-2">
+                  <ChevronDown className="h-6 w-6 text-slate-600" />
                 </div>
+                <span className="text-sm font-medium text-slate-700">Ver más</span>
               </button>
-            ))}
+            )}
+          </div>
+          
+          {/* Mostrar subcategorías para la categoría seleccionada */}
+          {selectedCategory !== 'Todos' && (
+            <div className="mb-10 px-2">
+              <div className="flex items-center mb-2">
+                <h3 className="text-lg font-medium text-slate-700">Subcategorías de {selectedCategory}</h3>
+                <button 
+                  onClick={() => toggleSubcategoriesVisibility(
+                    categories.find(c => c.name === selectedCategory)?.id || selectedCategory
+                  )}
+                  className="ml-2 p-1 rounded-full hover:bg-slate-100"
+                >
+                  <ChevronDown className="h-4 w-4 text-slate-500" />
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {subcategories.length > 1 ? (
+                  <>
+                    {/* Subcategorías filtradas y limitadas */}
+                    {subcategories
+                      .slice(0, visibleCategories.sub[
+                        categories.find(c => c.name === selectedCategory)?.id || selectedCategory
+                      ] || 5)
+                      .map((subcat) => (
+                        <button
+                          key={subcat.id}
+                          onClick={() => {
+                            setSelectedSubcategory(subcat.name);
+                            // Si se selecciona "Todas", resetear tercera categoría
+                            if (subcat.name === "Todas") {
+                              setSelectedTerceraCategoria('Todas');
+                            } else {
+                              // Expandir terceras categorías de esta subcategoría
+                              toggleThirdCategoriesVisibility(subcat.id || subcat.name);
+                            }
+                          }}
+                          className={`p-3 text-center rounded-lg border transition-all
+                            ${selectedSubcategory === subcat.name 
+                              ? "bg-blue-50 border-blue-200 text-blue-700"
+                              : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"}
+                          `}
+                        >
+                          {subcat.name}
+                        </button>
+                      ))}
+                    
+                    {/* Botón "Ver más" para subcategorías */}
+                    {subcategories.length > 5 && visibleCategories.sub[
+                      categories.find(c => c.name === selectedCategory)?.id || selectedCategory
+                    ] !== -1 && (
+                      <button
+                        onClick={() => loadMoreSubcategories(
+                          categories.find(c => c.name === selectedCategory)?.id || selectedCategory
+                        )}
+                        className="p-3 text-center rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100"
+                      >
+                        Ver más
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="col-span-full text-center p-4 bg-slate-50 rounded-lg text-slate-600">
+                    Esta categoría no tiene subcategorías
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Mostrar terceras categorías si hay una subcategoría seleccionada */}
+          {selectedSubcategory !== 'Todas' && (
+            <div className="mb-10 px-2">
+              <div className="flex items-center mb-2">
+                <h3 className="text-lg font-medium text-slate-700">Categorías de {selectedSubcategory}</h3>
+                <button 
+                  onClick={() => toggleThirdCategoriesVisibility(
+                    categories.find(c => c.name === selectedSubcategory)?.id || selectedSubcategory
+                  )}
+                  className="ml-2 p-1 rounded-full hover:bg-slate-100"
+                >
+                  <ChevronDown className="h-4 w-4 text-slate-500" />
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {tercerasCategorias.length > 1 ? (
+                  <>
+                    {/* Terceras categorías filtradas y limitadas */}
+                    {tercerasCategorias
+                      .slice(0, visibleCategories.third[
+                        categories.find(c => c.name === selectedSubcategory)?.id || selectedSubcategory
+                      ] || 5)
+                      .map((terceraCat) => (
+                        <button
+                          key={terceraCat.id}
+                          onClick={() => setSelectedTerceraCategoria(terceraCat.name)}
+                          className={`p-3 text-center rounded-lg border transition-all
+                            ${selectedTerceraCategoria === terceraCat.name 
+                              ? "bg-orange-50 border-orange-200 text-orange-700"
+                              : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"}
+                          `}
+                        >
+                          {terceraCat.name}
+                        </button>
+                      ))}
+                    
+                    {/* Botón "Ver más" para terceras categorías */}
+                    {tercerasCategorias.length > 5 && visibleCategories.third[
+                      categories.find(c => c.name === selectedSubcategory)?.id || selectedSubcategory
+                    ] !== -1 && (
+                      <button
+                        onClick={() => loadMoreThirdCategories(
+                          categories.find(c => c.name === selectedSubcategory)?.id || selectedSubcategory
+                        )}
+                        className="p-3 text-center rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100"
+                      >
+                        Ver más
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="col-span-full text-center p-4 bg-slate-50 rounded-lg text-slate-600">
+                    Esta subcategoría no tiene categorías adicionales
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Search and Sort Section - Mejorada para móviles */}
@@ -376,43 +657,131 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
           )}
         </div>
         
-        {/* Product Grid - Optimizado para productos más cuadrados */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4 md:gap-8 mb-16">
-          {loading ? (
-            Array.from({ length: 10 }).map((_, i) => (
+        {/* Productos por categoría - Una fila para cada categoría principal */}
+        {loading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 md:gap-8 mb-8">
+            {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="bg-slate-100 animate-pulse h-[200px] sm:h-[240px] md:h-[320px] rounded-xl shadow-lg w-full mx-auto"></div>
-            ))
-          ) : filteredAndSortedProducts.length > 0 ? (
-            filteredAndSortedProducts.map(product => (
-              <div key={product.id} className="w-full mx-auto">
-                <ProductCard product={{...product, price: product.price, originalPrice: product.originalPrice}} />
-              </div>
-            ))
-          ) : (
-            <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6">
-                <Search className="h-12 w-12 text-slate-400" />
-              </div>
-              <h3 className="text-2xl font-bold text-slate-700 mb-4">No se encontraron productos</h3>
-              <p className="text-slate-500 max-w-md mb-8">
-                No hay productos que coincidan con tu búsqueda "{searchTerm}" 
-                {selectedCategory !== 'Todos' && ` en la categoría ${selectedCategory}`}
-                {selectedSubcategory !== 'Todas' && `, subcategoría ${selectedSubcategory}`}
-                {selectedTerceraCategoria !== 'Todas' && `, tercera categoría ${selectedTerceraCategoria}`}.
-              </p>
-              <Button 
-                onClick={() => {
-                  setSearchTerm('');
-                  setSelectedCategory('Todos');
-                }}
-                variant="outline"
-                className="bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-700"
-              >
-                Mostrar todos los productos
-              </Button>
+            ))}
+          </div>
+        ) : searchTerm || selectedCategory !== 'Todos' ? (
+          // Si hay búsqueda o una categoría seleccionada, mostramos los resultados filtrados
+          <div className="mb-8">
+            <div className="mb-4 flex justify-between items-center">
+              <h2 className="text-xl font-medium text-slate-800">
+                {searchTerm ? `Resultados para "${searchTerm}"` : `Productos de ${selectedCategory}`}
+              </h2>
             </div>
-          )}
-        </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 md:gap-8">
+              {filteredAndSortedProducts.length > 0 ? (
+                filteredAndSortedProducts.map(product => (
+                  <div key={product.id} className="w-full mx-auto">
+                    <ProductCard product={{...product, price: product.price, originalPrice: product.originalPrice}} />
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                  <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6">
+                    <Search className="h-12 w-12 text-slate-400" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-700 mb-4">No se encontraron productos</h3>
+                  <p className="text-slate-500 max-w-md mb-8">
+                    No hay productos que coincidan con tu búsqueda "{searchTerm}" 
+                    {selectedCategory !== 'Todos' && ` en la categoría ${selectedCategory}`}
+                    {selectedSubcategory !== 'Todas' && `, subcategoría ${selectedSubcategory}`}
+                    {selectedTerceraCategoria !== 'Todas' && `, tercera categoría ${selectedTerceraCategoria}`}.
+                  </p>
+                  <Button 
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSelectedCategory('Todos');
+                    }}
+                    variant="outline"
+                    className="bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-700"
+                  >
+                    Mostrar todos los productos
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // Mostrar productos organizados por categoría principal
+          <>
+            {sortedMainCategories.map(category => {
+                // Obtener productos de esta categoría y sus subcategorías
+                const categoryProducts = getProductsByCategory(category.name);
+                
+                // Si no hay productos, no mostramos la fila
+                if (categoryProducts.length === 0) return null;
+                
+                // Número de productos a mostrar para esta categoría
+                const productsToShow = visibleProductsPerCategory[category.id || category.name] || PRODUCTS_PER_ROW;
+                
+                return (
+                  <div key={category.id || category.name} className="mb-12">
+                    {/* Cabecera de la categoría */}
+                    <div className="flex justify-between items-center mb-4">
+                      <div className="flex items-center">
+                        <img
+                          src={category.image || "https://via.placeholder.com/40x40?text=?"}
+                          alt={category.name}
+                          className="w-10 h-10 object-cover rounded-md mr-3"
+                        />
+                        <h2 className="text-xl font-medium text-slate-800">{category.name}</h2>
+                      </div>
+                      
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setSelectedCategory(category.name)}
+                      >
+                        Ver todos
+                      </Button>
+                    </div>
+                    
+                    {/* Productos de esta categoría */}
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 md:gap-8 mb-2">
+                      {categoryProducts
+                        .slice(0, productsToShow)
+                        .map(product => (
+                          <div key={product.id} className="w-full mx-auto">
+                            <ProductCard product={{...product, price: product.price, originalPrice: product.originalPrice}} />
+                          </div>
+                        ))
+                      }
+                    </div>
+                    
+                    {/* Botón para cargar más productos de esta categoría */}
+                    {categoryProducts.length > productsToShow && (
+                      <div className="flex justify-center mt-4">
+                        <Button 
+                          onClick={() => loadMoreProductsForCategory(category.id || category.name)}
+                          className="px-6 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-lg flex items-center"
+                          disabled={loadingMoreProducts[category.id || category.name]}
+                          size="sm"
+                        >
+                          {loadingMoreProducts[category.id || category.name] ? (
+                            <>
+                              <div className="animate-spin mr-2 h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                              Cargando...
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="h-3 w-3 mr-2" />
+                              Ver más productos de {category.name}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            }
+          </>
+        )}
 
         {/* Ofertas Especiales */}
        
