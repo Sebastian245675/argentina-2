@@ -77,7 +77,11 @@ const SimpleTrendChart = ({ data }: { data: { date: string; views: number }[] })
 
 
 
-export const ProductAnalyticsView: React.FC = () => {
+interface ProductAnalyticsViewProps {
+  products?: any[];
+}
+
+export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ products }) => {
   const [mostViewed, setMostViewed] = useState<ProductAnalytics[]>([]);
   const [leastViewed, setLeastViewed] = useState<ProductAnalytics[]>([]);
   const [trend, setTrend] = useState<{ date: string; views: number }[]>([]);

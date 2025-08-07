@@ -15,9 +15,13 @@ import { Search, Eye, MessageCircle, Clock, CheckCircle, XCircle, Trash2, Check 
 import { collection, getDocs, deleteDoc, updateDoc, doc } from "firebase/firestore";
 import { db } from "@/firebase";
 
-export const OrdersList: React.FC = () => {
+interface OrdersListProps {
+  orders?: any[];
+}
+
+export const OrdersList: React.FC<OrdersListProps> = ({ orders: initialOrders }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>(initialOrders || []);
   const [loading, setLoading] = useState(true);
 
   // Cargar pedidos reales de Firestore
