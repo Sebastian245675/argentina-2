@@ -36,7 +36,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const handleQuickAdminLogin = async () => {
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, 'admin@tienda.com', 'admin123');
+      await signInWithEmailAndPassword(auth, 'admin@gmail.com', 'admin123');
       toast({
         title: "¡Acceso de administrador!",
         description: "Bienvenido al panel de administración",

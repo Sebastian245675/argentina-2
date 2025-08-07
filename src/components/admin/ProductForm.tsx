@@ -52,7 +52,9 @@ export const ProductForm: React.FC = () => {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [categories, setCategories] = useState<{ id: string; name: string; parentId?: string | null; }[]>([]);
   const { user } = useAuth();
-  const [liberta, setLiberta] = useState("si");
+  // Por defecto, establecemos liberta como "no" para asegurar que los cambios vayan a revisión
+  // hasta que se verifique el permiso
+  const [liberta, setLiberta] = useState("no");
 
   // Lista predefinida de beneficios
   const predefinedBenefits = [
@@ -130,14 +132,24 @@ export const ProductForm: React.FC = () => {
   useEffect(() => {
     const fetchLiberta = async () => {
       if (user && (user as any).email) {
+        // Verificamos si es el usuario admin principal
+        if ((user as any).email === "admin@gmail.com" || (user as any).email === "admin@tienda.com" || (user as any).isAdmin === true) {
+          setLiberta("si"); // El admin siempre tiene permisos
+          console.log("Usuario identificado como administrador, tiene permisos completos");
+          return;
+        }
+        
         // Busca el usuario por email en la colección users
         const usersRef = collection(db, "users");
         const querySnapshot = await getDocs(usersRef);
-        let foundLiberta = "si";
+        // Por defecto, las subcuentas no tienen libertad
+        let foundLiberta = "no";
+        
         querySnapshot.forEach((docu) => {
           const data = docu.data();
           if (data.email === (user as any).email) {
-            foundLiberta = data.liberta || "si";
+            // Sólo si explícitamente se ha configurado como "si", se otorga libertad
+            foundLiberta = data.liberta === "si" ? "si" : "no";
           }
         });
         setLiberta(foundLiberta);

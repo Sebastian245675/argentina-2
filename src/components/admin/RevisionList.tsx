@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { collection, getDocs, deleteDoc, doc, addDoc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, deleteDoc, doc, addDoc, updateDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -25,18 +25,33 @@ export const RevisionList: React.FC = () => {
 
   const handleApprove = async (revision: any) => {
     try {
+      // Para productos
       if (revision.type === "add") {
         await addDoc(collection(db, "products"), revision.data);
       } else if (revision.type === "edit" && revision.data.id) {
         await updateDoc(doc(db, "products", revision.data.id), revision.data);
       } else if (revision.type === "delete" && revision.data.id) {
         await updateDoc(doc(db, "products", revision.data.id), { deleted: true });
+      } 
+      // Para info sections
+      else if (revision.type === "info_edit" && revision.sectionId) {
+        await updateDoc(doc(db, "infoSections", revision.sectionId), {
+          content: revision.data.content,
+          lastEdited: Timestamp.now()
+        });
+      } else if (revision.type === "info_toggle" && revision.sectionId) {
+        await updateDoc(doc(db, "infoSections", revision.sectionId), {
+          enabled: revision.data.enabled,
+          lastEdited: Timestamp.now()
+        });
       }
+      
       await deleteDoc(doc(db, "revision", revision.id));
       toast({ title: "Cambio aplicado", description: "La revisión fue aprobada y aplicada." });
       fetchRevisions();
       setSelected(null);
     } catch (e) {
+      console.error("Error al aprobar revisión:", e);
       toast({ title: "Error", description: "No se pudo aprobar la revisión.", variant: "destructive" });
     }
   };
@@ -56,6 +71,10 @@ export const RevisionList: React.FC = () => {
         return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300"><Edit2 className="inline w-4 h-4 mr-1" />Edición</Badge>;
       case "delete":
         return <Badge className="bg-red-100 text-red-700 border-red-300"><Trash2 className="inline w-4 h-4 mr-1" />Eliminación</Badge>;
+      case "info_edit":
+        return <Badge className="bg-blue-100 text-blue-700 border-blue-300"><Edit2 className="inline w-4 h-4 mr-1" />Edición Info</Badge>;
+      case "info_toggle":
+        return <Badge className="bg-purple-100 text-purple-700 border-purple-300"><CheckCircle className="inline w-4 h-4 mr-1" />Estado Info</Badge>;
       default:
         return <Badge>{type}</Badge>;
     }
@@ -92,6 +111,10 @@ export const RevisionList: React.FC = () => {
                     {rev.type === "add" && <>Nuevo producto: <b>{rev.data?.name}</b></>}
                     {rev.type === "edit" && <>Editar producto: <b>{rev.data?.name}</b></>}
                     {rev.type === "delete" && <>Eliminar producto: <b>{rev.data?.name}</b></>}
+                    {rev.type === "info_edit" && <>Editar sección: <b>{rev.sectionTitle}</b></>}
+                    {rev.type === "info_toggle" && <>
+                      {rev.data?.enabled ? "Habilitar" : "Deshabilitar"} sección: <b>{rev.sectionTitle}</b>
+                    </>}
                   </div>
                   {selected?.id === rev.id && (
                     <div className="mt-3 bg-gray-50 rounded-lg p-4 border border-orange-200">
@@ -99,6 +122,7 @@ export const RevisionList: React.FC = () => {
                         <Eye className="w-4 h-4" /> Detalles de la revisión
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                        {/* Para productos */}
                         {rev.data?.name && (
                           <div>
                             <span className="font-medium text-gray-600">Nombre:</span>{" "}
@@ -123,7 +147,7 @@ export const RevisionList: React.FC = () => {
                             <span className="text-gray-800">{rev.data.stock}</span>
                           </div>
                         )}
-                        {rev.data?.description && (
+                        {rev.data?.description && !rev.type.includes("info") && (
                           <div className="md:col-span-2">
                             <span className="font-medium text-gray-600">Descripción:</span>{" "}
                             <span className="text-gray-800">{rev.data.description}</span>
@@ -138,6 +162,27 @@ export const RevisionList: React.FC = () => {
                               onError={e => (e.currentTarget.style.display = "none")}
                             />
                             <span className="text-xs text-gray-400">{rev.data.image}</span>
+                          </div>
+                        )}
+                        
+                        {/* Para Info Sections */}
+                        {rev.type === "info_edit" && rev.data?.content && (
+                          <div className="md:col-span-2">
+                            <span className="font-medium text-gray-600">Contenido:</span>{" "}
+                            <div className="text-gray-800 bg-gray-50 p-2 rounded mt-1 max-h-60 overflow-auto">
+                              {rev.data.content}
+                            </div>
+                          </div>
+                        )}
+                        {rev.type === "info_toggle" && (
+                          <div className="md:col-span-2">
+                            <span className="font-medium text-gray-600">Estado:</span>{" "}
+                            <span className={`font-medium ${rev.data.enabled ? "text-green-600" : "text-red-600"}`}>
+                              {rev.data.enabled ? "Habilitar" : "Deshabilitar"}
+                            </span>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Estado anterior: {rev.data.previousEnabled ? "Habilitado" : "Deshabilitado"}
+                            </div>
                           </div>
                         )}
                       </div>

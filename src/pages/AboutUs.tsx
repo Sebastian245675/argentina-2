@@ -49,7 +49,7 @@ const AboutUs = () => {
                 <span className="text-black">Sobre Nosotros</span>
               </nav>
               <h1 className="text-5xl md:text-7xl font-serif font-bold text-black mb-4 tracking-tight w-full">
-                Somos La Mueblería Online
+                Sobre Nosotros
               </h1>
               {loading ? (
                 <div className="text-center text-blue-500">Cargando información...</div>
@@ -59,13 +59,21 @@ const AboutUs = () => {
                 </div>
               ) : (
                 <>
-                  <h2 className="text-2xl md:text-3xl font-serif font-semibold text-black mb-10 w-full">¡Hola! Somos La Mueblería Online</h2>
+                  <h2 className="text-2xl md:text-3xl font-serif font-semibold text-black mb-10 w-full">¿Quiénes Somos?</h2>
                   <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none">
-                    Somos una pyme familiar que nació en 2007 con la idea de ofrecer muebles modernos, funcionales y de calidad a todos los hogares de Argentina. Nos entusiasma ser parte de cada rincón especial de tu casa y, después de la pandemia, decidimos abrir un local físico en  para acercarnos aún más a ustedes y brindarles una atención personalizada. Nuestra misión es ayudarte a crear el hogar que siempre soñaste, con productos que combinen diseño, comodidad y precio justo, sin perder calidad. ¡Queremos que disfrutes de tu espacio con muebles que sean tan únicos como vos!
+                    Somos una tienda digital pensada para que encuentres ese regalo ideal que estabas buscando, al mejor precio del mercado.
                   </p>
-                  <h3 className="text-2xl font-bold font-serif text-black mb-4 mt-8 w-full">¿Qué ofrecemos?</h3>
-                  <p className="text-base md:text-lg text-gray-700 mb-6 w-full max-w-none">
-                    Fabricamos muebles para todos los ambientes de tu hogar con maderas de alta calidad como paraíso, kiri y petiribi, creando piezas perfectas para el comedor, living, dormitorio, escritorios y galerías semi cubiertas. Además, contamos con fábrica propia y enviamos productos a CABA y GBA con logística propia. Si estás fuera de la zona, tenemos opciones de embalaje para larga distancia y servicio de envío especializado. Contamos también con una línea de productos en stock permanente, disponibles para entrega inmediata. Además, te ofrecemos atención personalizada tanto en nuestro local como por WhatsApp, Instagram y tienda online, para resolver todas tus dudas y ayudarte en lo que necesites.
+                  <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none">
+                    Ofrecemos una amplia variedad de productos: desde peluches, mates parlantes, bicicletas, electrodomésticos, hasta artículos únicos y originales para sorprender o darte un gusto.
+                  </p>
+                  <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none">
+                    Nuestra misión es clara: que puedas comprar de forma rápida, segura y con la confianza de que estás haciendo una buena elección.
+                  </p>
+                  <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none">
+                    ✨ Porque sabemos que regalar es una forma de decir mucho sin palabras, trabajamos día a día para que en nuestra tienda siempre encuentres algo especial.
+                  </p>
+                  <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none font-bold">
+                    "Encontrá tu regalo ideal al mejor precio" no es solo nuestro eslogan, es un compromiso.
                   </p>
                 </>
               )}
