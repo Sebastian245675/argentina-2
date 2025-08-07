@@ -38,33 +38,11 @@ export const RevisionList: React.FC = () => {
     try {
       // Para productos
       if (revision.type === "add") {
-        const productData = {
-          ...revision.data,
-          createdAt: new Date(),
-          createdBy: revision.editorEmail || "unknown",
-          lastModified: new Date(),
-          lastModifiedBy: revision.editorEmail || "unknown",
-          approvedAt: new Date(),
-          approvedBy: "admin"
-        };
-        await addDoc(collection(db, "products"), productData);
+        await addDoc(collection(db, "products"), revision.data);
       } else if (revision.type === "edit" && revision.data.id) {
-        const updateData = {
-          ...revision.data,
-          lastModified: new Date(),
-          lastModifiedBy: revision.editorEmail || "unknown",
-          approvedAt: new Date(),
-          approvedBy: "admin"
-        };
-        await updateDoc(doc(db, "products", revision.data.id), updateData);
+        await updateDoc(doc(db, "products", revision.data.id), revision.data);
       } else if (revision.type === "delete" && revision.data.id) {
-        await updateDoc(doc(db, "products", revision.data.id), { 
-          deleted: true,
-          lastModified: new Date(),
-          deletedAt: new Date(),
-          deletedBy: revision.editorEmail || "unknown",
-          approvedBy: "admin"
-        });
+        await updateDoc(doc(db, "products", revision.data.id), { deleted: true });
       } 
       // Para info sections
       else if (revision.type === "info_edit" && revision.sectionId) {
@@ -664,6 +642,203 @@ export const RevisionList: React.FC = () => {
             </div>
           )}
         </CardContent>
+      </Card>
+      
+      {/* Diálogo de comparación de cambios */}
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-orange-700">
+              Visualización de Cambios
+            </DialogTitle>
+          </DialogHeader>
+          
+          {renderComparison()}
+          
+          <DialogFooter className="mt-6 border-t pt-4">
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                Cerrar
+              </Button>
+              {currentRevision && (
+                <>
+                  <Button 
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => handleApprove(currentRevision)}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-1" /> Aprobar
+                  </Button>
+                  <Button 
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    onClick={() => handleDelete(currentRevision.id)}
+                  >
+                    <XCircle className="w-4 h-4 mr-1" /> Rechazar
+                  </Button>
+                </>
+              )}
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Revisiones Pendientes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="py-8 text-center text-muted-foreground">Cargando...</div>
+          ) : revisions.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">No hay revisiones pendientes.</div>
+          ) : (
+            <div className="space-y-4">
+              {revisions.map(rev => (
+              <div
+                key={rev.id}
+                className={`border p-4 rounded-xl shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3 transition-all hover:shadow-lg ${
+                  selected?.id === rev.id ? "border-orange-400 bg-orange-50" : "border-gray-200 bg-white"
+                }`}
+              >
+                <div className="flex-1 flex flex-col gap-2">
+                  <div className="flex items-center gap-3">
+                    {typeBadge(rev.type)}
+                    <Badge variant="outline" className="ml-2">{rev.entity}</Badge>
+                    <span className="text-xs text-gray-400 ml-2">
+                      {rev.userId ? `Solicitado por: ${rev.userId}` : ""}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    {rev.type === "add" && <>Nuevo producto: <b>{rev.data?.name}</b></>}
+                    {rev.type === "edit" && <>Editar producto: <b>{rev.data?.name}</b></>}
+                    {rev.type === "delete" && <>Eliminar producto: <b>{rev.data?.name}</b></>}
+                    {rev.type === "info_edit" && <>Editar sección: <b>{rev.sectionTitle}</b></>}
+                    {rev.type === "info_toggle" && <>
+                      {rev.data?.enabled ? "Habilitar" : "Deshabilitar"} sección: <b>{rev.sectionTitle}</b>
+                    </>}
+                  </div>
+                  {selected?.id === rev.id && (
+                    <div className="mt-3 bg-gray-50 rounded-lg p-4 border border-orange-200">
+                      <div className="font-semibold text-sm mb-2 text-orange-700 flex items-center gap-2">
+                        <Eye className="w-4 h-4" /> Detalles de la revisión
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                        {/* Para productos */}
+                        {rev.data?.name && (
+                          <div>
+                            <span className="font-medium text-gray-600">Nombre:</span>{" "}
+                            <span className="text-gray-800">{rev.data.name}</span>
+                          </div>
+                        )}
+                        {rev.data?.category && (
+                          <div>
+                            <span className="font-medium text-gray-600">Categoría:</span>{" "}
+                            <span className="text-gray-800">{rev.data.category}</span>
+                          </div>
+                        )}
+                        {rev.data?.price !== undefined && (
+                          <div>
+                            <span className="font-medium text-gray-600">Precio:</span>{" "}
+                            <span className="text-gray-800">${rev.data.price}</span>
+                          </div>
+                        )}
+                        {rev.data?.stock !== undefined && (
+                          <div>
+                            <span className="font-medium text-gray-600">Stock:</span>{" "}
+                            <span className="text-gray-800">{rev.data.stock}</span>
+                          </div>
+                        )}
+                        {rev.data?.description && !rev.type.includes("info") && (
+                          <div className="md:col-span-2">
+                            <span className="font-medium text-gray-600">Descripción:</span>{" "}
+                            <span className="text-gray-800">{rev.data.description}</span>
+                          </div>
+                        )}
+                        {rev.data?.image && (
+                          <div className="md:col-span-2 flex items-center gap-2 mt-2">
+                            <img
+                              src={rev.data.image}
+                              alt="Imagen"
+                              className="w-16 h-16 object-cover rounded border"
+                              onError={e => (e.currentTarget.style.display = "none")}
+                            />
+                            <span className="text-xs text-gray-400">{rev.data.image}</span>
+                          </div>
+                        )}
+                        
+                        {/* Para Info Sections */}
+                        {rev.type === "info_edit" && rev.data?.content && (
+                          <div className="md:col-span-2">
+                            <span className="font-medium text-gray-600">Contenido:</span>{" "}
+                            <div className="text-gray-800 bg-gray-50 p-2 rounded mt-1 max-h-60 overflow-auto">
+                              {rev.data.content}
+                            </div>
+                          </div>
+                        )}
+                        {rev.type === "info_toggle" && (
+                          <div className="md:col-span-2">
+                            <span className="font-medium text-gray-600">Estado:</span>{" "}
+                            <span className={`font-medium ${rev.data.enabled ? "text-green-600" : "text-red-600"}`}>
+                              {rev.data.enabled ? "Habilitar" : "Deshabilitar"}
+                            </span>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Estado anterior: {rev.data.previousEnabled ? "Habilitado" : "Deshabilitado"}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {/* Si hay campos extra, muestra el JSON */}
+                      {Object.keys(rev.data || {}).length > 7 && (
+                        <details className="mt-3">
+                          <summary className="cursor-pointer text-xs text-gray-500">Ver JSON completo</summary>
+                          <pre className="bg-gray-100 p-2 rounded text-xs overflow-x-auto mt-1">{JSON.stringify(rev.data, null, 2)}</pre>
+                        </details>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2 items-center">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-green-400 text-green-700 hover:bg-green-50"
+                    onClick={() => handleApprove(rev)}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-1" /> Aceptar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-red-400 text-red-700 hover:bg-red-50"
+                    onClick={() => handleDelete(rev.id)}
+                  >
+                    <XCircle className="w-4 h-4 mr-1" /> Eliminar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-blue-400 text-blue-700 hover:bg-blue-50"
+                    onClick={() => {
+                      setSelected(selected?.id === rev.id ? null : rev);
+                      if (rev.type === "edit" || rev.type === "info_edit" || 
+                          rev.type === "add" || rev.type === "delete" || 
+                          rev.type === "info_toggle") {
+                        handleViewChanges(rev);
+                      }
+                    }}
+                  >
+                    <Eye className="w-4 h-4 mr-1" /> {selected?.id === rev.id ? "Ocultar" : "Ver cambios"}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
       </Card>
       
       {/* Diálogo de comparación de cambios */}

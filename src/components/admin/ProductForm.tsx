@@ -139,11 +139,20 @@ export const ProductForm: React.FC = () => {
         if (user && user.email) {
           // Si es admin@gmail.com, darle permisos completos automáticamente
           if (user.email === "admin@gmail.com") {
-            setLiberta("yes");
+            setLiberta("si");
           } else {
-            const adminDoc = await getDoc(doc(db, "admins", user.email));
-            if (adminDoc.exists() && adminDoc.data().liberta === "yes") {
-              setLiberta("yes");
+            // Primero verificar en la colección "users" donde está la info de subcuentas
+            if (user.id) {
+              const userDoc = await getDoc(doc(db, "users", user.id));
+              if (userDoc.exists() && userDoc.data().liberta === "si") {
+                setLiberta("si");
+              } else {
+                // Verificar también en "admins" por compatibilidad
+                const adminDoc = await getDoc(doc(db, "admins", user.email));
+                if (adminDoc.exists() && adminDoc.data().liberta === "yes") {
+                  setLiberta("si");
+                }
+              }
             }
           }
         }
@@ -200,27 +209,13 @@ export const ProductForm: React.FC = () => {
       subcategoryName,
       terceraCategoriaName,
       lastModified: new Date(),
+      lastModifiedBy: user?.email || "unknown",
     };
     
     try {
       if (isEditing && editingId) {
-        // Si liberta="no", los cambios van a revisión
-        if (liberta === "no") {
-          await addDoc(collection(db, "revisiones"), {
-            type: "edit",
-            originalId: editingId,
-            productData: productData,
-            status: "pendiente",
-            createdAt: new Date(),
-            editorEmail: user?.email || "unknown"
-          });
-          
-          toast({
-            title: "Cambios enviados a revisión",
-            description: "Los cambios han sido enviados para aprobación del administrador."
-          });
-          resetForm();
-        } else {
+        // Si liberta="si", permite cambios directos, en cualquier otro caso requiere revisión
+        if (liberta === "si") {
           // Si tiene libertad, actualiza directamente
           await updateDoc(doc(db, "products", editingId), productData);
           toast({
@@ -234,26 +229,36 @@ export const ProductForm: React.FC = () => {
             product.id === editingId ? { id: editingId, ...productData } : product
           );
           setProducts(updatedProducts);
-        }
-      } else {
-        // Si liberta="no", los cambios van a revisión
-        if (liberta === "no") {
-          await addDoc(collection(db, "revisiones"), {
-            type: "add",
-            productData: productData,
+        } else {
+          // Si no tiene liberta, los cambios van a revisión
+          await addDoc(collection(db, "revision"), {
+            type: "edit",
+            data: { ...productData, id: editingId },
             status: "pendiente",
-            createdAt: new Date(),
-            editorEmail: user?.email || "unknown"
+            timestamp: new Date(),
+            editorEmail: user?.email || "unknown",
+            userName: user?.name || user?.email || "unknown"
           });
           
           toast({
-            title: "Producto enviado a revisión",
-            description: "El producto ha sido enviado para aprobación del administrador."
+            title: "Cambios enviados a revisión",
+            description: "Los cambios han sido enviados para aprobación del administrador."
           });
           resetForm();
-        } else {
+        }
+      } else {
+        // Si liberta="si", permite cambios directos, en cualquier otro caso requiere revisión
+        if (liberta === "si") {
           // Si tiene libertad, crea directamente
-          const docRef = await addDoc(collection(db, "products"), productData);
+          const productWithMetadata = {
+            ...productData,
+            createdAt: new Date(),
+            createdBy: user?.email || "unknown",
+            lastModified: new Date(),
+            lastModifiedBy: user?.email || "unknown"
+          };
+          
+          const docRef = await addDoc(collection(db, "products"), productWithMetadata);
           toast({
             title: "Producto agregado",
             description: "El producto ha sido agregado exitosamente."
@@ -261,7 +266,23 @@ export const ProductForm: React.FC = () => {
           resetForm();
           
           // Actualizar la lista de productos
-          setProducts([...products, { id: docRef.id, ...productData }]);
+          setProducts([...products, { id: docRef.id, ...productWithMetadata }]);
+        } else {
+          // Si no tiene liberta, los cambios van a revisión
+          await addDoc(collection(db, "revision"), {
+            type: "add",
+            data: productData,
+            status: "pendiente",
+            timestamp: new Date(),
+            editorEmail: user?.email || "unknown",
+            userName: user?.name || user?.email || "unknown"
+          });
+          
+          toast({
+            title: "Producto enviado a revisión",
+            description: "El producto ha sido enviado para aprobación del administrador."
+          });
+          resetForm();
         }
       }
     } catch (error) {
@@ -307,7 +328,7 @@ export const ProductForm: React.FC = () => {
 
   const handleDelete = async (productId: string) => {
     try {
-      if (liberta === "yes") {
+      if (liberta === "si") {
         // Si tiene libertad, elimina directamente
         await setDoc(doc(db, "products", productId), {
           deleted: true,
@@ -324,12 +345,14 @@ export const ProductForm: React.FC = () => {
         setProducts(products.filter(product => product.id !== productId));
       } else {
         // Si no tiene libertad, envía a revisión
-        await addDoc(collection(db, "revisiones"), {
+        const productToDelete = products.find(p => p.id === productId);
+        await addDoc(collection(db, "revision"), {
           type: "delete",
-          productId: productId,
+          data: { id: productId, name: productToDelete?.name || "Producto desconocido" },
           status: "pendiente",
-          createdAt: new Date(),
-          editorEmail: user?.email || "unknown"
+          timestamp: new Date(),
+          editorEmail: user?.email || "unknown",
+          userName: user?.name || user?.email || "unknown"
         });
         
         toast({
@@ -529,12 +552,22 @@ export const ProductForm: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {/* Aviso si no tiene libertad */}
-      {liberta === "no" && (
-        <div className="p-4 mb-4 bg-sky-100 border-l-4 border-sky-400 text-sky-800 rounded-lg shadow-sm">
+      {/* Aviso del estado de libertad */}
+      {user?.subCuenta === "si" && (
+        <div className={`p-4 mb-4 ${liberta === "si" 
+          ? "bg-green-100 border-l-4 border-green-400 text-green-800" 
+          : "bg-sky-100 border-l-4 border-sky-400 text-sky-800"} rounded-lg shadow-sm`}>
           <div className="flex items-center">
-            <AlertTriangle className="h-5 w-5 mr-2 text-sky-600" />
-            <p className="font-medium">Tu cuenta no tiene permisos para publicar cambios directos. Los cambios que realices serán enviados a revisión del administrador.</p>
+            {liberta === "si" ? (
+              <ShieldCheck className="h-5 w-5 mr-2 text-green-600" />
+            ) : (
+              <AlertTriangle className="h-5 w-5 mr-2 text-sky-600" />
+            )}
+            <p className="font-medium">
+              {liberta === "si" 
+                ? "Tu cuenta tiene permisos para publicar cambios directamente." 
+                : "Tu cuenta no tiene permisos para publicar cambios directos. Los cambios que realices serán enviados a revisión del administrador."}
+            </p>
           </div>
         </div>
       )}
@@ -1353,10 +1386,15 @@ export const ProductForm: React.FC = () => {
               <Button 
                 type="submit" 
                 className="bg-gradient-to-r from-sky-500 to-blue-600 text-white hover:opacity-90 transition-all shadow-lg"
-                disabled={liberta === "no" && isEditing} // Solo permite agregar, no editar directo
               >
                 <Save className="h-4 w-4 mr-2" />
-                {isEditing ? 'Actualizar Producto' : 'Agregar Producto'}
+                {isEditing && liberta !== "si" 
+                  ? 'Enviar Cambios a Revisión' 
+                  : isEditing 
+                    ? 'Actualizar Producto' 
+                    : liberta !== "si" 
+                      ? 'Enviar Producto a Revisión' 
+                      : 'Agregar Producto'}
               </Button>
               {isEditing && (
                 <Button 
@@ -1589,13 +1627,12 @@ export const ProductForm: React.FC = () => {
                               variant="outline"
                               onClick={() => handleEdit(product)}
                               className="hover:bg-blue-50 hover:border-blue-300 transition-colors text-blue-600"
-                              disabled={liberta === "no"}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent side="left" className="bg-blue-600">
-                            <p className="text-xs">Editar producto</p>
+                            <p className="text-xs">{liberta === "si" ? "Editar producto" : "Enviar cambios a revisión"}</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -1627,7 +1664,6 @@ export const ProductForm: React.FC = () => {
                             size="sm"
                             variant="outline"
                             className="text-red-600 hover:bg-red-50 hover:border-red-300 transition-colors"
-                            disabled={liberta === "no"}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -1636,10 +1672,13 @@ export const ProductForm: React.FC = () => {
                           <AlertDialogHeader>
                             <AlertDialogTitle className="flex items-center gap-2">
                               <AlertTriangle className="h-5 w-5 text-red-500" />
-                              ¿Eliminar producto?
+                              {liberta === "si" ? "¿Eliminar producto?" : "¿Enviar solicitud de eliminación?"}
                             </AlertDialogTitle>
                             <AlertDialogDescription>
-                              Esta acción es irreversible y eliminará el producto <strong>"{product.name}"</strong> del sistema.
+                              {liberta === "si" ? 
+                                `Esta acción es irreversible y eliminará el producto "${product.name}" del sistema.` :
+                                `Se enviará una solicitud para eliminar el producto "${product.name}" que requerirá aprobación del administrador.`
+                              }
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -1647,9 +1686,8 @@ export const ProductForm: React.FC = () => {
                             <AlertDialogAction 
                               onClick={() => handleDelete(product.id)}
                               className="bg-red-600 hover:bg-red-700"
-                              disabled={liberta === "no"}
                             >
-                              Eliminar
+                              {liberta === "si" ? "Eliminar" : "Enviar solicitud"}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>

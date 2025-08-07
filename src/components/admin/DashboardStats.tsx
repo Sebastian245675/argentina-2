@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Package, ShoppingCart, TrendingUp, TrendingDown, DollarSign, Clock, RefreshCw, Calendar, Filter, ChevronDown, ArrowUpRight, Activity } from 'lucide-react';
+import { Users, Package, ShoppingCart, TrendingUp, TrendingDown, DollarSign, Clock, RefreshCw, Calendar, Filter, ChevronDown, ArrowUpRight, Activity, FileText, FilePenLine } from 'lucide-react';
 import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
 import { db } from "@/firebase";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 
 export const DashboardStats: React.FC = () => {
   const [userCount, setUserCount] = useState(0);
@@ -27,15 +28,80 @@ export const DashboardStats: React.FC = () => {
     getDocs(collection(db, "users")).then(snapshot => setUserCount(snapshot.size));
     // Productos
     getDocs(collection(db, "products")).then(snapshot => setProductCount(snapshot.size));
+    
+    // Cargar actividades recientes (productos)
+    const loadRecentProductActivities = async () => {
+      const activity: any[] = [];
+      
+      // Consultar productos ordenados por fecha de modificación
+      const productsQuery = query(
+        collection(db, "products"), 
+        orderBy("lastModified", "desc"),
+        limit(10)
+      );
+      
+      const productsSnapshot = await getDocs(productsQuery);
+      
+      productsSnapshot.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.lastModified) {
+          activity.push({
+            user: data.lastModifiedBy || data.createdBy || "Admin",
+            action: `Producto ${data.name || "sin nombre"} ${data.createdAt ? "creado" : "modificado"}`,
+            time: data.lastModified?.toDate?.() 
+              ? data.lastModified.toDate().toLocaleString("es-CO") 
+              : new Date(data.lastModified).toLocaleString("es-CO"),
+            type: "product",
+            icon: "package"
+          });
+        }
+      });
+      
+      // Consultar revisiones para ver actividad de edición
+      const revisionQuery = query(
+        collection(db, "revision"),
+        orderBy("timestamp", "desc"),
+        limit(5)
+      );
+      
+      const revisionSnapshot = await getDocs(revisionQuery);
+      
+      revisionSnapshot.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        let actionText = "Acción desconocida";
+        
+        if (data.type === "add") {
+          actionText = `Producto ${data.data?.name || ""} enviado para aprobación`;
+        } else if (data.type === "edit") {
+          actionText = `Edición de producto ${data.data?.name || ""} pendiente`;
+        } else if (data.type === "delete") {
+          actionText = `Eliminación de producto solicitada`;
+        }
+        
+        activity.push({
+          user: data.userName || data.editorEmail || "Usuario",
+          action: actionText,
+          time: data.timestamp?.toDate?.()
+            ? data.timestamp.toDate().toLocaleString("es-CO")
+            : new Date(data.timestamp).toLocaleString("es-CO"),
+          type: "revision",
+          status: data.status || "pendiente"
+        });
+      });
+      
+      return activity;
+    };
+    
     // Pedidos y ventas del mes
-    getDocs(collection(db, "pedidos")).then(snapshot => {
+    getDocs(collection(db, "pedidos")).then(async snapshot => {
       setOrderCount(snapshot.size);
 
-      // Ventas del mes y actividad reciente
+      // Ventas del mes
       const now = new Date();
       const thisMonth = now.getMonth();
       let sales = 0;
-      const activity: any[] = [];
+      const orderActivity: any[] = [];
+      
       snapshot.docs.forEach(docSnap => {
         const data = docSnap.data();
         // Ventas del mes (solo pedidos confirmados)
@@ -45,18 +111,34 @@ export const DashboardStats: React.FC = () => {
             sales += Number(data.total || 0);
           }
         }
-        // Actividad reciente (últimos 5 pedidos)
-        activity.push({
+        
+        // Actividad de pedidos
+        orderActivity.push({
           user: data.userName || "Cliente",
           action: data.status === "confirmed" ? "Pedido confirmado" : "Pedido en espera",
           time: data.createdAt?.toDate
             ? data.createdAt.toDate().toLocaleString("es-CO")
             : "",
           amount: data.total ? `$${Number(data.total).toLocaleString()}` : null,
+          type: "order"
         });
       });
+      
       setMonthSales(sales);
-      setRecentActivity(activity.sort((a, b) => (a.time < b.time ? 1 : -1)).slice(0, 5));
+      
+      // Combinar actividades de productos y pedidos
+      const productActivities = await loadRecentProductActivities();
+      const allActivities = [...productActivities, ...orderActivity];
+      
+      // Ordenar por fecha descendente y tomar los primeros 8
+      const sortedActivities = allActivities.sort((a, b) => {
+        // Convertir string de fecha a objeto Date para comparación
+        const dateA = new Date(a.time);
+        const dateB = new Date(b.time);
+        return dateB.getTime() - dateA.getTime();
+      }).slice(0, 8);
+      
+      setRecentActivity(sortedActivities);
       setIsLoading(false);
     });
   };
@@ -180,14 +262,14 @@ export const DashboardStats: React.FC = () => {
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-sm font-medium text-slate-500">{stat.title}</p>
                     <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${stat.color} flex items-center justify-center shadow-lg`}>
-                      <stat.icon className="h-6 w-6 text-white" />
+                      {stat.icon && <stat.icon className="h-6 w-6 text-white" />}
                     </div>
                   </div>
                   <div className="flex items-end space-x-2 mb-1">
                     <p className="text-3xl font-bold text-slate-800">{stat.value}</p>
                   </div>
                   <div className="flex items-center justify-between mt-2">
-                    {renderTrend(stat.trend)}
+                    {typeof stat.trend === 'number' && renderTrend(stat.trend)}
                     <span className="text-xs text-slate-400">vs periodo anterior</span>
                   </div>
                 </div>
@@ -203,10 +285,21 @@ export const DashboardStats: React.FC = () => {
           <Card className="shadow-lg border-0 rounded-2xl overflow-hidden">
             <CardHeader className="bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100">
               <CardTitle className="flex items-center gap-2 text-slate-800">
-                <Clock className="h-5 w-5 text-sky-500" />
+                <Activity className="h-5 w-5 text-sky-500" />
                 Actividad Reciente
               </CardTitle>
-              <p className="text-sm text-slate-500">Últimas transacciones del sistema</p>
+              <p className="text-sm text-slate-500">Últimos movimientos del sistema</p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                  <Package className="h-3 w-3 mr-1" /> Productos
+                </span>
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-800">
+                  <FilePenLine className="h-3 w-3 mr-1" /> Revisiones
+                </span>
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <ShoppingCart className="h-3 w-3 mr-1" /> Pedidos
+                </span>
+              </div>
             </CardHeader>
             <CardContent className="p-6">
               <div className="space-y-4">
@@ -238,18 +331,45 @@ export const DashboardStats: React.FC = () => {
                   recentActivity.map((activity, index) => (
                     <div key={index} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 hover:bg-sky-50 transition-colors border border-transparent hover:border-sky-100">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-sky-400 to-blue-600 flex items-center justify-center shadow-md">
-                          <span className="text-white text-xs font-bold">
-                            {activity.user.split(' ').map((n: string) => n[0]).join('')}
-                          </span>
-                        </div>
+                        {/* Icono según el tipo de actividad */}
+                        {activity.type === 'product' ? (
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
+                            <Package className="h-5 w-5 text-white" />
+                          </div>
+                        ) : activity.type === 'revision' ? (
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-violet-400 to-purple-500 flex items-center justify-center shadow-md">
+                            <FilePenLine className="h-5 w-5 text-white" />
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-sky-400 to-blue-600 flex items-center justify-center shadow-md">
+                            <span className="text-white text-xs font-bold">
+                              {typeof activity.user === 'string' ? activity.user.split(' ').filter(Boolean).map((n: string) => n[0] || '?').join('') : '?'}
+                            </span>
+                          </div>
+                        )}
+                        
                         <div>
-                          <p className="text-sm font-medium text-slate-800">{activity.user}</p>
-                          <p className="text-xs text-slate-500">{activity.action}</p>
+                          <div className="flex items-center gap-1">
+                            <p className="text-sm font-medium text-slate-800">{activity.user || 'Usuario'}</p>
+                            
+                            {/* Badge para estado de revisión */}
+                            {activity.type === 'revision' && (
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                                activity.status === 'pendiente' 
+                                  ? 'bg-amber-100 text-amber-800' 
+                                  : activity.status === 'aprobado' 
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {activity.status}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500">{activity.action || 'Acción'}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-slate-500">{activity.time}</p>
+                        <p className="text-xs text-slate-500">{activity.time || '-'}</p>
                         {activity.amount && (
                           <p className="text-sm font-semibold text-emerald-600">{activity.amount}</p>
                         )}
@@ -261,7 +381,15 @@ export const DashboardStats: React.FC = () => {
               
               {recentActivity.length > 0 && !isLoading && (
                 <div className="flex justify-center mt-6">
-                  <button className="text-sky-600 hover:text-sky-800 text-sm font-medium flex items-center space-x-1 px-4 py-2 rounded-lg hover:bg-sky-50 transition-colors">
+                  <button 
+                    onClick={() => {
+                      toast({
+                        title: "Actividad Reciente",
+                        description: "Mostrando las actividades más recientes en el dashboard. Pronto tendrás disponible el historial completo."
+                      });
+                    }}
+                    className="text-sky-600 hover:text-sky-800 text-sm font-medium flex items-center space-x-1 px-4 py-2 rounded-lg hover:bg-sky-50 transition-colors"
+                  >
                     <span>Ver todas las actividades</span>
                     <ArrowUpRight className="h-4 w-4" />
                   </button>

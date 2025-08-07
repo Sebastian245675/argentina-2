@@ -38,33 +38,11 @@ export const RevisionList: React.FC = () => {
     try {
       // Para productos
       if (revision.type === "add") {
-        const productData = {
-          ...revision.data,
-          createdAt: new Date(),
-          createdBy: revision.editorEmail || "unknown",
-          lastModified: new Date(),
-          lastModifiedBy: revision.editorEmail || "unknown",
-          approvedAt: new Date(),
-          approvedBy: "admin"
-        };
-        await addDoc(collection(db, "products"), productData);
+        await addDoc(collection(db, "products"), revision.data);
       } else if (revision.type === "edit" && revision.data.id) {
-        const updateData = {
-          ...revision.data,
-          lastModified: new Date(),
-          lastModifiedBy: revision.editorEmail || "unknown",
-          approvedAt: new Date(),
-          approvedBy: "admin"
-        };
-        await updateDoc(doc(db, "products", revision.data.id), updateData);
+        await updateDoc(doc(db, "products", revision.data.id), revision.data);
       } else if (revision.type === "delete" && revision.data.id) {
-        await updateDoc(doc(db, "products", revision.data.id), { 
-          deleted: true,
-          lastModified: new Date(),
-          deletedAt: new Date(),
-          deletedBy: revision.editorEmail || "unknown",
-          approvedBy: "admin"
-        });
+        await updateDoc(doc(db, "products", revision.data.id), { deleted: true });
       } 
       // Para info sections
       else if (revision.type === "info_edit" && revision.sectionId) {

@@ -31,18 +31,23 @@ export const PieChart: React.FC<PieChartProps> = ({ data = [], size = 200 }) => 
   const total = chartData.reduce((sum, d) => sum + d.value, 0);
   let cumulative = 0;
 
+  // Asegurarse de que total sea un número válido
+  const validTotal = total || 1; // Evitar división por cero
+
   // Calcula los arcos para cada segmento
   const arcs = chartData.map((d, i) => {
-    const startAngle = (cumulative / total) * 2 * Math.PI;
-    const angle = (d.value / total) * 2 * Math.PI;
+    const value = typeof d.value === 'number' ? d.value : 0;
+    const startAngle = (cumulative / validTotal) * 2 * Math.PI;
+    const angle = (value / validTotal) * 2 * Math.PI;
     const endAngle = startAngle + angle;
-    cumulative += d.value;
+    cumulative += value;
 
     // Coordenadas para el arco
-    const x1 = size / 2 + (size / 2 - 10) * Math.cos(startAngle - Math.PI / 2);
-    const y1 = size / 2 + (size / 2 - 10) * Math.sin(startAngle - Math.PI / 2);
-    const x2 = size / 2 + (size / 2 - 10) * Math.cos(endAngle - Math.PI / 2);
-    const y2 = size / 2 + (size / 2 - 10) * Math.sin(endAngle - Math.PI / 2);
+    const radius = (size / 2) - 10 || 90; // Asegura un valor por defecto
+    const x1 = size / 2 + radius * Math.cos(startAngle - Math.PI / 2);
+    const y1 = size / 2 + radius * Math.sin(startAngle - Math.PI / 2);
+    const x2 = size / 2 + radius * Math.cos(endAngle - Math.PI / 2);
+    const y2 = size / 2 + radius * Math.sin(endAngle - Math.PI / 2);
     const largeArc = angle > Math.PI ? 1 : 0;
     const color = d.color || modernColors[i % modernColors.length];
 
@@ -61,7 +66,7 @@ export const PieChart: React.FC<PieChartProps> = ({ data = [], size = 200 }) => 
       <div className="relative">
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-sm">
           {/* Añadir un círculo de fondo */}
-          <circle cx={size/2} cy={size/2} r={size/2-10} fill="#f8fafc" />
+          <circle cx={size/2} cy={size/2} r={(size/2)-10 || 90} fill="#f8fafc" />
           
           {/* Dibujar los arcos */}
           {arcs.map((arc, i) => (
@@ -89,7 +94,7 @@ export const PieChart: React.FC<PieChartProps> = ({ data = [], size = 200 }) => 
           ))}
           
           {/* Círculo central */}
-          <circle cx={size/2} cy={size/2} r={size/5} fill="#fff" stroke="#f1f5f9" strokeWidth="1" />
+          <circle cx={size/2} cy={size/2} r={size/5 || 40} fill="#fff" stroke="#f1f5f9" strokeWidth="1" />
           
           {/* Texto central */}
           <text

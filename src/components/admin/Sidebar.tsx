@@ -13,10 +13,13 @@ import {
   Tag,
   Menu,
   X,
-  ChevronRight
+  ChevronRight,
+  BrainCog, // Icono para el Asistente IA
+  HelpCircle // Icono para el Manual de Ayuda
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { toast } from '@/hooks/use-toast';
 
 interface SidebarProps {
   activeTab: string;
@@ -66,12 +69,17 @@ const Sidebar: React.FC<SidebarProps> = ({
     ]),
     { id: 'products', icon: <Package className="h-5 w-5" />, label: 'Productos', description: 'Gestión de inventario' },
     { id: 'orders', icon: <ShoppingCart className="h-5 w-5" />, label: 'Pedidos', description: 'Control de ventas' },
+    // Info disponible tanto para admin como para subadmin
+    { id: 'info', icon: <Settings className="h-5 w-5" />, label: 'Info Secciones', description: 'Configuración general' },
+    // Asistente IA disponible para todos (admin y subadmin)
+    { id: 'ai-assistant', icon: <BrainCog className="h-5 w-5" />, label: 'Asistente IA', description: 'Inteligencia artificial avanzada' },
     ...(isSubAdmin ? [] : [
       { id: 'users', icon: <Users className="h-5 w-5" />, label: 'Usuarios', description: 'Administrar clientes' },
       { id: 'categories', icon: <Tag className="h-5 w-5" />, label: 'Categorías', description: 'Organizar productos' },
       { id: 'subaccounts', icon: <Users className="h-5 w-5" />, label: 'Subcuentas', description: 'Gestión de accesos' },
+      { id: 'revisiones', icon: <Bell className="h-5 w-5" />, label: 'Revisiones', description: 'Aprobar cambios pendientes' },
       { id: 'analytics', icon: <TrendingUp className="h-5 w-5" />, label: 'Analítica', description: 'Estadísticas avanzadas' },
-      { id: 'info', icon: <Settings className="h-5 w-5" />, label: 'Info Secciones', description: 'Configuración general' }
+      { id: 'help-manual', icon: <HelpCircle className="h-5 w-5" />, label: 'Manual de Ayuda', description: 'Guías y tutoriales' }
     ])
   ];
 
@@ -218,7 +226,14 @@ const Sidebar: React.FC<SidebarProps> = ({
               <span className="text-sm font-medium text-sky-700">Soporte Técnico</span>
             </div>
             <p className="text-xs text-slate-500 mb-3">¿Necesitas ayuda con el panel? Contáctanos para asistencia.</p>
-            <button className="text-xs px-3 py-2 bg-white text-sky-600 border border-sky-200 rounded-lg w-full hover:bg-sky-50 transition-colors">
+            <button 
+              onClick={() => toast({
+                title: "Función no disponible",
+                description: "El sistema de soporte técnico estará disponible próximamente",
+                variant: "destructive"
+              })}
+              className="text-xs px-3 py-2 bg-white text-sky-600 border border-sky-200 rounded-lg w-full hover:bg-sky-50 transition-colors"
+            >
               Contactar Soporte
             </button>
           </div>
