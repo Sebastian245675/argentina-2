@@ -177,6 +177,20 @@ export const ProductForm: React.FC = () => {
       return;
     }
     
+    // Verificar si se está editando un producto sin imagen
+    if (isEditing && editingId && !formData.image) {
+      const currentProduct = products.find(product => product.id === editingId);
+      
+      // Si el producto actual no tenía imagen, mostrar una advertencia
+      if (!currentProduct?.image) {
+        toast({
+          title: "⚠️ Advertencia sobre la imagen",
+          description: "El producto no tiene una imagen. Se recomienda agregar una para mejor visualización.",
+          className: "bg-yellow-50 border border-yellow-200 text-yellow-800"
+        });
+      }
+    }
+    
     const numericPrice = parseFloat(formData.price);
     const numericStock = parseInt(formData.stock, 10);
     
@@ -216,6 +230,14 @@ export const ProductForm: React.FC = () => {
       if (isEditing && editingId) {
         // Si liberta="si", permite cambios directos, en cualquier otro caso requiere revisión
         if (liberta === "si") {
+          // Obtener el producto actual para asegurarnos de no perder datos
+          const currentProduct = products.find(product => product.id === editingId);
+          
+          // Si el campo de imagen está vacío pero el producto tenía una imagen, conservarla
+          if (!formData.image && currentProduct?.image) {
+            productData.image = currentProduct.image;
+          }
+          
           // Si tiene libertad, actualiza directamente
           await updateDoc(doc(db, "products", editingId), productData);
           toast({
@@ -230,6 +252,14 @@ export const ProductForm: React.FC = () => {
           );
           setProducts(updatedProducts);
         } else {
+          // Obtener el producto actual para asegurarnos de no perder datos
+          const currentProduct = products.find(product => product.id === editingId);
+          
+          // Si el campo de imagen está vacío pero el producto tenía una imagen, conservarla
+          if (!formData.image && currentProduct?.image) {
+            productData.image = currentProduct.image;
+          }
+          
           // Si no tiene liberta, los cambios van a revisión
           await addDoc(collection(db, "revision"), {
             type: "edit",
@@ -768,12 +798,17 @@ export const ProductForm: React.FC = () => {
                 <Label htmlFor="image" className="text-sm font-semibold flex items-center">
                   Imagen Principal
                   <div className="ml-1 px-2 py-0.5 bg-sky-50 text-sky-600 rounded-full text-xs font-medium">URL</div>
+                  {isEditing && !formData.image && (
+                    <div className="ml-2 px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full text-xs font-medium">
+                      Se mantendrá la imagen actual
+                    </div>
+                  )}
                 </Label>
                 <Input
                   id="image"
                   value={formData.image}
                   onChange={(e) => setFormData({...formData, image: e.target.value})}
-                  placeholder="https://ejemplo.com/imagen.jpg"
+                  placeholder={isEditing ? "Mantener imagen actual o ingresar nueva URL" : "https://ejemplo.com/imagen.jpg"}
                   className="h-11"
                 />
                 {formData.image && (
@@ -1644,7 +1679,7 @@ export const ProductForm: React.FC = () => {
                               size="sm"
                               variant="outline"
                               onClick={() => {
-                                const newWindow = window.open(product.image, '_blank');
+                                const newWindow = window.open(`/producto/${product.id}`, '_blank');
                                 newWindow?.focus();
                               }}
                               className="hover:bg-sky-50 hover:border-sky-300 transition-colors text-sky-600"
@@ -1653,7 +1688,7 @@ export const ProductForm: React.FC = () => {
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent side="left" className="bg-sky-600">
-                            <p className="text-xs">Ver imagen</p>
+                            <p className="text-xs">Ver producto</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>

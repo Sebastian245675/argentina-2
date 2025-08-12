@@ -75,6 +75,15 @@ const AboutUs = () => {
                   <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none font-bold">
                     "Encontrá tu regalo ideal al mejor precio" no es solo nuestro eslogan, es un compromiso.
                   </p>
+                  
+                  <div className="mt-10 mb-8 p-6 border rounded-lg bg-gray-50">
+                    <h3 className="text-xl font-bold mb-4">Nuestra Ubicación</h3>
+                    <p className="mb-4">📍 Olavarría 610 (esquina San Luis), Salta, Argentina</p>
+                    <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
+                       className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+                      <span>📍 Cómo llegar</span>
+                    </a>
+                  </div>
                 </>
               )}
             </div>
@@ -116,9 +125,16 @@ const AboutUs = () => {
             <div>
               <h4 className="font-semibold mb-4">Contacto</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>WhatsApp: +57 300 123 4567</li>
-                <li>Email: contacto@regalaalgo.com</li>
-                <li>Horario: 8AM - 8PM</li>
+                <li>📍 Olavarría 610 (esquina San Luis)</li>
+                <li>
+                  <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
+                     className="text-blue-600 hover:underline">
+                    Ver en el mapa
+                  </a>
+                </li>
+                <li>WhatsApp: +54 3873439775</li>
+                <li>Instagram: <a href="https://www.instagram.com/regala.algo?igsh=OWk2enhxYzg2eHVq" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">regala.algo</a></li>
+                <li>Facebook: Regala Algo</li>
               </ul>
             </div>
           </div>

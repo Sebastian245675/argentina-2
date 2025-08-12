@@ -62,8 +62,14 @@ const Retiros = () => {
                     🛍️ Si compraste online y preferís retirar en persona, ¡también podés hacerlo!
                   </p>
                   <p className="text-base md:text-lg text-gray-700 mb-6 w-full max-w-none">
-                    📍 Estamos en Salta y te ofrecemos la opción de retiro en local sin costo adicional.
+                    📍 Estamos en Olavarría 610 (esquina San Luis) y te ofrecemos la opción de retiro en local sin costo adicional.
                   </p>
+                  <div className="my-6">
+                    <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
+                       className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+                      <span>📍 Ver ubicación en el mapa</span>
+                    </a>
+                  </div>
                   <h3 className="text-2xl font-bold font-serif text-black mb-4 mt-8 w-full">¿Cómo funciona?</h3>
                   <ul className="list-disc pl-6 text-base md:text-lg text-gray-700 mb-6 w-full max-w-none">
                     <li>Solo necesitás presentar tu DNI al momento del retiro.</li>
@@ -114,10 +120,22 @@ const Retiros = () => {
             <div>
               <h4 className="font-semibold mb-4">Empresa</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="/aboutus">Sobre Nosotros</a></li>
+                <li><a href="/sobre-nosotros">Sobre Nosotros</a></li>
+                <li><a href="/envios">Envíos</a></li>
+                <li><a href="/testimonios">Testimonios</a></li>
                 <li><a href="/retiros">Retiros</a></li>
-                <li><a href="/envios">Envios</a></li>
-                <li>Blog</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4">Nuestra Ubicación</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li>📍 Olavarría 610 (esquina San Luis)</li>
+                <li>
+                  <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
+                     className="text-blue-600 hover:underline">
+                    Ver en el mapa
+                  </a>
+                </li>
               </ul>
             </div>
           </div>

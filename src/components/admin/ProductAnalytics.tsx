@@ -15,17 +15,41 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Eye, TrendingUp, TrendingDown, Download, BarChart3, LineChart } from 'lucide-react';
-import { getMostViewedProducts, getLeastViewedProducts, getProductViewsTrend, getProductsViewsForExport } from '@/lib/product-analytics';
+import { 
+  getMostViewedProducts, 
+  getLeastViewedProducts, 
+  getProductViewsTrend, 
+  getProductsViewsForExport,
+  getProductVisitors,
+  getDetailedViewEvents
+} from '@/lib/product-analytics';
+import { db } from '@/firebase';
+import { collection, getDocs, query, where, limit, Timestamp } from 'firebase/firestore';
+
+// Interfaz para información del dispositivo
+interface DeviceInfo {
+  browser?: string;
+  os?: string;
+  device?: string;
+  isMobile?: boolean;
+}
 
 // Interfaz para detalles de visitantes
 interface Visitor {
   userId: string;
-  displayName?: string;
-  email?: string;
-  avatarUrl?: string;
+  displayName?: string | null;
+  email?: string | null;
+  avatarUrl?: string | null;
+  isAnonymous?: boolean;
   lastSeen?: Date | string;
   totalVisits: number;
   firstVisit: Date | string;
+  visits?: Array<{
+    timestamp: Date;
+    date: string;
+    time: string;
+    deviceInfo?: DeviceInfo;
+  }>;
   deviceInfo?: {
     browser?: string;
     os?: string;
@@ -211,92 +235,68 @@ interface ProductAnalyticsViewProps {
   products?: any[];
 }
 
-// Función simulada para obtener datos detallados de visitantes (reemplaza con tu función real)
-// Simulación de usuarios registrados y anónimos para pruebas
-const mockVisitors = [
-  // Usuarios registrados
-  ...Array(12).fill(0).map((_, i) => ({
-    userId: `user_${100 + i}`,
-    displayName: `Usuario ${i + 1}`,
-    email: `usuario${i+1}@example.com`,
-    avatarUrl: `https://i.pravatar.cc/150?u=${i}`,
-    totalVisits: Math.floor(Math.random() * 15) + 1,
-    firstVisit: new Date(Date.now() - Math.floor(Math.random() * 30) * 86400000).toISOString(),
-    lastSeen: new Date(Date.now() - Math.floor(Math.random() * 5) * 86400000).toISOString(),
-    deviceInfo: {
-      browser: ['Chrome', 'Firefox', 'Safari', 'Edge'][Math.floor(Math.random() * 4)],
-      os: ['Windows', 'MacOS', 'iOS', 'Android'][Math.floor(Math.random() * 4)],
-      device: ['Desktop', 'Mobile', 'Tablet'][Math.floor(Math.random() * 3)],
-      isMobile: Math.random() > 0.6,
-    },
-    location: {
-      country: ['España', 'México', 'Argentina', 'Colombia'][Math.floor(Math.random() * 4)],
-      city: ['Madrid', 'Barcelona', 'CDMX', 'Buenos Aires', 'Bogotá'][Math.floor(Math.random() * 5)],
-      region: ['Europa', 'Latinoamérica', 'Norteamérica'][Math.floor(Math.random() * 3)]
-    }
-  })),
-  // Usuarios anónimos
-  ...Array(8).fill(0).map((_, i) => ({
-    userId: `anonymous_${200 + i}`,
-    displayName: null, // Usuario anónimo
-    email: null, // Sin email
-    avatarUrl: null, // Sin avatar
-    totalVisits: Math.floor(Math.random() * 5) + 1, // Generalmente menos visitas
-    firstVisit: new Date(Date.now() - Math.floor(Math.random() * 15) * 86400000).toISOString(),
-    lastSeen: new Date(Date.now() - Math.floor(Math.random() * 3) * 86400000).toISOString(),
-    deviceInfo: {
-      browser: ['Chrome', 'Firefox', 'Safari', 'Edge'][Math.floor(Math.random() * 4)],
-      os: ['Windows', 'MacOS', 'iOS', 'Android'][Math.floor(Math.random() * 4)],
-      device: ['Desktop', 'Mobile', 'Tablet'][Math.floor(Math.random() * 3)],
-      isMobile: Math.random() > 0.4, // Más probabilidad de móvil
-    },
-    location: {
-      country: ['España', 'México', 'Argentina', 'Colombia', 'Desconocido'][Math.floor(Math.random() * 5)],
-      city: ['Madrid', 'Barcelona', 'CDMX', 'Buenos Aires', 'Bogotá', 'Desconocido'][Math.floor(Math.random() * 6)],
-      region: ['Europa', 'Latinoamérica', 'Norteamérica', 'Desconocido'][Math.floor(Math.random() * 4)]
-    }
-  }))
-];
+// No usamos datos simulados sino reales de Firebase
 
 const getVisitorAnalytics = async (productId?: string, startDate?: string, endDate?: string) => {
-  // Simulamos datos - en un caso real, esto vendría de tu backend
-  return new Promise<Visitor[]>((resolve) => {
-    setTimeout(() => {
-      // Seleccionar un subconjunto aleatorio de visitantes para este producto
-      const numVisitors = Math.floor(Math.random() * 10) + 3; // Entre 3 y 12 visitantes
-      
-      // Mezclar la lista para obtener una combinación aleatoria
-      const shuffled = [...mockVisitors].sort(() => 0.5 - Math.random());
-      const selectedVisitors = shuffled.slice(0, numVisitors);
-      
-      resolve(selectedVisitors);
-    }, 800);
-  });
-};
-
-// Función simulada para obtener eventos detallados de visualización (reemplaza con tu función real)
-const getDetailedViewEvents = async (productId?: string, startDate?: string, endDate?: string) => {
-  // Simulamos datos - en un caso real, esto vendría de tu backend
-  return new Promise<ViewEvent[]>((resolve) => {
-    setTimeout(() => {
-      const events = Array(50).fill(0).map((_, i) => ({
-        id: `event_${i}`,
-        timestamp: new Date(Date.now() - Math.floor(Math.random() * 30) * 86400000 - Math.floor(Math.random() * 86400000)).toISOString(),
-        userId: `user_${100 + Math.floor(Math.random() * 15)}`,
-        displayName: `Usuario ${Math.floor(Math.random() * 15) + 1}`,
-        email: `usuario${Math.floor(Math.random() * 15) + 1}@example.com`,
-        duration: Math.floor(Math.random() * 300) + 10, // 10-310 segundos
-        source: ['Google', 'Directo', 'Facebook', 'Instagram', 'Email'][Math.floor(Math.random() * 5)],
-        deviceType: ['Desktop', 'Mobile', 'Tablet'][Math.floor(Math.random() * 3)],
-        location: ['España', 'México', 'Argentina', 'Colombia'][Math.floor(Math.random() * 4)]
-      }));
-      
-      // Ordenar por fecha más reciente primero
-      events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      
-      resolve(events);
-    }, 800);
-  });
+  if (!productId) {
+    console.error("Error: No se proporcionó ID de producto para obtener analíticas");
+    return [];
+  }
+  
+  try {
+    console.log(`[getVisitorAnalytics] Obteniendo datos para producto: ${productId}`);
+    console.log(`[getVisitorAnalytics] Rango de fechas: ${startDate || 'No definido'} hasta ${endDate || 'No definido'}`);
+    
+    // Verificar formato de producto ID
+    if (productId.length < 5) {
+      console.error(`[getVisitorAnalytics] ERROR: ID de producto inválido: ${productId}`);
+      return [];
+    }
+    
+    // Mejorar la conversión de fechas
+    let startDateObj, endDateObj;
+    
+    if (startDate) {
+      startDateObj = new Date(startDate);
+      // Asegurar que la fecha de inicio sea el inicio del día
+      startDateObj.setHours(0, 0, 0, 0);
+      console.log(`[getVisitorAnalytics] Fecha de inicio ajustada: ${startDateObj.toISOString()}`);
+    }
+    
+    if (endDate) {
+      endDateObj = new Date(endDate);
+      // Asegurar que la fecha final sea el final del día
+      endDateObj.setHours(23, 59, 59, 999);
+      console.log(`[getVisitorAnalytics] Fecha de fin ajustada: ${endDateObj.toISOString()}`);
+    }
+    
+    // Comprobar si las fechas son válidas
+    if (startDateObj && isNaN(startDateObj.getTime())) {
+      console.error(`[getVisitorAnalytics] ERROR: Fecha de inicio inválida: ${startDate}`);
+      startDateObj = undefined;
+    }
+    
+    if (endDateObj && isNaN(endDateObj.getTime())) {
+      console.error(`[getVisitorAnalytics] ERROR: Fecha de fin inválida: ${endDate}`);
+      endDateObj = undefined;
+    }
+    
+    // Usar la función real de la biblioteca para obtener visitantes
+    console.log(`[getVisitorAnalytics] Llamando a getProductVisitors con fechas procesadas`);
+    const visitors = await getProductVisitors(productId, startDateObj, endDateObj);
+    console.log(`[getVisitorAnalytics] Visitantes encontrados: ${visitors.length}`);
+    
+    if (visitors.length === 0) {
+      console.log(`[getVisitorAnalytics] No se encontraron visitantes para el producto ${productId} en el rango seleccionado`);
+    } else {
+      console.log(`[getVisitorAnalytics] Primer visitante: ${JSON.stringify(visitors[0])}`);
+    }
+    
+    return visitors;
+  } catch (error) {
+    console.error("[getVisitorAnalytics] Error al obtener analíticas de visitantes:", error);
+    return [];
+  }
 };
 
 export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ products }) => {
@@ -321,6 +321,9 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
   // Función helper para obtener la fecha de inicio según el rango de tiempo seleccionado
   const getDateForTimeRange = (range: string): string => {
     const now = new Date();
+    // Establece la hora a las 00:00:00 para incluir todo el día
+    now.setHours(0, 0, 0, 0);
+    
     switch(range) {
       case '7d':
         now.setDate(now.getDate() - 7);
@@ -337,7 +340,10 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
       default:
         now.setDate(now.getDate() - 30);
     }
-    return now.toISOString();
+    
+    const isoString = now.toISOString();
+    console.log(`Fecha de inicio para rango ${range}: ${isoString}`);
+    return isoString;
   };
 
   useEffect(() => {
@@ -380,21 +386,67 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
         return;
       }
       
+      console.log(`[loadVisitorData] Iniciando carga para producto: ID=${selectedProduct.id}, Nombre=${selectedProduct.productName}`);
       setIsLoadingVisitors(true);
+      
       try {
+        // Verificar que tenemos un ID de producto válido
+        if (!selectedProduct.id) {
+          console.error("[loadVisitorData] ERROR: ID de producto no válido");
+          setIsLoadingVisitors(false);
+          return;
+        }
+        
         // Obtener datos de visitantes y eventos para el producto seleccionado
         const startDate = getDateForTimeRange(timeRange);
         const endDate = new Date().toISOString();
         
-        const [visitors, events] = await Promise.all([
-          getVisitorAnalytics(selectedProduct.id, startDate, endDate),
-          getDetailedViewEvents(selectedProduct.id, startDate, endDate)
-        ]);
+        console.log(`[loadVisitorData] Período: ${timeRange}, fechas: ${startDate} hasta ${endDate}`);
         
-        setVisitorData(visitors);
-        setViewEvents(events);
+        // DIAGNÓSTICO: Consultar primero si hay registros para este producto sin filtrar por fecha
+        console.log(`[loadVisitorData] DIAGNÓSTICO: Verificando existencia de registros para producto ${selectedProduct.id}`);
+        
+        try {
+          // Intentar obtener datos reales secuencialmente para mejor diagnóstico
+          console.log(`[loadVisitorData] Obteniendo datos de visitantes...`);
+          const visitors = await getVisitorAnalytics(selectedProduct.id, startDate, endDate);
+          console.log(`[loadVisitorData] Obteniendo datos de eventos...`);
+          const events = await getDetailedViewEvents(selectedProduct.id, startDate, endDate);
+          
+          console.log(`[loadVisitorData] Resultados: ${visitors.length} visitantes, ${events.length} eventos`);
+          
+          // Actualizar estado de la UI
+          setVisitorData(visitors);
+          setViewEvents(events);
+          
+          if (visitors.length === 0 && events.length === 0) {
+            console.log(`[loadVisitorData] No se encontraron datos para este producto y período`);
+            
+            // DIAGNÓSTICO: Intentar con una consulta más amplia para verificar si hay datos en general
+            try {
+              const testQuery = query(
+                collection(db, "productViews"),
+                where("productId", "==", selectedProduct.id),
+                limit(1)
+              );
+              const testSnapshot = await getDocs(testQuery);
+              console.log(`[loadVisitorData] DIAGNÓSTICO: Existen ${testSnapshot.size} registros en total para este producto`);
+              
+              if (testSnapshot.size > 0) {
+                const sampleDoc = testSnapshot.docs[0].data();
+                console.log(`[loadVisitorData] Ejemplo de registro: ${JSON.stringify(sampleDoc)}`);
+              }
+            } catch (testError) {
+              console.error("[loadVisitorData] Error en diagnóstico:", testError);
+            }
+          }
+        } catch (fetchError) {
+          console.error("[loadVisitorData] Error al cargar datos:", fetchError);
+          setVisitorData([]);
+          setViewEvents([]);
+        }
       } catch (error) {
-        console.error("Error loading visitor analytics", error);
+        console.error("[loadVisitorData] Error general:", error);
       } finally {
         setIsLoadingVisitors(false);
       }
@@ -514,8 +566,10 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
 
   // Manejar la selección de un producto para ver su detalle
   const handleSelectProduct = (product: ProductAnalytics) => {
+    console.log(`Seleccionando producto para análisis: ${product.id} - ${product.productName}`);
     setSelectedProduct(product);
     setShowVisitorPanel(true);
+    // No cargar datos simulados, el efecto useEffect se encargará de cargar los datos reales
   };
 
   // Manejar cierre del panel de detalles de visitantes
@@ -673,7 +727,11 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
               <div className="flex items-center gap-2">
                 <Select 
                   value={timeRange}
-                  onValueChange={(value) => setTimeRange(value)}
+                  onValueChange={(value) => {
+                    console.log(`Cambiando rango de tiempo a: ${value}`);
+                    setTimeRange(value);
+                    // El useEffect se encargará de recargar los datos reales
+                  }}
                 >
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Periodo de tiempo" />
@@ -708,7 +766,8 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
               </div>
             ) : (
-              <TabsContent value="overview" className="mt-4 space-y-6">
+              <Tabs value={visitorAnalyticsTab}>
+                <TabsContent value="overview" className="mt-4 space-y-6">
                 {visitorMetrics ? (
                   <>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -789,12 +848,67 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                     </div>
                   </>
                 ) : (
-                  <div className="text-center p-8 text-muted-foreground">
-                    No hay datos de visitantes disponibles para este producto.
+                  <div className="text-center p-8 flex flex-col items-center">
+                    <Eye className="h-10 w-10 text-slate-300 mb-3" />
+                    <p className="text-muted-foreground font-medium">
+                      No se encontraron datos de visitantes.
+                    </p>
+                    <p className="text-sm text-slate-500 mt-2 max-w-md">
+                      No hay registros de visitantes para este producto en el período seleccionado ({timeRange === '7d' ? 'últimos 7 días' : 
+                      timeRange === '30d' ? 'últimos 30 días' : 
+                      timeRange === '90d' ? 'últimos 90 días' : 'último año'}).
+                    </p>
+                    <p className="text-xs text-slate-400 mt-2">
+                      Posibles razones:
+                      <ul className="text-left mt-1 list-disc pl-5">
+                        <li>No se ha registrado ninguna visita en este período</li>
+                        <li>Las visitas no se están registrando correctamente</li>
+                        <li>El producto es nuevo o tiene poca visibilidad</li>
+                      </ul>
+                    </p>
+                    <div className="flex gap-3 mt-4">
+                      <Button 
+                        variant="outline"
+                        className="text-sm text-indigo-600"
+                        onClick={() => {
+                          // Recargar datos reales con otro rango de tiempo
+                          const timeRanges = ['7d', '30d', '90d', '365d'];
+                          const currentIndex = timeRanges.indexOf(timeRange);
+                          const nextRange = timeRanges[(currentIndex + 1) % timeRanges.length];
+                          console.log(`Cambiando rango de tiempo a: ${nextRange}`);
+                          setTimeRange(nextRange);
+                        }}
+                      >
+                        Probar con otro período
+                      </Button>
+                      <Button 
+                        variant="default"
+                        className="text-sm bg-indigo-600"
+                        onClick={() => {
+                          // Recargar datos reales
+                          const startDate = getDateForTimeRange(timeRange);
+                          const endDate = new Date().toISOString();
+                          setIsLoadingVisitors(true);
+                          
+                          Promise.all([
+                            getVisitorAnalytics(selectedProduct?.id, startDate, endDate),
+                            getDetailedViewEvents(selectedProduct?.id, startDate, endDate)
+                          ]).then(([visitors, events]) => {
+                            setVisitorData(visitors);
+                            setViewEvents(events);
+                            setIsLoadingVisitors(false);
+                          }).catch(error => {
+                            console.error("Error al recargar datos:", error);
+                            setIsLoadingVisitors(false);
+                          });
+                        }}
+                      >
+                        Reintentar carga
+                      </Button>
+                    </div>
                   </div>
                 )}
               </TabsContent>
-            )}
             
             <TabsContent value="visitors" className="mt-4">
               <Card>
@@ -825,9 +939,34 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                                   )}
                                 </div>
                               </TableCell>
-                              <TableCell className="font-medium">{visitor.displayName || 'Anónimo'}</TableCell>
-                              <TableCell>{visitor.email || 'N/A'}</TableCell>
-                              <TableCell>{visitor.totalVisits}</TableCell>
+                              <TableCell className="font-medium">
+                                {visitor.isAnonymous ? (
+                                  <span className="flex items-center">
+                                    <span className="mr-1.5">Anónimo</span>
+                                    <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-600">No identificado</span>
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center">
+                                    <span className="mr-1.5">{visitor.displayName || 'Usuario'}</span>
+                                    <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs">Registrado</span>
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {visitor.email ? (
+                                  <span className="text-blue-600 font-medium">{visitor.email}</span>
+                                ) : (
+                                  <span className="text-gray-400 italic">No disponible</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <span className="font-medium">{visitor.totalVisits}</span>
+                                {visitor.visits && visitor.visits.length > 0 && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    Última: {visitor.visits[0].date} {visitor.visits[0].time}
+                                  </div>
+                                )}
+                              </TableCell>
                               <TableCell>{formatDate(visitor.lastSeen || visitor.firstVisit)}</TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1">
@@ -844,8 +983,42 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                           ))
                         ) : (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                              {visitorSearchQuery ? 'No se encontraron visitantes que coincidan con la búsqueda.' : 'No hay datos de visitantes para mostrar.'}
+                            <TableCell colSpan={7}>
+                              <div className="text-center py-10 flex flex-col items-center">
+                                <Eye className="h-8 w-8 text-slate-300 mb-2" />
+                                <p className="text-muted-foreground font-medium">
+                                  {visitorSearchQuery 
+                                    ? 'No se encontraron visitantes que coincidan con la búsqueda.' 
+                                    : 'No hay datos de visitantes disponibles.'}
+                                </p>
+                                <p className="text-xs text-slate-400 mt-2 max-w-md">
+                                  {visitorSearchQuery 
+                                    ? 'Prueba con otra búsqueda o elimina los filtros aplicados.' 
+                                    : `No hay registros de visitantes para este producto en el período seleccionado (${
+                                      timeRange === '7d' ? 'últimos 7 días' : 
+                                      timeRange === '30d' ? 'últimos 30 días' : 
+                                      timeRange === '90d' ? 'últimos 90 días' : 'último año'
+                                    }).`}
+                                </p>
+                                <Button 
+                                  variant="outline"
+                                  className="mt-4 text-xs text-indigo-600"
+                                  onClick={() => {
+                                    if (visitorSearchQuery) {
+                                      setVisitorSearchQuery('');
+                                    } else {
+                                      // Recargar datos reales con otro rango de tiempo
+                                      const timeRanges = ['7d', '30d', '90d', '365d'];
+                                      const currentIndex = timeRanges.indexOf(timeRange);
+                                      const nextRange = timeRanges[(currentIndex + 1) % timeRanges.length];
+                                      console.log(`Cambiando rango de tiempo a: ${nextRange}`);
+                                      setTimeRange(nextRange);
+                                    }
+                                  }}
+                                >
+                                  {visitorSearchQuery ? 'Limpiar búsqueda' : 'Probar con otro período'}
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         )}
@@ -866,42 +1039,120 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                           <TableHead>Fecha/Hora</TableHead>
                           <TableHead>Usuario</TableHead>
                           <TableHead>Email</TableHead>
-                          <TableHead>Duración</TableHead>
-                          <TableHead>Origen</TableHead>
                           <TableHead>Dispositivo</TableHead>
-                          <TableHead>Ubicación</TableHead>
+                          <TableHead>Sistema</TableHead>
+                          <TableHead>Estado</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredEvents.length ? (
-                          filteredEvents.map((event) => (
-                            <TableRow key={event.id}>
-                              <TableCell>{formatDate(event.timestamp)}</TableCell>
-                              <TableCell className="font-medium">{event.displayName || 'Anónimo'}</TableCell>
-                              <TableCell>{event.email || 'N/A'}</TableCell>
-                              <TableCell>{formatDuration(event.duration)}</TableCell>
-                              <TableCell>
-                                <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
-                                  {event.source || 'Directo'}
-                                </span>
+                        {visitorData.flatMap(visitor => 
+                            (visitor.visits || []).map((visit, index) => (
+                              <TableRow key={`${visitor.userId}-${index}`}>
+                                <TableCell>
+                                  <div className="font-medium">{visit.date}</div>
+                                  <div className="text-xs text-gray-500">{visit.time}</div>
+                                </TableCell>
+                                <TableCell>
+                                  {visitor.isAnonymous ? (
+                                    <span className="text-gray-500 flex items-center gap-1">
+                                      Anónimo
+                                      <span className="w-2 h-2 rounded-full bg-gray-300"></span>
+                                    </span>
+                                  ) : (
+                                    <span className="font-medium">{visitor.displayName || 'Usuario'}</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  {visitor.email ? (
+                                    <span className="text-blue-600">{visitor.email}</span>
+                                  ) : (
+                                    <span className="text-gray-400 italic">No disponible</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
+                                      {visit.deviceInfo?.device || 'Desconocido'}
+                                    </span>
+                                    {visit.deviceInfo?.isMobile && (
+                                      <span className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded">Móvil</span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
+                                      {visit.deviceInfo?.browser || 'Desconocido'}
+                                    </span>
+                                    <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
+                                      {visit.deviceInfo?.os || 'Desconocido'}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-col">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">
+                                      Completada
+                                    </span>
+                                    {visitor.isAnonymous ? (
+                                      <span className="text-xs text-gray-500 mt-1">Visitante anónimo</span>
+                                    ) : (
+                                      <span className="text-xs text-indigo-600 mt-1">Usuario registrado</span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                          {!visitorData.some(v => v.visits && v.visits.length > 0) && (
+                            <TableRow>
+                              <TableCell colSpan={6}>
+                                <div className="text-center py-10 flex flex-col items-center">
+                                  <LineChart className="h-8 w-8 text-slate-300 mb-2" />
+                                  <p className="text-muted-foreground font-medium">
+                                    {visitorSearchQuery 
+                                      ? 'No se encontraron eventos que coincidan con la búsqueda.' 
+                                      : 'No hay datos de eventos disponibles.'}
+                                  </p>
+                                  <p className="text-xs text-slate-400 mt-2 max-w-md">
+                                    {visitorSearchQuery 
+                                      ? 'Prueba con otra búsqueda o elimina los filtros aplicados.' 
+                                      : `No hay registros de eventos para este producto en el período seleccionado (${
+                                        timeRange === '7d' ? 'últimos 7 días' : 
+                                        timeRange === '30d' ? 'últimos 30 días' : 
+                                        timeRange === '90d' ? 'últimos 90 días' : 'último año'
+                                      }).`}
+                                  </p>
+                                  <Button 
+                                    variant="outline"
+                                    className="mt-4 text-xs text-indigo-600"
+                                    onClick={() => {
+                                      if (visitorSearchQuery) {
+                                        setVisitorSearchQuery('');
+                                      } else {
+                                        // Recargar datos reales con otro rango de tiempo
+                                        const timeRanges = ['7d', '30d', '90d', '365d'];
+                                        const currentIndex = timeRanges.indexOf(timeRange);
+                                        const nextRange = timeRanges[(currentIndex + 1) % timeRanges.length];
+                                        console.log(`Cambiando rango de tiempo a: ${nextRange}`);
+                                        setTimeRange(nextRange);
+                                      }
+                                    }}
+                                  >
+                                    {visitorSearchQuery ? 'Limpiar búsqueda' : 'Probar con otro período'}
+                                  </Button>
+                                </div>
                               </TableCell>
-                              <TableCell>{event.deviceType || 'N/A'}</TableCell>
-                              <TableCell>{event.location || 'N/A'}</TableCell>
                             </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                              {visitorSearchQuery ? 'No se encontraron eventos que coincidan con la búsqueda.' : 'No hay datos de eventos para mostrar.'}
-                            </TableCell>
-                          </TableRow>
-                        )}
+                          )}
                       </TableBody>
                     </Table>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
+              </Tabs>
+            )}
           </div>
         </div>
       </div>
@@ -1210,9 +1461,9 @@ export const ProductAnalyticsView: React.FC<ProductAnalyticsViewProps> = ({ prod
                               <TableCell>
                                 <div className="flex flex-col">
                                   <div className="flex items-center space-x-1">
-                                    {product.visitors && product.visitors.length > 0 ? (
+                                    {product.uniqueVisitors ? (
                                       <div className="flex -space-x-2 overflow-hidden">
-                                        {product.visitors.slice(0, 3).map((visitor, vidx) => (
+                                        {(product.visitors || []).slice(0, 3).map((visitor, vidx) => (
                                           <div 
                                             key={vidx} 
                                             className="inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-slate-800"

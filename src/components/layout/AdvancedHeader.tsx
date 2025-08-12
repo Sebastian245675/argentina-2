@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import './scrollbar.css';
 import { GlassmorphismCard } from '@/components/ui/glassmorphism-card';
 import { MagneticButton } from '@/components/ui/magnetic-button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -61,6 +62,12 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const isMobile = useIsMobile();
   const dropdownTimeout = useRef<NodeJS.Timeout | null>(null);
+  
+  // Refs and state for scrollbar indicators
+  const desktopScrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const mobileScrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const [desktopScrollPosition, setDesktopScrollPosition] = useState({ top: "0%", height: "20%" });
+  const [mobileScrollPosition, setMobileScrollPosition] = useState({ top: "0%", height: "20%" });
 
   const itemCount = getItemCount();
 
@@ -79,8 +86,8 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
   };
 
   const handleWhatsAppContact = () => {
-    const phoneNumber = '573001234567'; // Número de WhatsApp del conjunto
-    const message = encodeURIComponent('¡Hola! Me gustaría hacer un pedido desde REGALA ALGO del conjunto.');
+    const phoneNumber = '543873439775'; // Número de WhatsApp de la tienda
+    const message = encodeURIComponent('¡Hola! Me gustaría hacer un pedido desde REGALA ALGO. Estoy interesado en conocer más sobre sus productos.');
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
     window.open(whatsappUrl, '_blank');
   };
@@ -114,7 +121,33 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
   const handleCategoryFilter = (category: string) => {
     setSelectedCategory(category);
- 
+  };
+  
+  // Handle scroll position for scrollbar indicators
+  const handleDesktopScroll = () => {
+    if (desktopScrollContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = desktopScrollContainerRef.current;
+      const scrollPercentage = scrollTop / (scrollHeight - clientHeight);
+      const thumbHeight = Math.max(20, (clientHeight / scrollHeight) * 100);
+      const thumbPosition = scrollPercentage * (100 - thumbHeight);
+      setDesktopScrollPosition({
+        top: `${thumbPosition}%`,
+        height: `${thumbHeight}%`
+      });
+    }
+  };
+  
+  const handleMobileScroll = () => {
+    if (mobileScrollContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = mobileScrollContainerRef.current;
+      const scrollPercentage = scrollTop / (scrollHeight - clientHeight);
+      const thumbHeight = Math.max(20, (clientHeight / scrollHeight) * 100);
+      const thumbPosition = scrollPercentage * (100 - thumbHeight);
+      setMobileScrollPosition({
+        top: `${thumbPosition}%`,
+        height: `${thumbHeight}%`
+      });
+    }
   };
 
   return (
@@ -243,10 +276,51 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 <ChevronDown className={`w-5 h-5 transition-transform ${showDropdown ? 'transform rotate-180' : ''}`} />
               </button>
               {showDropdown && (
-                <div className="pl-4 mt-2 space-y-2 max-h-80 overflow-y-auto">
+                <div 
+                  ref={mobileScrollContainerRef}
+                  onScroll={handleMobileScroll}
+                  className="pl-4 mt-2 space-y-2 max-h-80 overflow-y-auto relative pr-6 scrollbar-container">
+                  {/* Botones de navegación simplificados */}
+                  <div className="absolute right-1 top-0 bottom-0 flex flex-col items-center justify-between py-2">
+                    {/* Botón hacia arriba */}
+                    <button 
+                      className="p-1 bg-orange-100 hover:bg-orange-200 rounded-full shadow-sm"
+                      onClick={() => {
+                        if (mobileScrollContainerRef.current) {
+                          mobileScrollContainerRef.current.scrollTop -= 100;
+                        }
+                      }}
+                      aria-label="Desplazar hacia arriba"
+                    >
+                      <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                    </button>
+                    
+                    {/* Botón hacia abajo */}
+                    <button 
+                      className="p-1 bg-orange-100 hover:bg-orange-200 rounded-full shadow-sm"
+                      onClick={() => {
+                        if (mobileScrollContainerRef.current) {
+                          mobileScrollContainerRef.current.scrollTop += 100;
+                        }
+                      }}
+                      aria-label="Desplazar hacia abajo"
+                    >
+                      <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  {/* Indicador simplificado */}
+                  <div className="w-full flex justify-between items-center mb-2">
+                    <span className="text-xs text-gray-500 font-medium">Categorías</span>
+                    <span className="text-xs text-orange-600 font-medium">Usa los botones →</span>
+                  </div>
                   {/* Categorías principales */}
-                  <div className="mb-3">
-                    <h4 className="font-semibold text-sm text-gray-500 mb-1">Categorías principales</h4>
+                  <div className="mb-3 pr-3">
+                    <h4 className="font-semibold text-sm text-gray-500 mb-2 pb-1 border-b">Categorías principales</h4>
                     {mainCategories.map((cat) => (
                       <button
                         key={cat.name}
@@ -257,8 +331,8 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                           // Redirigir a la página principal con la categoría seleccionada
                           navigate(`/?category=${cat.name}`);
                         }}
-                        className={`block w-full text-left py-2 ${
-                          selectedCategory === cat.name ? "font-bold text-orange-600" : "text-neutral-700"
+                        className={`block w-full text-left py-2.5 px-2 rounded-md mb-1 ${
+                          selectedCategory === cat.name ? "font-bold text-orange-600 bg-orange-50 border-l-2 border-orange-500" : "text-neutral-700 hover:bg-gray-50"
                         }`}
                       >
                         {cat.name}
@@ -279,7 +353,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                             // Redirigir con ambos parámetros
                             navigate(`/?category=${parentName}&subcategory=${subcat.name}`);
                           }}
-                          className="block w-full text-left py-1.5 pl-3 text-neutral-600 text-sm"
+                          className="block w-full text-left py-2 pl-3 text-neutral-600 text-sm rounded hover:bg-gray-50 mb-0.5"
                         >
                           {subcat.name}
                         </button>
@@ -291,10 +365,26 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
             </div>
                 
                 {/* Otros enlaces en móvil */}
-                <a href="#novedades" className="block py-2 border-b border-slate-200" onClick={() => setShowMobileMenu(false)}>Novedades</a>
+                <a 
+                  href="#novedades" 
+                  className="block py-2 border-b border-slate-200" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowMobileMenu(false);
+                    const element = document.getElementById('novedades');
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth' });
+                    } else {
+                      // If not on home page, navigate to home page with anchor
+                      navigate('/#novedades');
+                    }
+                  }}
+                >
+                  Novedades
+                </a>
                 <button type="button" className="block w-full text-left py-2 border-b border-slate-200" onClick={() => { setShowMobileMenu(false); navigate('/sobre-nosotros'); }}>Sobre nosotros</button>
-                    <button type="button" className="block w-full text-left py-2 border-b border-slate-200" onClick={() => { setShowMobileMenu(false); navigate('/envios'); }}>Envíos</button>
-                <a href="#costos-envio" className="block py-2 border-b border-slate-200" onClick={() => setShowMobileMenu(false)}>Costos de envío</a>
+                <button type="button" className="block w-full text-left py-2 border-b border-slate-200" onClick={() => { setShowMobileMenu(false); navigate('/envios'); }}>Envíos</button>
+                <button type="button" className="block w-full text-left py-2 border-b border-slate-200" onClick={() => { setShowMobileMenu(false); navigate('/testimonios'); }}>Testimonios</button>
                 <button type="button" className="block w-full text-left py-2" onClick={() => { setShowMobileMenu(false); navigate('/retiros'); }}>Retiros</button>
               </div>
 
@@ -322,13 +412,49 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                     </button>
                     {showDropdown && (
                       <div className="absolute left-0 mt-2 w-80 bg-white border border-neutral-200 rounded-lg shadow-lg z-50">
-                        <div className="py-2">
-                          {/* Usar los datos del hook useCategories directamente */}
-                          <>
+                        <div className="py-2 relative">
+                          {/* Botones de navegación simplificados */}
+                          <div className="absolute right-1 top-2 bottom-2 flex flex-col items-center justify-between">
+                            {/* Botón hacia arriba */}
+                            <button 
+                              className="p-1 bg-blue-100 hover:bg-blue-200 rounded-full shadow-sm"
+                              onClick={() => {
+                                if (desktopScrollContainerRef.current) {
+                                  desktopScrollContainerRef.current.scrollTop -= 100;
+                                }
+                              }}
+                              aria-label="Desplazar hacia arriba"
+                            >
+                              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              </svg>
+                            </button>
+                            
+                            {/* Botón hacia abajo */}
+                            <button 
+                              className="p-1 bg-blue-100 hover:bg-blue-200 rounded-full shadow-sm"
+                              onClick={() => {
+                                if (desktopScrollContainerRef.current) {
+                                  desktopScrollContainerRef.current.scrollTop += 100;
+                                }
+                              }}
+                              aria-label="Desplazar hacia abajo"
+                            >
+                              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+                          </div>
+                          
+                          {/* Contenedor scrollable */}
+                          <div 
+                            ref={desktopScrollContainerRef}
+                            onScroll={handleDesktopScroll}
+                            className="max-h-96 overflow-y-auto pr-6 scrollbar-container">
                             {/* Sección de categorías principales */}
-                            <div className="mb-2 px-4">
-                              <h4 className="font-semibold text-sm text-gray-500 mb-1">Categorías principales</h4>
-                              <ul className="grid grid-cols-2 gap-0">
+                            <div className="mb-4 px-4">
+                              <h4 className="font-semibold text-sm text-gray-500 mb-2 pb-1 border-b border-gray-100">Categorías principales</h4>
+                              <ul className="grid grid-cols-2 gap-1">
                                 {mainCategories.map((cat) => (
                                   <li key={cat.name} className="flex">
                                     <button
@@ -338,8 +464,8 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                                         // Redirigir a la página principal con la categoría seleccionada
                                         navigate(`/?category=${cat.name}`);
                                       }}
-                                      className={`w-full text-left px-3 py-2 text-base hover:bg-orange-50 hover:text-orange-600 transition-colors rounded-md ${
-                                        selectedCategory === cat.name ? "font-bold text-orange-600 bg-orange-50" : "text-neutral-800"
+                                      className={`w-full text-left px-3 py-2 text-base hover:bg-orange-50 hover:text-orange-600 transition-colors rounded-md shadow-sm ${
+                                        selectedCategory === cat.name ? "font-bold text-orange-600 bg-orange-50 border-l-2 border-orange-500" : "text-neutral-800 border-l border-transparent"
                                       }`}
                                     >
                                       {cat.name}
@@ -351,11 +477,11 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
                             {/* Mostrar subcategorías agrupadas */}
                             {Object.entries(subcategoriesByParent).map(([parentName, subs]) => (
-                              <div key={parentName} className="mb-2 px-4">
-                                <h4 className="font-semibold text-sm text-gray-500 mt-2 mb-1 border-t pt-2">
+                              <div key={parentName} className="mb-4 px-4">
+                                <h4 className="font-semibold text-sm text-gray-500 mt-3 mb-2 border-t pt-2 pb-1 border-b border-gray-100">
                                   {parentName}
                                 </h4>
-                                <ul className="grid grid-cols-2 gap-0">
+                                <ul className="grid grid-cols-2 gap-1">
                                   {subs.map((subcat) => (
                                     <li key={subcat.name} className="flex">
                                       <button
@@ -366,7 +492,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                                           // Redirigir con ambos parámetros
                                           navigate(`/?category=${parentName}&subcategory=${subcat.name}`);
                                         }}
-                                        className="w-full text-left px-3 py-1 text-sm hover:bg-orange-50 hover:text-orange-600 transition-colors rounded-md text-neutral-700"
+                                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-orange-50 hover:text-orange-600 transition-colors rounded-md text-neutral-700 border-l border-transparent hover:border-l-orange-400"
                                       >
                                         {subcat.name}
                                       </button>
@@ -375,17 +501,32 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                                 </ul>
                               </div>
                             ))}
-                          </>
+                          </div>
                         </div>
                       </div>
                     )}
                   </div>
-                  <a href="#novedades" className="hover:text-blue-600 transition-colors text-sm md:text-base">Novedades</a>
+                  <a 
+                    href="#novedades" 
+                    className="hover:text-blue-600 transition-colors text-sm md:text-base"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const element = document.getElementById('novedades');
+                      if (element) {
+                        element.scrollIntoView({ behavior: 'smooth' });
+                      } else {
+                        // If not on home page, navigate to home page with anchor
+                        navigate('/#novedades');
+                      }
+                    }}
+                  >
+                    Novedades
+                  </a>
                   <button type="button" className="hover:text-blue-600 transition-colors text-sm md:text-base bg-transparent" style={{outline: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer'}} onClick={() => navigate('/sobre-nosotros')}>Sobre nosotros</button>
                 </div>
                 <div className="flex gap-3 md:gap-8 font-bold">
                       <button type="button" className="hover:text-blue-600 transition-colors text-sm md:text-base bg-transparent" style={{outline: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer'}} onClick={() => navigate('/envios')}>Envíos</button>
-                  <a href="#costos-envio" className="hover:text-blue-600 transition-colors text-sm md:text-base">Costos de envío</a>
+                  <button type="button" className="hover:text-blue-600 transition-colors text-sm md:text-base bg-transparent" style={{outline: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer'}} onClick={() => navigate('/testimonios')}>Testimonios</button>
                   <button type="button" className="hover:text-blue-600 transition-colors text-sm md:text-base bg-transparent" style={{outline: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer'}} onClick={() => navigate('/retiros')}>Retiros</button>
                 </div>
               </div>

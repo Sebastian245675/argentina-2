@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { simulatedDB } from "./lib/simulatedDB";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -22,6 +23,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 export const auth = getAuth(app);
+export const functions = getFunctions(app);
+
+// Conexión para la función de envío de correo
+export const sendWelcomeEmail = httpsCallable(functions, 'sendRegistrationEmail');
 
 // Configurar Firestore con persistencia activada antes de cualquier operación
 export const db = getFirestore(app);

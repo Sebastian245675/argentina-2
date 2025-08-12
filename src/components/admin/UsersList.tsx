@@ -332,12 +332,12 @@ export const UsersList: React.FC = () => {
                       <div>
                         <div className="text-sm">
                           {user.registeredAt
-                            ? new Date(user.registeredAt).toLocaleDateString('es-CO')
+                            ? new Date(user.registeredAt).toLocaleDateString('es-AR')
                             : ''}
                         </div>
                         <div className="text-xs text-sky-600/70">
                           {user.lastActive
-                            ? `Último acceso: ${new Date(user.lastActive).toLocaleDateString('es-CO')}`
+                            ? `Último acceso: ${new Date(user.lastActive).toLocaleDateString('es-AR')}`
                             : ''}
                         </div>
                       </div>
@@ -624,7 +624,7 @@ export const UsersList: React.FC = () => {
                   <p className="text-sm text-sky-500">Fecha de registro</p>
                   <p className="font-medium">
                     {selectedUser.registeredAt
-                      ? new Date(selectedUser.registeredAt).toLocaleDateString('es-CO')
+                      ? new Date(selectedUser.registeredAt).toLocaleDateString('es-AR')
                       : "No disponible"}
                   </p>
                 </div>
@@ -636,7 +636,7 @@ export const UsersList: React.FC = () => {
                   {selectedUser.lastActive ? (
                     <p className="flex items-center text-blue-600">
                       <Clock className="h-4 w-4 mr-2 opacity-70" />
-                      Último acceso: {new Date(selectedUser.lastActive).toLocaleDateString('es-CO')}
+                      Último acceso: {new Date(selectedUser.lastActive).toLocaleDateString('es-AR')}
                     </p>
                   ) : (
                     <p className="text-blue-600 opacity-70">No hay datos de actividad</p>

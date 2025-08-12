@@ -15,6 +15,7 @@ import { useState, useEffect } from "react";
 import SplashScreen from "@/components/ui/SplashScreen";
 import { SimulationNotice } from "@/components/ui/SimulationNotice";
 import Retiros from "./pages/Retiros";
+import SharedEmployeeManager from "./pages/SharedEmployeeManager";
 
 const queryClient = new QueryClient();
 
@@ -54,7 +55,9 @@ const App = () => {
               <Route path="/producto/:productId" element={<ProductDetailPage />} />
               <Route path="/sobre-nosotros" element={<AboutUs />} />
               <Route path="/envios" element={<Envios />} />
+              <Route path="/testimonios" element={<Testimonios />} />
               <Route path="/retiros" element={<Retiros />} />
+              <Route path="/shared/employees" element={<SharedEmployeeManager />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
@@ -66,5 +69,6 @@ const App = () => {
   );
 };
 
+import Testimonios from "./pages/Testimonios";
 import Envios from "./pages/Envios";
 export default App;

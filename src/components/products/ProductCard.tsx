@@ -241,13 +241,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
         {product.price > 100 && (
           <div className="mb-3 flex">
             <span className="bg-green-50 text-green-700 text-xs font-medium flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-green-100">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <rect width="16" height="10" x="4" y="5" rx="2" />
                 <path d="M10 2h4" />
                 <path d="M12 15v4" />
                 <path d="m9 18 3 3 3-3" />
               </svg>
-              Envío gratis
+              Envío +$70.000
             </span>
           </div>
         )}

@@ -1,6 +1,6 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, db } from "@/firebase";
+import { auth, db, sendWelcomeEmail } from "@/firebase";
 import { getDocumentById, createDocumentWithId, updateDocument } from "@/lib/database";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
@@ -17,6 +17,7 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
+  currentUser: any; // Firebase user object
   login: (email: string, password: string) => Promise<boolean>;
   register: (userData: Omit<User, 'id' | 'isAdmin'> & { password: string }) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -36,11 +37,13 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   // Escucha cambios de sesión de Firebase
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setCurrentUser(firebaseUser);
       if (firebaseUser) {
         try {
           // Usar nuestro helper que maneja errores y fallbacks
@@ -127,17 +130,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Eliminamos la contraseña del objeto userData antes de guardarlo en Firestore
         const { password, ...dataToSave } = userData;
         
-        // Escribimos los datos del usuario en Firestore
+        // Escribimos los datos del usuario en Firestore y lo marcamos como verificado directamente
         await setDoc(doc(db, "users", result.user.uid), {
           ...dataToSave,
           createdAt: new Date(),
+          emailVerified: true, // Marcamos como verificado directamente
           isAdmin: userData.email === "admin@gmail.com" || userData.email === "admin@tienda.com"
         });
+        
+        // Enviar correo de bienvenida usando la Cloud Function
+        try {
+          await sendWelcomeEmail({
+            email: userData.email,
+            name: userData.name || userData.email.split('@')[0]
+          });
+          console.log("Correo de bienvenida enviado a:", userData.email);
+        } catch (emailError) {
+          console.error("Error al enviar correo de bienvenida:", emailError);
+          // No interrumpimos el registro si falla el envío del correo
+        }
         
         return true;
       }
       return false;
     } catch (error) {
+      console.error("Error en registro:", error);
       return false;
     }
   };
@@ -170,6 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Valor que se pasa al contexto
   const value = {
     user,
+    currentUser,
     login,
     register,
     logout,

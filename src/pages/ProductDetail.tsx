@@ -160,9 +160,9 @@ const SimilarProductsCarousel = (props: SimilarProductsCarouselProps) => {
                       </div>
                     )}
                     
-                    {/* Envío gratis (simulado) */}
+                    {/* Envío (simulado) */}
                     {prod.price > 100 && (
-                      <p className="text-xs font-medium text-green-600 mt-1">Envío gratis</p>
+                      <p className="text-xs font-medium text-green-600 mt-1">Envío en compras +$70.000</p>
                     )}
                   </div>
                 </div>
@@ -307,9 +307,15 @@ const ProductDetailPage = () => {
           if (productData.colors && productData.colors.length > 0) {
             setSelectedColor(productData.colors[0]);
           }
-          // Registrar vista
+          // Registrar vista con información detallada del usuario (si está autenticado)
           if (!viewRecorded) {
-            await recordProductView(productData.id, productData.name, user?.id);
+            await recordProductView(
+              productData.id, 
+              productData.name, 
+              user?.id,
+              user?.email,
+              user?.name
+            );
             setViewRecorded(true);
           }
           // Cargar productos similares por categoría (como en la primera vista)
@@ -947,7 +953,7 @@ const ProductDetailPage = () => {
                 </p>
                 
                 <div className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
-                  Hasta 12 cuotas sin interés
+                  Envío en compras mayores a $70.000
                 </div>
               </div>
             </div>
@@ -1109,8 +1115,8 @@ const ProductDetailPage = () => {
                         <Truck className="h-5 w-5 text-blue-600" />
                       </div>
                       <div>
-                        <span className="font-medium block text-sm font-bold">Envío gratis</span>
-                        <span className="text-xs text-gray-500">En compras mayores a $50.000</span>
+                        <span className="font-medium block text-sm font-bold">Envío</span>
+                        <span className="text-xs text-gray-500">En compras mayores a $70.000</span>
                       </div>
                     </div>
                   </>
@@ -1414,9 +1420,9 @@ const ProductDetailPage = () => {
                   
                   <div className="bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6-6" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                     </svg>
-                    <span className="text-xs text-blue-700 dark:text-blue-400 font-medium">Cuotas sin interés</span>
+                    <span className="text-xs text-blue-700 dark:text-blue-400 font-medium">Envío en compras +$70.000</span>
                   </div>
                 </div>
               </div>
@@ -1640,15 +1646,11 @@ const ProductDetailPage = () => {
               },
               { 
                 q: '¿Cómo puedo realizar el seguimiento de mi pedido?', 
-                a: 'Una vez que tu pedido sea despachado, recibirás un correo con el número de seguimiento.' 
+                a: 'Una vez que tu pedido sea despachado, recibirás un enlace de seguimiento por WhatsApp.' 
               },
               { 
                 q: '¿Cuál es la política de devoluciones?', 
-                a: 'Aceptamos devoluciones dentro de los 30 días posteriores a la compra, siempre que el producto esté en su empaque original.' 
-              },
-              { 
-                q: '¿Este producto tiene garantía?', 
-                a: 'Sí, todos nuestros productos cuentan con garantía de 1 año por defectos de fabricación.' 
+                a: 'Aceptamos devoluciones dentro de los 7 días posteriores a la compra con retiro en el local.' 
               }
             ].map((faq, i) => (
               <div key={i} className="bg-white border rounded-lg overflow-hidden">
@@ -1667,8 +1669,15 @@ const ProductDetailPage = () => {
           
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-600 mb-3">¿Tienes más preguntas?</p>
-            <Button className="bg-orange-600 hover:bg-orange-700">
-              Contactar Soporte
+            <Button 
+              className="bg-green-600 hover:bg-green-700 flex items-center gap-2" 
+              onClick={() => window.open('https://wa.me/543873439775', '_blank')}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-white">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.297-.497.1-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.041 16.754c-.269.8-1.438 1.478-2.424 1.664-.572.109-1.21.16-1.957.103-1.057-.081-2.26-.421-3.529-.995l-.353-.17c-3.839-1.679-6.319-5.52-6.509-5.777-.189-.257-1.534-2.047-1.534-3.901 0-1.858.92-2.815 1.33-3.233.311-.319.677-.467 1.039-.467h.626c.335 0 .502.04.675.585.212.667.718 2.316.784 2.486.068.17.118.368.035.582-.084.213-.157.328-.308.517l-.54.67c-.17.213-.35.443-.146.684.198.241.881 1.12 1.851 1.874 1.249.974 2.255 1.312 2.62 1.427.256.08.466.063.641-.08.226-.185.5-.521.775-.861.212-.265.471-.371.752-.265.27.104 1.735.826 2.035.976.301.151.502.232.585.364.084.134.084.515-.183 1.05z" />
+              </svg>
+              Contactar por WhatsApp
             </Button>
           </div>
         </div>
@@ -1685,17 +1694,11 @@ const ProductDetailPage = () => {
                 La mejor tienda online para encontrar productos exclusivos y de alta calidad. Desde 2020 brindando la mejor experiencia de compra con envíos rápidos y atención personalizada.
               </p>
               <div className="flex gap-4 pt-2">
-                <a href="#" className="bg-slate-800 p-2 rounded-full hover:bg-blue-600 transition-colors">
+                <a href="https://www.facebook.com/Regala.Algo" className="bg-slate-800 p-2 rounded-full hover:bg-blue-600 transition-colors">
                   <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/facebook.svg" alt="Facebook" className="w-5 h-5 text-white" />
                 </a>
-                <a href="#" className="bg-slate-800 p-2 rounded-full hover:bg-blue-600 transition-colors">
-                  <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/twitter.svg" alt="Twitter" className="w-5 h-5 text-white" />
-                </a>
-                <a href="#" className="bg-slate-800 p-2 rounded-full hover:bg-blue-600 transition-colors">
+                <a href="https://www.instagram.com/regala.algo?igsh=OWk2enhxYzg2eHVq" className="bg-slate-800 p-2 rounded-full hover:bg-blue-600 transition-colors">
                   <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/instagram.svg" alt="Instagram" className="w-5 h-5 text-white" />
-                </a>
-                <a href="#" className="bg-slate-800 p-2 rounded-full hover:bg-blue-600 transition-colors">
-                  <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v6/icons/youtube.svg" alt="YouTube" className="w-5 h-5 text-white" />
                 </a>
               </div>
             </div>
@@ -1727,13 +1730,13 @@ const ProductDetailPage = () => {
                   <div className="bg-slate-800 p-2 rounded">
                     <MapPin className="h-4 w-4 text-blue-400" />
                   </div>
-                  <span>Calle Principal #123, Ciudad</span>
+                  <a href="https://maps.app.goo.gl/JRJbCy7Bs6Ej5HCd8" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">Av. Entre Ríos 1144, Salta</a>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="bg-slate-800 p-2 rounded">
                     <Mail className="h-4 w-4 text-blue-400" />
                   </div>
-                  <span>info@regalaalgo.com</span>
+                  <span>Regalo.Algo@gmail.com</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="bg-slate-800 p-2 rounded">
@@ -1741,7 +1744,30 @@ const ProductDetailPage = () => {
                       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
                     </svg>
                   </div>
-                  <span>+57 (300) 123-4567</span>
+                  <span>+54 3873439775</span>
+                </div>
+                <div className="mt-3">
+                  <div className="relative">
+                    <iframe 
+                      src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3622.317533512308!2d-65.41180712386205!3d-24.785247306203214!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x941bc3c92e9c1fb3%3A0xb0cb908a1effa849!2sOlavarr%C3%ADa%20610%2C%20A4400%20Salta!5e0!3m2!1ses-419!2sar!4v1691862420652!5m2!1ses-419!2sar"
+                      width="100%" 
+                      height="150" 
+                      style={{ border: 0, borderRadius: '8px' }} 
+                      allowFullScreen={true} 
+                      loading="lazy" 
+                      referrerPolicy="no-referrer-when-downgrade"
+                      title="Ubicación de la tienda"
+                    ></iframe>
+                    <a 
+                      href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute bottom-2 right-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-sm font-medium"
+                    >
+                      📍 Cómo llegar
+                    </a>
+                  </div>
+                  <p className="mt-2 text-sm">📍 Olavarría 610 (esquina San Luis)</p>
                 </div>
               </div>
             </div>

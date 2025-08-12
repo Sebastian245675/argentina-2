@@ -2,12 +2,13 @@ import React, { useEffect, useState, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Trash2, Plus, Edit, Info } from "lucide-react";
+import { Trash2, Plus, Edit, Info, Filter, LayoutGrid, List, FolderTree } from "lucide-react";
 import { db } from "@/firebase";
 import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Filter } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CategoryDiagram } from "./CategoryDiagram";
 
 export const CategoryManager = () => {
   // Actualizamos el modelo para incluir parentId (categoría padre)
@@ -29,6 +30,12 @@ export const CategoryManager = () => {
   
   // Filtrado de categorías
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  
+  // Control de vista (lista o diagrama)
+  const [viewMode, setViewMode] = useState<"list" | "diagram">("list");
+  
+  // Control para las categorías expandidas (para ver más/menos)
+  const [expandedSubcategories, setExpandedSubcategories] = useState<Record<string, boolean>>({});
   
   // Separamos las categorías principales (sin padre) de las subcategorías
   const mainCategories = categories.filter(cat => !cat.parentId);
@@ -976,16 +983,44 @@ export const CategoryManager = () => {
                               {/* Mostrar terceras categorías debajo de cada subcategoría */}
                               {!editingId && categories.filter(thirdCat => thirdCat.parentId === subCat.id).length > 0 && (
                                 <div className="pl-5 pr-2 py-2 bg-indigo-50/50">
-                                  <h6 className="text-xs font-medium text-indigo-700 mb-2 flex items-center gap-1">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600">
-                                      <polyline points="9 18 15 12 9 6"></polyline>
-                                      <polyline points="15 18 21 12 15 6"></polyline>
-                                    </svg>
-                                    Terceras categorías:
-                                  </h6>
+                                  <div className="flex justify-between items-center mb-2">
+                                    <h6 className="text-xs font-medium text-indigo-700 flex items-center gap-1">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                        <polyline points="15 18 21 12 15 6"></polyline>
+                                      </svg>
+                                      Terceras categorías:
+                                    </h6>
+                                    {categories.filter(thirdCat => thirdCat.parentId === subCat.id).length > 3 && (
+                                      <button 
+                                        onClick={() => setExpandedSubcategories(prev => ({
+                                          ...prev,
+                                          [subCat.id]: !prev[subCat.id]
+                                        }))}
+                                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 px-2 py-1 rounded-md hover:bg-indigo-100/50 transition-colors"
+                                      >
+                                        {expandedSubcategories[subCat.id] ? (
+                                          <>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                              <path d="m18 15-6-6-6 6"></path>
+                                            </svg>
+                                            Ver menos
+                                          </>
+                                        ) : (
+                                          <>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                              <path d="m6 9 6 6 6-6"></path>
+                                            </svg>
+                                            Ver más
+                                          </>
+                                        )}
+                                      </button>
+                                    )}
+                                  </div>
                                   <ul className="space-y-2">
                                     {categories
                                       .filter(thirdCat => thirdCat.parentId === subCat.id)
+                                      .slice(0, expandedSubcategories[subCat.id] ? undefined : 3) // Mostrar solo 3 si no está expandido
                                       .map(thirdCat => (
                                         <li key={thirdCat.id} className="flex items-center justify-between bg-white p-2.5 rounded-lg shadow-sm border border-indigo-100 hover:shadow-md transition-shadow duration-200">
                                           {editingId === thirdCat.id ? (
@@ -1155,11 +1190,39 @@ export const CategoryManager = () => {
             {/* Terceras categorías (cuando se filtran solo terceras categorías) */}
             {selectedCategory === "tercera" && (
               <div className="border rounded-lg p-4 bg-gray-50 mt-4">
-                <h5 className="font-medium mb-3">Todas las terceras categorías</h5>
+                <div className="flex justify-between items-center mb-3">
+                  <h5 className="font-medium">Todas las terceras categorías</h5>
+                  {categories.filter(cat => subCategories.some(subCat => subCat.id === cat.parentId)).length > 5 && (
+                    <button 
+                      onClick={() => setExpandedSubcategories(prev => ({
+                        ...prev,
+                        'all_terceras': !prev['all_terceras']
+                      }))}
+                      className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 px-2 py-1 rounded-md hover:bg-blue-100/50 transition-colors"
+                    >
+                      {expandedSubcategories['all_terceras'] ? (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="m18 15-6-6-6 6"></path>
+                          </svg>
+                          Ver menos
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="m6 9 6 6 6-6"></path>
+                          </svg>
+                          Ver más
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
                 {categories.filter(cat => subCategories.some(subCat => subCat.id === cat.parentId)).length > 0 ? (
                   <ul className="space-y-3">
                     {categories
                       .filter(cat => subCategories.some(subCat => subCat.id === cat.parentId))
+                      .slice(0, expandedSubcategories['all_terceras'] ? undefined : 5) // Mostrar solo 5 si no está expandido
                       .map(thirdCat => (
                         <li key={thirdCat.id} className="flex items-center justify-between bg-white p-3 rounded border border-orange-100">
                           {editingId === thirdCat.id ? (
@@ -1373,10 +1436,38 @@ export const CategoryManager = () => {
                       {/* Mostrar terceras categorías debajo de cada subcategoría en la vista de "Solo subcategorías" */}
                       {!editingId && categories.filter(thirdCat => thirdCat.parentId === subCat.id).length > 0 && (
                         <div className="pl-5 pr-2 py-2 bg-gray-50">
-                          <h6 className="text-xs font-medium text-gray-600 mb-1">Terceras categorías:</h6>
+                          <div className="flex justify-between items-center mb-1">
+                            <h6 className="text-xs font-medium text-gray-600">Terceras categorías:</h6>
+                            {categories.filter(thirdCat => thirdCat.parentId === subCat.id).length > 3 && (
+                              <button 
+                                onClick={() => setExpandedSubcategories(prev => ({
+                                  ...prev,
+                                  [subCat.id]: !prev[subCat.id]
+                                }))}
+                                className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 px-2 py-1 rounded-md hover:bg-blue-100/50 transition-colors"
+                              >
+                                {expandedSubcategories[subCat.id] ? (
+                                  <>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="m18 15-6-6-6 6"></path>
+                                    </svg>
+                                    Ver menos
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="m6 9 6 6 6-6"></path>
+                                    </svg>
+                                    Ver más
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
                           <ul className="space-y-1">
                             {categories
                               .filter(thirdCat => thirdCat.parentId === subCat.id)
+                              .slice(0, expandedSubcategories[subCat.id] ? undefined : 3) // Mostrar solo 3 si no está expandido
                               .map(thirdCat => (
                                 <li key={thirdCat.id} className="flex items-center justify-between bg-white p-2 rounded border border-orange-100">
                                   {editingId === thirdCat.id ? (

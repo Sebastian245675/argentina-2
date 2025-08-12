@@ -59,8 +59,14 @@ const Envios = () => {
                 <div className="prose prose-lg max-w-none text-gray-800">
                   <h2 className="text-2xl md:text-3xl font-serif font-semibold text-black mb-10 w-full flex items-center gap-2">📍 Envíos</h2>
                   <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none">
-                    Estamos ubicados en Salta, Argentina, y realizamos envíos a todo el país.
+                    Estamos ubicados en Olavarría 610 (esquina San Luis), Salta, Argentina, y realizamos envíos a todo el país.
                   </p>
+                  <div className="my-4">
+                    <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
+                       className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+                      <span>📍 Ver nuestra ubicación</span>
+                    </a>
+                  </div>
                   <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none">
                     📦 Nos encargamos de que tu pedido llegue de forma rápida, segura y sin complicaciones, estés donde estés.
                   </p>
@@ -119,10 +125,22 @@ const Envios = () => {
             <div>
               <h4 className="font-semibold mb-4">Empresa</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="/aboutus">Sobre Nosotros</a></li>
+                <li><a href="/sobre-nosotros">Sobre Nosotros</a></li>
+                <li><a href="/envios">Envíos</a></li>
+                <li><a href="/testimonios">Testimonios</a></li>
                 <li><a href="/retiros">Retiros</a></li>
-                <li><a href="/envios">Envios</a></li>
-                <li>Blog</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4">Nuestra Ubicación</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li>📍 Olavarría 610 (esquina San Luis)</li>
+                <li>
+                  <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
+                     className="text-blue-600 hover:underline">
+                    Ver en el mapa
+                  </a>
+                </li>
               </ul>
             </div>
           </div>

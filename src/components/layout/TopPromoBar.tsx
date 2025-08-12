@@ -3,9 +3,10 @@ import React, { useEffect, useRef, useState } from "react";
 const promos = [
   "— ELECTRODOMÉSTICOS — REGALERÍA —",
   "🔥 10% de descuento en tu primera compra con el código: ULTRA10",
-  "🚚 Envío gratis en pedidos superiores a $50.000",
+  "🚚 Envío en pedidos superiores a $70.000",
   "🎁 Regalo sorpresa en compras premium",
-  "💳 Paga fácil con Nequi, Daviplata y tarjetas"
+  "💳 Paga fácil con Nequi, Daviplata y tarjetas",
+  "📍 Visitanos en Olavarría 610 (esquina San Luis)"
 ];
 
 export const TopPromoBar: React.FC<{ setPromoVisible?: (v: boolean) => void }> = ({ setPromoVisible }) => {

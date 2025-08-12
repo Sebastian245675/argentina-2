@@ -62,7 +62,9 @@ import { RevisionList } from "@/components/admin/RevisionList";
 import { ProductAnalyticsView } from '@/components/admin/ProductAnalytics';
 import InfoManager from '@/components/admin/InfoManager';
 import Sidebar from '@/components/admin/Sidebar';
+import EmployeeManager from '@/components/admin/EmployeeManager';
 import AdminLayout from '@/components/admin/AdminLayout';
+import { Briefcase, Share2 } from 'lucide-react';
 
 export const AdminPanel: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -83,6 +85,10 @@ export const AdminPanel: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [sessionTime, setSessionTime] = useState<string>("00:00:00");
   const [sessionStart, setSessionStart] = useState<Date>(new Date());
+  const [todaySales, setTodaySales] = useState<number>(0);
+  const [todaySalesLoading, setTodaySalesLoading] = useState<boolean>(true);
+  const [monthlySales, setMonthlySales] = useState<number>(0);
+  const [monthlySalesLoading, setMonthlySalesLoading] = useState<boolean>(true);
 
   console.log('AdminPanel rendered, user:', user);
 
@@ -150,6 +156,200 @@ export const AdminPanel: React.FC = () => {
       setProducts(docs);
     };
     fetchProducts();
+  }, []);
+  
+  // Efecto para calcular las ventas del día actual
+  useEffect(() => {
+    const calculateTodaySales = async () => {
+      setTodaySalesLoading(true);
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Establecer a inicio del día
+
+        // Consulta para pedidos de hoy que estén confirmados - buscamos en ambas colecciones
+        let salesTotal = 0;
+        
+        // Buscar en colección "orders"
+        const ordersSnapshot = await getDocs(collection(db, "orders"));
+        ordersSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.status === "confirmed") {
+            const orderDate = data.createdAt?.toDate ? 
+                            data.createdAt.toDate() : 
+                            data.createdAt?.seconds ? new Date(data.createdAt.seconds * 1000) : null;
+            
+            if (orderDate) {
+              const orderDay = new Date(orderDate);
+              orderDay.setHours(0, 0, 0, 0);
+              
+              // Si la fecha del pedido es hoy y está confirmado, sumarlo
+              if (orderDay.getTime() === today.getTime()) {
+                salesTotal += Number(data.total || 0);
+                console.log("Venta de hoy encontrada en 'orders':", doc.id, "Total:", data.total);
+              }
+            }
+          }
+        });
+        
+        // Buscar en colección "pedidos" para retrocompatibilidad
+        const pedidosSnapshot = await getDocs(collection(db, "pedidos"));
+        pedidosSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.status === "confirmed" && data.createdAt?.toDate) {
+            const orderDate = data.createdAt.toDate();
+            const orderDay = new Date(orderDate);
+            orderDay.setHours(0, 0, 0, 0);
+            
+            // Si la fecha del pedido es hoy y está confirmado, sumarlo
+            if (orderDay.getTime() === today.getTime()) {
+              salesTotal += Number(data.total || 0);
+              console.log("Venta de hoy encontrada en 'pedidos':", doc.id, "Total:", data.total);
+            }
+          }
+        });
+        
+        console.log("Total ventas de hoy calculadas:", salesTotal);
+        setTodaySales(salesTotal);
+      } catch (error) {
+        console.error("Error al calcular ventas del día:", error);
+        toast({
+          title: "Error",
+          description: "No se pudieron calcular las ventas del día.",
+          variant: "destructive"
+        });
+      } finally {
+        setTodaySalesLoading(false);
+      }
+    };
+    
+    calculateTodaySales();
+    
+    // Escuchar eventos de actualización del dashboard
+    const handleDashboardUpdate = (event: CustomEvent) => {
+      if (event.detail?.type === 'orderConfirmed') {
+        const orderTotal = Number(event.detail.orderTotal);
+        console.log("Evento de actualización de ventas recibido en AdminPanel:", event.detail);
+        
+        // Actualizar ventas diarias directamente
+        setTodaySales(prevSales => {
+          const newSales = prevSales + orderTotal;
+          console.log("Actualizando ventas diarias:", prevSales, "+", orderTotal, "=", newSales);
+          return newSales;
+        });
+        
+        // Actualizar ventas mensuales
+        setMonthlySales(prevSales => {
+          const newSales = prevSales + orderTotal;
+          console.log("Actualizando ventas mensuales:", prevSales, "+", orderTotal, "=", newSales);
+          return newSales;
+        });
+        
+        // Forzar actualización de los elementos del DOM con las clases específicas
+        setTimeout(() => {
+          const todaySalesElement = document.querySelector('.dashboard-today-sales');
+          const monthlySalesElement = document.querySelector('.dashboard-monthly-sales');
+          
+          if (todaySalesElement) {
+            todaySalesElement.textContent = `$${todaySales.toLocaleString()}`;
+          }
+          
+          if (monthlySalesElement) {
+            monthlySalesElement.textContent = `$${monthlySales.toLocaleString()}`;
+          }
+        }, 100);
+        
+        toast({
+          title: "Venta registrada",
+          description: `Las estadísticas han sido actualizadas. Venta: $${orderTotal.toLocaleString()}`,
+        });
+      }
+    };
+    
+    // Registrar el event listener
+    document.addEventListener('dashboardUpdate', handleDashboardUpdate as EventListener);
+    
+    // Limpiar el event listener cuando el componente se desmonte
+    return () => {
+      document.removeEventListener('dashboardUpdate', handleDashboardUpdate as EventListener);
+    };
+  }, [todaySales, monthlySales]);
+  
+  // Efecto para calcular los ingresos mensuales
+  useEffect(() => {
+    const calculateMonthlySales = async () => {
+      setMonthlySalesLoading(true);
+      try {
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        
+        const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+        firstDayOfMonth.setHours(0, 0, 0, 0);
+        
+        const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
+        lastDayOfMonth.setHours(23, 59, 59, 999);
+        
+        // Para el mes anterior
+        const firstDayOfLastMonth = new Date(currentYear, currentMonth - 1, 1);
+        firstDayOfLastMonth.setHours(0, 0, 0, 0);
+        
+        const lastDayOfLastMonth = new Date(currentYear, currentMonth, 0);
+        lastDayOfLastMonth.setHours(23, 59, 59, 999);
+
+        // Consulta para pedidos confirmados
+        const pedidosSnapshot = await getDocs(collection(db, "pedidos"));
+        
+        let monthlySalesTotal = 0;
+        let lastMonthSalesTotal = 0;
+        
+        pedidosSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.status === "confirmed" && data.createdAt?.toDate) {
+            const orderDate = data.createdAt.toDate();
+            
+            // Si la fecha del pedido está dentro del mes actual y está confirmado, sumarlo
+            if (orderDate >= firstDayOfMonth && orderDate <= lastDayOfMonth) {
+              monthlySalesTotal += Number(data.total || 0);
+            }
+            
+            // Si la fecha del pedido está dentro del mes anterior y está confirmado, sumarlo
+            if (orderDate >= firstDayOfLastMonth && orderDate <= lastDayOfLastMonth) {
+              lastMonthSalesTotal += Number(data.total || 0);
+            }
+          }
+        });
+        
+        setMonthlySales(monthlySalesTotal);
+        
+        // Calcular y mostrar la diferencia porcentual
+        if (lastMonthSalesTotal > 0) {
+          const percentageDiff = ((monthlySalesTotal - lastMonthSalesTotal) / lastMonthSalesTotal) * 100;
+          const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+          const prevMonthName = monthNames[currentMonth === 0 ? 11 : currentMonth - 1];
+          
+          // Mostrar una notificación informativa sobre la comparación
+          if (!isNaN(percentageDiff)) {
+            toast({
+              title: `Comparativa Mensual: ${percentageDiff.toFixed(1)}%`,
+              description: `${percentageDiff >= 0 ? 'Aumento' : 'Disminución'} respecto a ${prevMonthName}`,
+              variant: percentageDiff >= 0 ? "default" : "destructive"
+            });
+          }
+        }
+        
+      } catch (error) {
+        console.error("Error al calcular ingresos mensuales:", error);
+        toast({
+          title: "Error",
+          description: "No se pudieron calcular los ingresos mensuales.",
+          variant: "destructive"
+        });
+      } finally {
+        setMonthlySalesLoading(false);
+      }
+    };
+    
+    calculateMonthlySales();
   }, []);
 
   const handleCreateSubAccount = async (e: React.FormEvent) => {
@@ -396,6 +596,7 @@ export const AdminPanel: React.FC = () => {
                   <TabsTrigger value="revisiones">Revisiones</TabsTrigger>
                   <TabsTrigger value="analytics">Analytics</TabsTrigger>
                   <TabsTrigger value="help-manual">Manual de Ayuda</TabsTrigger>
+                  <TabsTrigger value="employees">Empleados</TabsTrigger>
                 </>
               )}
             </TabsList>
@@ -421,7 +622,14 @@ export const AdminPanel: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-green-100 text-sm">Ventas de Hoy</p>
-                          <p className="text-2xl font-bold">$45,230</p>
+                          {todaySalesLoading ? (
+                            <div className="flex items-center space-x-2">
+                              <div className="h-5 w-5 rounded-full border-2 border-green-200 border-t-transparent animate-spin"></div>
+                              <span className="text-xl font-bold">Calculando...</span>
+                            </div>
+                          ) : (
+                            <p className="text-2xl font-bold dashboard-today-sales">${todaySales.toLocaleString()}</p>
+                          )}
                         </div>
                         <DollarSign className="h-8 w-8 text-green-200" />
                       </div>
@@ -432,21 +640,15 @@ export const AdminPanel: React.FC = () => {
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-purple-100 text-sm">Pedidos Pendientes</p>
-                          <p className="text-2xl font-bold">
-                            {
-                              orders.filter(order =>
-                                ["pending", "en espera", "espera"].includes(
-                                  String(order.status).toLowerCase().trim()
-                                )
-                              ).length
-                            }
-                          </p>
+                          <p className="text-purple-100 text-sm">Estadísticas</p>
+                          <p className="text-2xl font-bold">Actividad</p>
                         </div>
                         <AlertCircle className="h-8 w-8 text-purple-200" />
                       </div>
                     </CardContent>
                   </Card>
+                  
+                  <button className="dashboard-refresh-button hidden" onClick={() => console.log("Refresh button clicked")}></button>
                 </div>
                 <DashboardStats />
               </TabsContent>
@@ -1951,6 +2153,36 @@ export const AdminPanel: React.FC = () => {
             {/* Info tab - disponible para admin y subadmin */}
             <TabsContent value="info" className="space-y-6">
               <InfoManager />
+            </TabsContent>
+
+            {/* Empleados - Nueva sección */}
+            <TabsContent value="employees" className="space-y-6">
+              <Card className="shadow-lg border-0">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 border-b">
+                  <CardTitle className="text-xl flex items-center gap-2 text-blue-800">
+                    <Briefcase className="h-6 w-6 text-blue-600" />
+                    Gestión de Empleados
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <EmployeeManager />
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            {/* Compartir Empleados */}
+            <TabsContent value="share-employees" className="space-y-6">
+              <Card className="shadow-lg border-0">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-100 border-b">
+                  <CardTitle className="text-xl flex items-center gap-2 text-blue-800">
+                    <Share2 className="h-6 w-6 text-blue-600" />
+                    Compartir Gestión de Empleados
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <EmployeeManager />
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="ai-assistant" className="space-y-6">

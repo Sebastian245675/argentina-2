@@ -52,9 +52,9 @@ const themeColors = {
 };
 
 const carouselImages = [
-  "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=1200&q=80"
+  "/principio1.jpg",
+  "/principio2.jpg",
+  "/principio3.jpg"
 ];
 
 function Carousel() {
@@ -79,7 +79,7 @@ function Carousel() {
         >
           <img
             src={img}
-            alt={`Banner ${idx + 1}`}
+            alt={`Principio ${idx + 1}`}
             className="w-full h-full object-cover"
             draggable={false}
           />
@@ -112,7 +112,7 @@ function Carousel() {
             key={idx}
             onClick={() => setCurrent(idx)}
             className={`w-3 h-3 rounded-full border-2 ${current === idx ? "bg-blue-500 border-blue-500" : "bg-white/70 border-white/70"} transition-all`}
-            aria-label={`Ir a la imagen ${idx + 1}`}
+            aria-label={`Ir al principio ${idx + 1}`}
           />
         ))}
       </div>
@@ -252,7 +252,7 @@ const AdvancedIndex = () => {
   };
 
   // Botón flotante de WhatsApp
-  const whatsappNumber = '+5493873439775';
+  const whatsappNumber = '+543873439775';
   const whatsappUrl = `https://wa.me/${whatsappNumber.replace(/\D/g, '')}`;
 
   return (
@@ -315,7 +315,7 @@ const AdvancedIndex = () => {
           <div className="hidden md:block absolute top-40 left-1/4 w-56 h-56 bg-blue-300/10 rounded-full blur-2xl"></div>
           <div className="hidden lg:block absolute bottom-20 right-1/4 w-48 h-48 bg-slate-300/10 rounded-full blur-2xl"></div>
           
-          <div className="relative z-10">
+          <div id="novedades" className="relative z-10" style={{ scrollMarginTop: '120px' }}>
             <div className="flex flex-col items-center">
               {/* Título con insignia para móvil y desktop */}
               <div className="flex flex-col items-center mb-8">
@@ -551,8 +551,8 @@ const AdvancedIndex = () => {
                 </div>
                 <h3 className="text-xl font-bold text-gray-800 mb-2">Instagram</h3>
                 <p className="text-gray-600 mb-4 text-center">Síguenos y descubre nuestros productos</p>
-                <a href="https://www.instagram.com/Regalo.Algo" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-bold hover:underline text-lg">
-                  @Regalo.Algo
+                <a href="https://www.instagram.com/regala.algo?igsh=OWk2enhxYzg2eHVq" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-bold hover:underline text-lg">
+                  @regala.algo
                 </a>
               </div>
               
@@ -565,7 +565,7 @@ const AdvancedIndex = () => {
                 </div>
                 <h3 className="text-xl font-bold text-gray-800 mb-2">Facebook</h3>
                 <p className="text-gray-600 mb-4 text-center">Conéctate con nuestra comunidad</p>
-                <a href="https://www.facebook.com/RegalaAlgo" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-bold hover:underline text-lg">
+                <a href="https://www.facebook.com/Regala.Algo" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-bold hover:underline text-lg">
                   Regala Algo
                 </a>
               </div>
@@ -579,8 +579,8 @@ const AdvancedIndex = () => {
                 </div>
                 <h3 className="text-xl font-bold text-gray-800 mb-2">WhatsApp</h3>
                 <p className="text-gray-600 mb-4 text-center">Contáctanos directamente</p>
-                <a href="https://wa.me/573001234567" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-bold hover:underline text-lg">
-                  +57 300 123 4567
+                <a href="https://wa.me/543873439775" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-bold hover:underline text-lg">
+                  +54 3873439775
                 </a>
               </div>
             </div>
@@ -663,23 +663,23 @@ const AdvancedIndex = () => {
                 <div className="space-y-4 text-gray-300">
                   <div className="flex items-center space-x-3">
                     <MessageCircle className="h-5 w-5 text-blue-400" />
-                    <span>WhatsApp: +57 300 123 4567</span>
+                    <span>WhatsApp: +54 3873439775</span>
                   </div>
                   <div className="flex items-center space-x-3">
                     <Mail className="h-5 w-5 text-blue-400" />
-                    <span>contacto@regalaalgo.com</span>
+                    <span>Regalo.Algo@gmail.com</span>
                   </div>
                   <div className="flex items-center space-x-3">
                     <svg className="h-5 w-5 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
                     </svg>
-                    <span>Instagram: <a href="https://www.instagram.com/Regalo.Algo" target="_blank" className="text-blue-400 hover:underline">@Regalo.Algo</a></span>
+                    <span>Instagram: <a href="https://www.instagram.com/regala.algo?igsh=OWk2enhxYzg2eHVq" target="_blank" className="text-blue-400 hover:underline">@regala.algo</a></span>
                   </div>
                   <div className="flex items-center space-x-3">
                     <svg className="h-5 w-5 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"/>
                     </svg>
-                    <span>Facebook: <a href="https://www.facebook.com/RegalaAlgo" target="_blank" className="text-blue-400 hover:underline">Regala Algo</a></span>
+                    <span>Facebook: <a href="https://www.facebook.com/Regala.Algo" target="_blank" className="text-blue-400 hover:underline">Regala Algo</a></span>
                   </div>
                   <div className="flex items-center space-x-3">
                     
@@ -717,7 +717,7 @@ const AdvancedIndex = () => {
       
       {/* Botón flotante de WhatsApp */}
       <a 
-        href="https://wa.me/573001234567" 
+        href="https://wa.me/543873439775" 
         target="_blank" 
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 w-16 h-16 bg-green-500 rounded-full flex items-center justify-center shadow-xl hover:bg-green-600 transition-all hover:scale-110 z-50"

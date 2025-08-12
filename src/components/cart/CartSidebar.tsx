@@ -23,7 +23,7 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [orderNotes, setOrderNotes] = useState('');
   const [userName, setUserName] = useState('');
-  const [userConjunto, setUserConjunto] = useState('');
+  const [userPhone, setUserPhone] = useState('');
   const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
@@ -34,11 +34,11 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
         if (userDoc.exists()) {
           const data = userDoc.data();
           setUserName(data.name || '');
-          setUserConjunto(data.conjunto || data.departmentNumber || '');
+          setUserPhone(data.phone || '');
           setUserEmail(data.email || firebaseUser.email || '');
         } else {
           setUserName(firebaseUser.email || '');
-          setUserConjunto('');
+          setUserPhone('');
           setUserEmail(firebaseUser.email || '');
         }
       }
@@ -74,10 +74,10 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
     }
 
     // Validar que los datos del usuario estén completos
-    if (!userName || !userEmail || !userConjunto) {
+    if (!userName || !userEmail) {
       toast({
         title: "Datos incompletos",
-        description: "No se pudo obtener tu nombre, conjunto o email. Por favor cierra sesión y vuelve a iniciar.",
+        description: "No se pudo obtener tu nombre o email. Por favor cierra sesión y vuelve a iniciar.",
         variant: "destructive"
       });
       return;
@@ -90,7 +90,7 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
       `🛒 *NUEVO PEDIDO - REGALA ALGO*\n\n` +
       `👤 *Nombre:* ${userName}\n` +
       `📧 *Email:* ${userEmail}\n` +
-      `🏢 *Conjunto:* ${userConjunto}\n` +
+      `📱 *Teléfono:* ${userPhone || 'No especificado'}\n` +
       `\n*📦 PRODUCTOS SOLICITADOS:*\n${items.map(item => {
         let itemText = `${item.name} x${item.quantity}`;
         if (item.selectedColor) {
@@ -100,26 +100,25 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
       }).join('\n')}\n\n` +
       (orderNotes ? `*📝 Notas adicionales:*\n${orderNotes}\n\n` : '') +
       `💰 *TOTAL A PAGAR: $${getTotal().toLocaleString()}*\n\n` +
-      `⏰ Fecha: ${new Date().toLocaleDateString('es-CO')} - ${new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}\n\n` +
+      `⏰ Fecha: ${new Date().toLocaleDateString('es-AR')} - ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}\n\n` +
       `✅ Por favor confirma la disponibilidad y tiempo de entrega.\n`;
 
-    const storeWhatsApp = '573053577980'; // Cambia por el número real de la tienda
+    const storeWhatsApp = '543873439775'; // Número de WhatsApp de Regala Algo en Argentina
     const whatsappUrl = `https://wa.me/${storeWhatsApp}?text=${encodeURIComponent(message)}`;
 
     try {
       // Guarda el pedido en Firestore
-      await addDoc(collection(db, "pedidos"), {
+      await addDoc(collection(db, "orders"), {
+        userId: isAuthenticated ? user.id : null,
         userName,
         userEmail,
-        userConjunto,
+        userPhone,
         items: items.map(item => ({
           id: item.id,
           name: item.name,
-          quantity: item.quantity,
           price: item.price,
-          image: item.image,
-          category: item.category,
-          selectedColor: item.selectedColor || null,
+          quantity: item.quantity,
+          image: item.image
         })),
         orderNotes,
         total: getTotal(),
@@ -311,6 +310,6 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
               <div style={{fontSize: 12, color: '#888', marginBottom: 8}}>
                 <div>Nombre: {userName}</div>
                 <div>Email: {userEmail}</div>
-                <div>Conjunto: {userConjunto}</div>
+                <div>Teléfono: {userPhone || 'No especificado'}</div>
               </div>
             </>          )}        </div>      </SheetContent>    </Sheet>  );};

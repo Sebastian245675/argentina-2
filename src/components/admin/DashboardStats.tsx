@@ -11,6 +11,8 @@ export const DashboardStats: React.FC = () => {
   const [productCount, setProductCount] = useState(0);
   const [orderCount, setOrderCount] = useState(0);
   const [monthSales, setMonthSales] = useState(0);
+  const [pendingOrders, setPendingOrders] = useState(0);
+  const [dailySales, setDailySales] = useState(0);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState('monthly');
@@ -49,8 +51,8 @@ export const DashboardStats: React.FC = () => {
             user: data.lastModifiedBy || data.createdBy || "Admin",
             action: `Producto ${data.name || "sin nombre"} ${data.createdAt ? "creado" : "modificado"}`,
             time: data.lastModified?.toDate?.() 
-              ? data.lastModified.toDate().toLocaleString("es-CO") 
-              : new Date(data.lastModified).toLocaleString("es-CO"),
+              ? data.lastModified.toDate().toLocaleString("es-AR") 
+              : new Date(data.lastModified).toLocaleString("es-AR"),
             type: "product",
             icon: "package"
           });
@@ -82,8 +84,8 @@ export const DashboardStats: React.FC = () => {
           user: data.userName || data.editorEmail || "Usuario",
           action: actionText,
           time: data.timestamp?.toDate?.()
-            ? data.timestamp.toDate().toLocaleString("es-CO")
-            : new Date(data.timestamp).toLocaleString("es-CO"),
+            ? data.timestamp.toDate().toLocaleString("es-AR")
+            : new Date(data.timestamp).toLocaleString("es-AR"),
           type: "revision",
           status: data.status || "pendiente"
         });
@@ -92,39 +94,70 @@ export const DashboardStats: React.FC = () => {
       return activity;
     };
     
-    // Pedidos y ventas del mes
-    getDocs(collection(db, "pedidos")).then(async snapshot => {
+    // Pedidos y ventas del mes - Aseguramos usar 'orders' como nombre de colección
+    getDocs(collection(db, "orders")).then(async snapshot => {
+      console.log("Cargando órdenes: ", snapshot.size, " documentos encontrados");
       setOrderCount(snapshot.size);
 
       // Ventas del mes
       const now = new Date();
       const thisMonth = now.getMonth();
+      const thisYear = now.getFullYear();
+      const today = now.getDate();
+      
       let sales = 0;
+      let dailySales = 0;
+      let pendingOrders = 0;
       const orderActivity: any[] = [];
       
       snapshot.docs.forEach(docSnap => {
         const data = docSnap.data();
+        const orderDate = data.createdAt?.toDate ? data.createdAt.toDate() : 
+                          data.createdAt?.seconds ? new Date(data.createdAt.seconds * 1000) :
+                          new Date();
+        
+        // Contar pedidos pendientes
+        if (data.status !== "confirmed") {
+          pendingOrders++;
+        }
+        
         // Ventas del mes (solo pedidos confirmados)
-        if (data.status === "confirmed" && data.createdAt?.toDate) {
-          const date = data.createdAt.toDate();
-          if (date.getMonth() === thisMonth && date.getFullYear() === now.getFullYear()) {
+        if (data.status === "confirmed") {
+          // Si es del mes actual
+          if (orderDate.getMonth() === thisMonth && orderDate.getFullYear() === thisYear) {
             sales += Number(data.total || 0);
+            
+            // Si es de hoy
+            if (orderDate.getDate() === today && 
+                orderDate.getMonth() === thisMonth && 
+                orderDate.getFullYear() === thisYear) {
+              dailySales += Number(data.total || 0);
+            }
           }
         }
         
         // Actividad de pedidos
         orderActivity.push({
           user: data.userName || "Cliente",
-          action: data.status === "confirmed" ? "Pedido confirmado" : "Pedido en espera",
-          time: data.createdAt?.toDate
-            ? data.createdAt.toDate().toLocaleString("es-CO")
-            : "",
+          action: data.status === "confirmed" ? (data.physicalSale ? "Venta física registrada" : "Pedido confirmado") : "Pedido en espera",
+          time: orderDate.toLocaleString("es-AR"),
           amount: data.total ? `$${Number(data.total).toLocaleString()}` : null,
           type: "order"
         });
       });
       
+      // Actualizar estados
       setMonthSales(sales);
+      setPendingOrders(pendingOrders);
+      setDailySales(dailySales);
+      
+      // Actualizar tendencias (simular por ahora)
+      setTrendPercentages({
+        users: Math.round(Math.random() * 20) - 5,
+        products: Math.round(Math.random() * 10) - 2,
+        orders: Math.round((pendingOrders / (snapshot.size || 1)) * 100),
+        sales: Math.round(dailySales / (sales || 1) * 100)
+      });
       
       // Combinar actividades de productos y pedidos
       const productActivities = await loadRecentProductActivities();
@@ -145,6 +178,39 @@ export const DashboardStats: React.FC = () => {
   
   useEffect(() => {
     loadData();
+    
+    // Escuchar eventos de actualización del dashboard
+    const handleDashboardUpdate = (event: CustomEvent) => {
+      if (event.detail?.type === 'orderConfirmed') {
+        // Actualizar ventas diarias y mensuales
+        setDailySales(prev => prev + Number(event.detail.orderTotal));
+        setMonthSales(prev => prev + Number(event.detail.orderTotal));
+        // Actualizar contador de pedidos pendientes
+        setPendingOrders(prev => prev > 0 ? prev - 1 : 0);
+        
+        // Actualizar las tendencias
+        setTrendPercentages(prev => ({
+          ...prev,
+          orders: Math.max(0, prev.orders - 1), // Reducir porcentaje de pendientes
+          sales: Math.min(100, prev.sales + 1) // Incrementar porcentaje de ventas
+        }));
+        
+        // Notificar al usuario
+        toast({
+          title: "Dashboard actualizado",
+          description: "Las estadísticas han sido actualizadas con el pedido confirmado.",
+          variant: "default"
+        });
+      }
+    };
+    
+    // Registrar el event listener
+    document.addEventListener('dashboardUpdate', handleDashboardUpdate as EventListener);
+    
+    // Limpiar el event listener cuando el componente se desmonte
+    return () => {
+      document.removeEventListener('dashboardUpdate', handleDashboardUpdate as EventListener);
+    };
   }, []);
   
   // Función para renderizar el estado de tendencia
@@ -197,17 +263,17 @@ export const DashboardStats: React.FC = () => {
       trend: trendPercentages.products
     },
     {
-      title: 'Pedidos Totales',
-      value: orderCount,
-      icon: ShoppingCart,
-      color: 'from-indigo-400 to-violet-600',
+      title: 'Pedidos Pendientes',
+      value: pendingOrders,
+      icon: Clock, 
+      color: 'from-amber-400 to-orange-600',
       trend: trendPercentages.orders
     },
     {
       title: 'Ventas del Mes',
       value: `$${monthSales.toLocaleString()}`,
       icon: DollarSign,
-      color: 'from-amber-400 to-orange-600',
+      color: 'from-indigo-400 to-violet-600',
       trend: trendPercentages.sales
     }
   ];
@@ -414,10 +480,12 @@ export const DashboardStats: React.FC = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <div className="text-sky-100">Ingresos Mensuales</div>
-                    <div className="text-white font-bold">${(monthSales * 1.2).toLocaleString()}</div>
+                    <div className="text-white font-bold">${monthSales.toLocaleString()}</div>
                   </div>
                   <div className="h-2 bg-blue-700/40 rounded-full">
-                    <div className="h-full w-3/4 bg-white rounded-full"></div>
+                    <div className="h-full w-3/4 bg-white rounded-full relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-300/30 to-white/50 animate-pulse-slow"></div>
+                    </div>
                   </div>
                   
                   <div className="flex justify-between items-center">
@@ -425,18 +493,30 @@ export const DashboardStats: React.FC = () => {
                     <div className="text-white font-bold">${(monthSales * 1.5).toLocaleString()}</div>
                   </div>
                   <div className="h-1 bg-blue-700/40 rounded-full">
-                    <div className="h-full w-1/2 bg-white rounded-full"></div>
+                    <div className="h-full w-1/2 bg-white rounded-full relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-300/30 to-white/50 animate-pulse-slow"></div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center mt-2">
+                    <div className="text-sky-100">Proyección Fin de Mes</div>
+                    <div className="text-white font-bold">${(monthSales * 1.2).toLocaleString()}</div>
+                  </div>
+                  <div className="h-1 bg-blue-700/40 rounded-full">
+                    <div className="h-full w-4/5 bg-white rounded-full relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-300/30 to-white/50 animate-pulse-slow"></div>
+                    </div>
                   </div>
                 </div>
                 
                 <div className="mt-8 grid grid-cols-2 gap-4">
                   <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
                     <div className="text-sm text-white mb-1">Órdenes Pendientes</div>
-                    <div className="text-2xl font-bold text-white">{Math.floor(orderCount * 0.3)}</div>
+                    <div className="text-2xl font-bold text-white">{pendingOrders}</div>
                   </div>
                   <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
-                    <div className="text-sm text-white mb-1">Promedio Diario</div>
-                    <div className="text-2xl font-bold text-white">${Math.floor(monthSales / 30).toLocaleString()}</div>
+                    <div className="text-sm text-white mb-1">Ventas Hoy</div>
+                    <div className="text-2xl font-bold text-white">${dailySales.toLocaleString()}</div>
                   </div>
                 </div>
                 

@@ -62,8 +62,8 @@ const Index = () => {
                 <div>
                   <h4 className="font-semibold mb-4">Contacto</h4>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li>WhatsApp: +57 300 123 4567</li>
-                    <li>Email: contacto@regalaalgo.com</li>
+                    <li>WhatsApp: +54 3873439775</li>
+                    <li>Email: Regalo.Algo@gmail.com</li>
                     <li>Horario: 8AM - 8PM</li>
                   </ul>
                 </div>

@@ -15,7 +15,12 @@ import {
   X,
   ChevronRight,
   BrainCog, // Icono para el Asistente IA
-  HelpCircle // Icono para el Manual de Ayuda
+  HelpCircle, // Icono para el Manual de Ayuda
+  Star, // Icono para Versión Completa
+  Briefcase, // Icono para Gestión de Empleados
+  PlusCircle, // Icono para Funciones Extra
+  ChevronDown, // Icono para desplegable
+  Share2 // Icono para compartir
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -38,6 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const isMobile = useIsMobile();
   const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
+  const [showExtraFunctions, setShowExtraFunctions] = useState(false);
   
   // Cerrar sidebar automáticamente al cambiar de pestaña en móvil
   useEffect(() => {
@@ -79,7 +85,31 @@ const Sidebar: React.FC<SidebarProps> = ({
       { id: 'subaccounts', icon: <Users className="h-5 w-5" />, label: 'Subcuentas', description: 'Gestión de accesos' },
       { id: 'revisiones', icon: <Bell className="h-5 w-5" />, label: 'Revisiones', description: 'Aprobar cambios pendientes' },
       { id: 'analytics', icon: <TrendingUp className="h-5 w-5" />, label: 'Analítica', description: 'Estadísticas avanzadas' },
-      { id: 'help-manual', icon: <HelpCircle className="h-5 w-5" />, label: 'Manual de Ayuda', description: 'Guías y tutoriales' }
+      { id: 'help-manual', icon: <HelpCircle className="h-5 w-5" />, label: 'Manual de Ayuda', description: 'Guías y tutoriales' },
+      { 
+        id: 'full-version', 
+        icon: <Star className="h-5 w-5" />, 
+        label: 'Versión Completa', 
+        description: 'Funcionalidades premium', 
+        hasDropdown: true,
+        isDropdownOpen: showExtraFunctions,
+        toggleDropdown: () => setShowExtraFunctions(!showExtraFunctions),
+        dropdownItems: [
+          { 
+            id: 'employees', 
+            icon: <Briefcase className="h-5 w-5" />, 
+            label: 'Guardar Empleados', 
+            description: 'Gestión del personal' 
+          },
+          { 
+            id: 'share-employees', 
+            icon: <Share2 className="h-5 w-5" />, 
+            label: 'Compartir Acceso', 
+            description: 'Compartir funcionalidades' 
+          },
+          // Aquí puedes agregar más opciones en el futuro
+        ]
+      }
     ])
   ];
 
@@ -161,56 +191,116 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <ul className="space-y-1.5">
             {sidebarItems.map(item => (
-              <li key={item.id}>
-                <button
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    if (isMobile) setIsSidebarOpen(false);
-                  }}
-                  className={cn(
-                    "w-full flex items-center px-4 py-3.5 rounded-xl text-left transition-all duration-300",
-                    activeTab === item.id 
-                      ? "bg-gradient-to-r from-sky-100/70 to-blue-100/70 shadow-sm" 
-                      : "hover:bg-sky-50"
-                  )}
-                >
-                  <div className={cn(
-                    "flex items-center justify-center w-10 h-10 rounded-lg mr-3",
-                    activeTab === item.id 
-                      ? "bg-gradient-to-br from-sky-400 to-blue-600 shadow-md shadow-sky-200" 
-                      : "bg-slate-100 text-slate-500"
-                  )}>
-                    <span className={cn(
-                      "text-white",
-                      activeTab === item.id ? iconAnimation(true) : iconAnimation(false)
-                    )}>
-                      {item.icon}
-                    </span>
-                  </div>
-                  
-                  <div className="flex flex-col">
-                    <span className={cn(
-                      "font-medium",
-                      activeTab === item.id ? "text-sky-700" : "text-slate-600"
-                    )}>
-                      {item.label}
-                    </span>
-                    
-                    {activeTab === item.id && (
-                      <span className="text-xs text-sky-500 mt-0.5">
-                        Seleccionado
-                      </span>
+              <React.Fragment key={item.id}>
+                <li>
+                  <button
+                    onClick={() => {
+                      if (item.hasDropdown && item.toggleDropdown) {
+                        item.toggleDropdown();
+                      } else {
+                        setActiveTab(item.id);
+                        if (isMobile) setIsSidebarOpen(false);
+                      }
+                    }}
+                    className={cn(
+                      "w-full flex items-center px-4 py-3.5 rounded-xl text-left transition-all duration-300",
+                      activeTab === item.id 
+                        ? "bg-gradient-to-r from-sky-100/70 to-blue-100/70 shadow-sm" 
+                        : "hover:bg-sky-50"
                     )}
-                  </div>
-                  
-                  {activeTab === item.id && (
-                    <div className="ml-auto flex items-center">
-                      <div className="w-2 h-2 rounded-full bg-sky-500 mr-2"></div>
-                      <ChevronRight className="h-4 w-4 text-sky-500" />
+                  >
+                    <div className={cn(
+                      "flex items-center justify-center w-10 h-10 rounded-lg mr-3",
+                      activeTab === item.id 
+                        ? "bg-gradient-to-br from-sky-400 to-blue-600 shadow-md shadow-sky-200" 
+                        : "bg-slate-100 text-slate-500"
+                    )}>
+                      <span className={cn(
+                        activeTab === item.id ? "text-white" : "",
+                        activeTab === item.id ? iconAnimation(true) : iconAnimation(false)
+                      )}>
+                        {item.icon}
+                      </span>
                     </div>
-                  )}
-                </button>
-              </li>
+                    
+                    <div className="flex flex-col">
+                      <span className={cn(
+                        "font-medium",
+                        activeTab === item.id ? "text-sky-700" : "text-slate-600"
+                      )}>
+                        {item.label}
+                      </span>
+                      
+                      {activeTab === item.id && !item.hasDropdown && (
+                        <span className="text-xs text-sky-500 mt-0.5">
+                          Seleccionado
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="ml-auto flex items-center">
+                      {item.hasDropdown ? (
+                        <ChevronDown className={`h-4 w-4 text-sky-500 transition-transform duration-300 ${item.isDropdownOpen ? 'transform rotate-180' : ''}`} />
+                      ) : activeTab === item.id && (
+                        <>
+                          <div className="w-2 h-2 rounded-full bg-sky-500 mr-2"></div>
+                          <ChevronRight className="h-4 w-4 text-sky-500" />
+                        </>
+                      )}
+                    </div>
+                  </button>
+                </li>
+                
+                {/* Dropdown items */}
+                {item.hasDropdown && item.isDropdownOpen && item.dropdownItems && (
+                  <li className="pl-6 pb-1 animate-in slide-in-from-top-5 duration-300">
+                    <div className="border-l-2 border-sky-200 pl-4 py-2 space-y-1">
+                      {item.dropdownItems.map(dropdownItem => (
+                        <button
+                          key={dropdownItem.id}
+                          onClick={() => {
+                            setActiveTab(dropdownItem.id);
+                            if (isMobile) setIsSidebarOpen(false);
+                          }}
+                          className={cn(
+                            "w-full flex items-center px-3 py-2.5 rounded-lg text-left transition-all duration-300",
+                            activeTab === dropdownItem.id 
+                              ? "bg-gradient-to-r from-sky-100/70 to-blue-100/70 shadow-sm" 
+                              : "hover:bg-sky-50"
+                          )}
+                        >
+                          <div className={cn(
+                            "flex items-center justify-center w-8 h-8 rounded-lg mr-2",
+                            activeTab === dropdownItem.id 
+                              ? "bg-gradient-to-br from-sky-400 to-blue-600 shadow-md shadow-sky-200" 
+                              : "bg-slate-100 text-slate-500"
+                          )}>
+                            <span className={cn(
+                              activeTab === dropdownItem.id ? "text-white" : "",
+                              activeTab === dropdownItem.id ? iconAnimation(true) : iconAnimation(false)
+                            )}>
+                              {dropdownItem.icon}
+                            </span>
+                          </div>
+                          
+                          <span className={cn(
+                            "font-medium text-sm",
+                            activeTab === dropdownItem.id ? "text-sky-700" : "text-slate-600"
+                          )}>
+                            {dropdownItem.label}
+                          </span>
+                          
+                          {activeTab === dropdownItem.id && (
+                            <div className="ml-auto flex items-center">
+                              <div className="w-1.5 h-1.5 rounded-full bg-sky-500"></div>
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </li>
+                )}
+              </React.Fragment>
             ))}
           </ul>
           
