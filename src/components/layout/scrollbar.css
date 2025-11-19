@@ -27,3 +27,28 @@
 .category-dropdown-content {
   padding-right: 24px; /* Espacio para los botones de navegación */
 }
+
+/* Scrollbar sutil para la barra de categorías - delgada con color suave */
+.category-scrollbar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.category-scrollbar::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.5);
+  border-radius: 2px;
+}
+
+.category-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 2px;
+}
+
+.category-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+}
+
+/* Para Firefox */
+.category-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.4) rgba(241, 245, 249, 0.5);
+}

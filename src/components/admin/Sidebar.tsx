@@ -20,7 +20,9 @@ import {
   Briefcase, // Icono para Gestión de Empleados
   PlusCircle, // Icono para Funciones Extra
   ChevronDown, // Icono para desplegable
-  Share2 // Icono para compartir
+  Share2, // Icono para compartir
+  ImageIcon, // Icono para herramientas de imágenes
+  FileType2 // Icono para WebP Converter
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -44,6 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isMobile = useIsMobile();
   const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
   const [showExtraFunctions, setShowExtraFunctions] = useState(false);
+  const [showImageTools, setShowImageTools] = useState(false);
   
   // Cerrar sidebar automáticamente al cambiar de pestaña en móvil
   useEffect(() => {
@@ -75,17 +78,48 @@ const Sidebar: React.FC<SidebarProps> = ({
     ]),
     { id: 'products', icon: <Package className="h-5 w-5" />, label: 'Productos', description: 'Gestión de inventario' },
     { id: 'orders', icon: <ShoppingCart className="h-5 w-5" />, label: 'Pedidos', description: 'Control de ventas' },
+    { id: 'categories', icon: <Tag className="h-5 w-5" />, label: 'Categorías', description: 'Organizar productos' },
     // Info disponible tanto para admin como para subadmin
     { id: 'info', icon: <Settings className="h-5 w-5" />, label: 'Info Secciones', description: 'Configuración general' },
+    // Herramientas de imagen disponible para todos
+    { 
+      id: 'image-tools', 
+      icon: <ImageIcon className="h-5 w-5" />, 
+      label: 'Herramientas', 
+      description: 'Optimizar imágenes y URLs',
+      hasDropdown: true,
+      isDropdownOpen: showImageTools,
+      toggleDropdown: () => setShowImageTools(!showImageTools),
+      dropdownItems: [
+        { 
+          id: 'update-image-urls', 
+          icon: <Share2 className="h-5 w-5" />, 
+          label: 'Actualizar URLs', 
+          description: 'Cambiar rutas de imágenes' 
+        },
+          {
+            id: 'rotate-image',
+            icon: <ImageIcon className="h-5 w-5" />,
+            label: 'Rotar Imagen',
+            description: 'Corregir orientación de producto'
+          },
+        { 
+          id: 'webp-converter', 
+          icon: <FileType2 className="h-5 w-5" />, 
+          label: 'Convertir a WebP', 
+          description: 'Optimizar imágenes' 
+        },
+      ]
+    },
     // Asistente IA disponible para todos (admin y subadmin)
     { id: 'ai-assistant', icon: <BrainCog className="h-5 w-5" />, label: 'Asistente IA', description: 'Inteligencia artificial avanzada' },
+    // Manual de Ayuda disponible para todos (admin y subadmin)
+    { id: 'help-manual', icon: <HelpCircle className="h-5 w-5" />, label: 'Manual de Ayuda', description: 'Guías y tutoriales' },
     ...(isSubAdmin ? [] : [
       { id: 'users', icon: <Users className="h-5 w-5" />, label: 'Usuarios', description: 'Administrar clientes' },
-      { id: 'categories', icon: <Tag className="h-5 w-5" />, label: 'Categorías', description: 'Organizar productos' },
       { id: 'subaccounts', icon: <Users className="h-5 w-5" />, label: 'Subcuentas', description: 'Gestión de accesos' },
       { id: 'revisiones', icon: <Bell className="h-5 w-5" />, label: 'Revisiones', description: 'Aprobar cambios pendientes' },
       { id: 'analytics', icon: <TrendingUp className="h-5 w-5" />, label: 'Analítica', description: 'Estadísticas avanzadas' },
-      { id: 'help-manual', icon: <HelpCircle className="h-5 w-5" />, label: 'Manual de Ayuda', description: 'Guías y tutoriales' },
       { 
         id: 'full-version', 
         icon: <Star className="h-5 w-5" />, 
@@ -150,13 +184,14 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Sidebar con diseño mejorado */}
       <div 
         className={cn(
-          "h-[calc(100vh-80px)] bg-gradient-to-b from-slate-50 to-white border-r border-slate-200/70 shadow-xl flex flex-col z-40",
-          isMobile ? "fixed left-0 top-[80px] w-[300px] transition-all duration-500 ease-in-out transform" : "w-72",
+          "h-[calc(100vh-80px)] bg-gradient-to-b from-slate-50 to-white border-r border-slate-200/70 shadow-xl flex flex-col z-40 admin-sidebar notranslate critical-ui-container",
+          isMobile ? "fixed left-0 top-[80px] w-[300px] transition-all duration-500 ease-in-out transform" : "w-72 sticky top-[80px]",
           isMobile && !isSidebarOpen ? "-translate-x-full" : "translate-x-0"
         )}
         style={{
           boxShadow: '5px 0 30px -15px rgba(59, 130, 246, 0.15)'
         }}
+        translate="no"
       >
         {/* Header con glassmorphism */}
         <div className="p-6 border-b border-sky-100">

@@ -4,6 +4,7 @@ import { AdvancedHeader } from "@/components/layout/AdvancedHeader";
 import { useCategories } from "@/hooks/use-categories";
 import { db } from '@/firebase';
 import { collection, getDoc, doc } from 'firebase/firestore';
+import { MapPin, Package, Truck, Clock, ArrowRight } from "lucide-react";
 
 const Envios = () => {
   const { categories } = useCategories();
@@ -31,7 +32,7 @@ const Envios = () => {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 via-white to-slate-50">
       {promoVisible && <TopPromoBar setPromoVisible={setPromoVisible} />}
       <AdvancedHeader
         categories={categories}
@@ -40,53 +41,116 @@ const Envios = () => {
         promoVisible={promoVisible}
       />
       <main className="flex-1 flex flex-col">
-        <section className="flex-1 min-h-[calc(100vh-8rem)] w-full flex flex-col justify-center items-center bg-white">
-          <div className="flex flex-col w-full items-center pt-40 pb-24 md:pt-56 md:pb-32">
-            <div className="w-full max-w-7xl mx-auto">
-              <nav className="w-full text-sm text-gray-500 mb-6">
-                <a href="/" className="font-semibold text-black hover:underline">Inicio</a>
-                <span className="mx-2">&gt;</span>
-                <span className="text-black">Envíos</span>
-              </nav>
-              <h1 className="text-5xl md:text-7xl font-serif font-bold text-black mb-4 tracking-tight w-full">
-                Envíos
-              </h1>
-              {loading ? (
-                <div className="text-lg text-gray-500">Cargando información...</div>
-              ) : info && info.enabled ? (
+        {/* Hero Section */}
+        <section className="relative w-full pt-32 pb-16 md:pt-40 md:pb-20 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-cyan-50"></div>
+          <div className="absolute inset-0 opacity-5 bg-[url('/placeholder.svg')]"></div>
+          <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6">
+            <nav className="w-full text-sm text-gray-600 mb-8 flex items-center gap-2">
+              <a href="/" className="font-medium text-gray-700 hover:text-blue-600 transition-colors">Inicio</a>
+              <span className="text-gray-400">/</span>
+              <span className="text-gray-900 font-medium">Envíos</span>
+            </nav>
+            <h1 className="text-5xl md:text-7xl font-serif font-bold bg-gradient-to-r from-slate-900 via-blue-800 to-cyan-900 bg-clip-text text-transparent mb-6 tracking-tight">
+              Envíos
+            </h1>
+          </div>
+        </section>
+
+        {/* Content Section */}
+        <section className="py-12 md:py-16 bg-white">
+          <div className="max-w-7xl mx-auto px-4 md:px-6">
+            {loading ? (
+              <div className="text-center py-20">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+                <p className="mt-4 text-blue-600 font-medium">Cargando información...</p>
+              </div>
+            ) : info && info.enabled ? (
+              <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 border border-gray-100">
                 <div className="prose prose-lg max-w-none text-gray-800" dangerouslySetInnerHTML={{ __html: info.content.replace(/\n/g, '<br />') }} />
-              ) : (
-                <div className="prose prose-lg max-w-none text-gray-800">
-                  <h2 className="text-2xl md:text-3xl font-serif font-semibold text-black mb-10 w-full flex items-center gap-2">📍 Envíos</h2>
-                  <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none">
+              </div>
+            ) : (
+              <div className="space-y-8">
+                <h2 className="text-2xl md:text-3xl font-serif font-semibold text-gray-900 mb-8 w-full flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                    <MapPin className="w-6 h-6" />
+                  </div>
+                  Envíos
+                </h2>
+                
+                {/* Ubicación Card */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 md:p-8 shadow-md border border-blue-100">
+                  <p className="text-lg md:text-xl text-gray-700 mb-6 font-normal leading-relaxed">
                     Estamos ubicados en Olavarría 610 (esquina San Luis), Salta, Argentina, y realizamos envíos a todo el país.
                   </p>
-                  <div className="my-4">
-                    <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
-                       className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
-                      <span>📍 Ver nuestra ubicación</span>
-                    </a>
-                  </div>
-                  <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none">
+                  <a 
+                    href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold">
+                    <MapPin className="w-5 h-5" />
+                    <span>Ver nuestra ubicación</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </a>
+                </div>
+                
+                {/* Entrega Card */}
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 md:p-8 shadow-md border border-purple-100">
+                  <p className="text-lg md:text-xl text-gray-700 font-normal leading-relaxed">
                     📦 Nos encargamos de que tu pedido llegue de forma rápida, segura y sin complicaciones, estés donde estés.
                   </p>
-                  <h3 className="text-2xl font-bold font-serif text-black mb-4 mt-8 w-full">🚚 Envíos bonificados:</h3>
-                  <ul className="list-disc pl-6 text-base md:text-lg text-gray-700 mb-6 w-full max-w-none">
-                    <li>Salta Capital y alrededores → Envío GRATIS en compras superiores a $30.000</li>
-                    <li>Jujuy y Tucumán → Envío GRATIS en compras superiores a $70.000</li>
-                  </ul>
-                  <p className="text-base md:text-lg text-gray-700 mb-6 w-full max-w-none">
+                </div>
+                
+                {/* Envíos Bonificados */}
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-8 md:p-10 shadow-xl border border-green-200">
+                  <h3 className="text-2xl font-bold font-serif text-gray-900 mb-6 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center text-white shadow-md">
+                      <Truck className="w-5 h-5" />
+                    </div>
+                    Envíos bonificados:
+                  </h3>
+                  <div className="space-y-4 mb-6">
+                    <div className="bg-white/70 rounded-lg p-5 shadow-sm border border-green-200">
+                      <p className="text-base md:text-lg text-gray-700 font-medium">
+                        Salta Capital y alrededores → Envío GRATIS en compras superiores a $30.000
+                      </p>
+                    </div>
+                    <div className="bg-white/70 rounded-lg p-5 shadow-sm border border-green-200">
+                      <p className="text-base md:text-lg text-gray-700 font-medium">
+                        Jujuy y Tucumán → Envío GRATIS en compras superiores a $70.000
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-base md:text-lg text-gray-700 bg-white/50 rounded-lg p-4 border border-green-200">
                     🔸 Para compras menores a esos montos, el costo de envío corre por cuenta del cliente, y se calcula automáticamente al momento de realizar la compra.
                   </p>
-                  <p className="text-base md:text-lg text-gray-700 mb-6 w-full max-w-none">
-                    🕒 Los pedidos se despachan dentro de las 24 a 48 horas hábiles luego de confirmado el pago.
-                  </p>
-                  <p className="text-base md:text-lg text-gray-700 mb-6 w-full max-w-none">
-                    📍 También podés coordinar retiro sin cargo en nuestro punto de entrega en Salta.
-                  </p>
                 </div>
-              )}
-            </div>
+                
+                {/* Tiempo de Despacho */}
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-6 md:p-8 shadow-md border border-amber-100">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center text-white shadow-lg flex-shrink-0">
+                      <Clock className="w-6 h-6" />
+                    </div>
+                    <p className="text-base md:text-lg text-gray-700 leading-relaxed pt-2">
+                      🕒 Los pedidos se despachan dentro de las 24 a 48 horas hábiles luego de confirmado el pago.
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Retiro */}
+                <div className="bg-gradient-to-br from-slate-50 to-gray-100 rounded-xl p-6 md:p-8 shadow-md border border-gray-200">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-slate-500 to-gray-600 rounded-xl flex items-center justify-center text-white shadow-lg flex-shrink-0">
+                      <Package className="w-6 h-6" />
+                    </div>
+                    <p className="text-base md:text-lg text-gray-700 leading-relaxed pt-2">
+                      📍 También podés coordinar retiro sin cargo en nuestro punto de entrega en Salta.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       </main>

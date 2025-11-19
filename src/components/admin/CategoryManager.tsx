@@ -719,11 +719,11 @@ export const CategoryManager = () => {
                         <div className="flex items-center gap-3">
                           <div className="relative">
                             <img
-                              src={cat.image || "https://via.placeholder.com/40x40?text=?"}
+                              src={cat.image || "/placeholder.svg"}
                               alt={cat.name}
                               className="w-16 h-16 object-cover rounded-lg shadow-sm border border-sky-100"
                               onError={(e) => {
-                                (e.target as HTMLImageElement).src = "https://via.placeholder.com/40x40?text=?";
+                                (e.target as HTMLImageElement).src = "/placeholder.svg";
                               }}
                             />
                             <Tooltip>

@@ -66,7 +66,7 @@ export const PieChart: React.FC<PieChartProps> = ({ data = [], size = 200 }) => 
       <div className="relative">
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-sm">
           {/* Añadir un círculo de fondo */}
-          <circle cx={size/2} cy={size/2} r={(size/2)-10 || 90} fill="#f8fafc" />
+          <circle cx={size/2} cy={size/2} r={Math.max((size/2)-10, 90)} fill="#f8fafc" />
           
           {/* Dibujar los arcos */}
           {arcs.map((arc, i) => (
@@ -94,7 +94,7 @@ export const PieChart: React.FC<PieChartProps> = ({ data = [], size = 200 }) => 
           ))}
           
           {/* Círculo central */}
-          <circle cx={size/2} cy={size/2} r={size/5 || 40} fill="#fff" stroke="#f1f5f9" strokeWidth="1" />
+          <circle cx={size/2} cy={size/2} r={Math.max(size/5, 40)} fill="#fff" stroke="#f1f5f9" strokeWidth="1" />
           
           {/* Texto central */}
           <text

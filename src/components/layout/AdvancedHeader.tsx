@@ -7,7 +7,6 @@ import { GlassmorphismCard } from '@/components/ui/glassmorphism-card';
 import { MagneticButton } from '@/components/ui/magnetic-button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
-import { AuthModal } from '@/components/auth/AuthModal';
 import { CartSidebar } from '@/components/cart/CartSidebar';
 import { UserMenu } from '@/components/user/UserMenu';
 import { 
@@ -51,7 +50,6 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
   const { user, isAuthenticated, login } = useAuth();
   const { getItemCount } = useCart();
   const navigate = useNavigate();
-  const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCart, setShowCart] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
@@ -82,7 +80,23 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Aquí puedes hacer la búsqueda o pasar el valor al componente de productos
+    
+    // Solo proceder si hay un término de búsqueda
+    if (searchQuery.trim()) {
+      // Cerrar el modal de búsqueda móvil si está abierto
+      setShowMobileSearch(false);
+      
+      // Redirigir a la página principal con el parámetro de búsqueda
+      navigate(`/?search=${encodeURIComponent(searchQuery.trim())}`);
+      
+      // Desplazarse a la sección de productos
+      setTimeout(() => {
+        const productsSection = document.getElementById('productos');
+        if (productsSection) {
+          productsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 300);
+    }
   };
 
   const handleWhatsAppContact = () => {
@@ -152,7 +166,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
   return (
     <>
-      <header className={`fixed z-50 w-full bg-white border-b border-slate-200 shadow-lg transition-all duration-300 ${promoVisible ? "top-14" : "top-0"}`}>
+      <header className={`fixed z-50 w-full bg-white border-b border-slate-200 shadow-lg transition-all duration-300 sticky-header ${promoVisible ? "top-14" : "top-0"}`} style={{ transform: 'translateZ(0)', willChange: 'transform', backfaceVisibility: 'hidden' }}>
         <div className="container mx-auto px-2 md:px-4">
           {/* Main header */}
           <div className="flex h-16 md:h-20 items-center justify-between w-full">
@@ -250,7 +264,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 </div>
               ) : (
                 <MagneticButton
-                  onClick={() => setShowAuthModal(true)}
+                  onClick={() => navigate('/auth')}
                   className="flex items-center justify-center p-2 md:p-3 rounded-full hover:bg-slate-200 transition-colors"
                   aria-label="Iniciar sesión"
                 >
@@ -536,7 +550,6 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
       </header>
 
       {/* Modals */}
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       <CartSidebar isOpen={showCart} onClose={() => setShowCart(false)} />
      
     </>

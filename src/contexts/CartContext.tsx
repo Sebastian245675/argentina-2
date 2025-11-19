@@ -23,6 +23,7 @@ export interface Product {
   warranties?: string[];
   paymentMethods?: string[];
   colors?: { name: string; hexCode: string; image: string }[];
+  isPublished?: boolean; // Control de visibilidad pública
 }
 
 export interface CartItem extends Product {

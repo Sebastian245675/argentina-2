@@ -26,14 +26,18 @@ const LatestProductsGrid: React.FC<LatestProductsGridProps> = ({ maxItems = 4, s
         q = query(
           collection(db, "products"),
           orderBy(sortBy, sortOrder),
-          limit(maxItems)
+          limit(maxItems * 2) // Obtener más para compensar filtrado
         );
       } catch {
-        q = query(collection(db, "products"), limit(maxItems));
+        q = query(collection(db, "products"), limit(maxItems * 2));
       }
       const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as object) })) as Product[];
-      setProducts(data);
+      const allData = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as object) })) as Product[];
+      
+      // Filtrar solo productos publicados y limitar al máximo deseado
+      const publishedData = allData.filter(product => product.isPublished !== false).slice(0, maxItems);
+      
+      setProducts(publishedData);
       setLoading(false);
     };
     fetchLatest();

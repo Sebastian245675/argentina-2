@@ -272,17 +272,81 @@ const ProductDetailPage = () => {
   // Actualizar título de página para SEO cuando carga el producto
   useEffect(() => {
     if (product) {
-      document.title = `${product.name} | REGALA ALGO`;
-      // Agregar metadatos para SEO
-      const metaDescription = document.querySelector('meta[name="description"]');
-      if (metaDescription) {
-        metaDescription.setAttribute('content', product.description || 'Detalles del producto en REGALA ALGO');
-      } else {
-        const meta = document.createElement('meta');
-        meta.name = 'description';
-        meta.content = product.description || 'Detalles del producto en REGALA ALGO';
-        document.head.appendChild(meta);
+      const productTitle = `${product.name} | REGALA ALGO`;
+      const productDescription = product.description || `${product.name} - Compra ahora en REGALA ALGO. Envíos rápidos y domicilios gratis.`;
+      const productUrl = window.location.href;
+      const productImage = product.image || product.images?.[0] || '/logo-nuevo.png';
+      
+      document.title = productTitle;
+      
+      // Función helper para actualizar o crear meta tags
+      const setMetaTag = (name: string, content: string, isProperty = false) => {
+        const selector = isProperty ? `meta[property="${name}"]` : `meta[name="${name}"]`;
+        let meta = document.querySelector(selector) as HTMLMetaElement;
+        
+        if (!meta) {
+          meta = document.createElement('meta');
+          if (isProperty) {
+            meta.setAttribute('property', name);
+          } else {
+            meta.setAttribute('name', name);
+          }
+          document.head.appendChild(meta);
+        }
+        meta.setAttribute('content', content);
+      };
+
+      // Meta tags básicos
+      setMetaTag('description', productDescription);
+      setMetaTag('keywords', `${product.name}, ${product.category || ''}, REGALA ALGO, compra online, Argentina`);
+
+      // Open Graph para productos
+      setMetaTag('og:title', productTitle, true);
+      setMetaTag('og:description', productDescription, true);
+      setMetaTag('og:type', 'product', true);
+      setMetaTag('og:url', productUrl, true);
+      setMetaTag('og:image', productImage, true);
+      setMetaTag('og:image:width', '1200', true);
+      setMetaTag('og:image:height', '630', true);
+
+      // Twitter Card
+      setMetaTag('twitter:card', 'summary_large_image');
+      setMetaTag('twitter:title', productTitle);
+      setMetaTag('twitter:description', productDescription);
+      setMetaTag('twitter:image', productImage);
+
+      // Schema.org para producto
+      const existingProductSchema = document.querySelector('script[type="application/ld+json"][data-product-schema]');
+      if (existingProductSchema) {
+        existingProductSchema.remove();
       }
+
+      const productSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: product.name,
+        description: productDescription,
+        image: Array.isArray(product.images) ? product.images : [productImage],
+        brand: {
+          '@type': 'Brand',
+          name: 'REGALA ALGO'
+        },
+        offers: {
+          '@type': 'Offer',
+          price: product.price,
+          priceCurrency: 'ARS',
+          availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+          url: productUrl,
+          ...(product.id && { sku: product.id })
+        },
+        ...(product.category && { category: product.category })
+      };
+
+      const script = document.createElement('script');
+      script.type = 'application/ld+json';
+      script.setAttribute('data-product-schema', 'true');
+      script.text = JSON.stringify(productSchema);
+      document.head.appendChild(script);
     } else {
       document.title = 'Producto | REGALA ALGO';
     }
@@ -335,7 +399,8 @@ const ProductDetailPage = () => {
                 .filter((prod: any) =>
                   prod.category &&
                   typeof prod.category === 'string' &&
-                  prod.category.trim().toLowerCase() === categoryNorm
+                  prod.category.trim().toLowerCase() === categoryNorm &&
+                  prod.isPublished !== false // Solo productos publicados
                 ) as Product[];
               similarItems = similarItems.slice(0, 8);
             }
@@ -346,13 +411,16 @@ const ProductDetailPage = () => {
             try {
               const fallbackQuery = query(
                 collection(db, "products"),
-                limit(4)
+                limit(10)
               );
               const fallbackDocs = await getDocs(fallbackQuery);
-              const fallbackItems = fallbackDocs.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-              })) as Product[];
+              const fallbackItems = fallbackDocs.docs
+                .map(doc => ({
+                  id: doc.id,
+                  ...doc.data()
+                }))
+                .filter((prod: any) => prod.isPublished !== false) // Solo publicados
+                .slice(0, 4) as Product[];
               setSimilarProducts(fallbackItems);
             } catch (fallbackError) {
               console.error("Error en la carga de respaldo:", fallbackError);

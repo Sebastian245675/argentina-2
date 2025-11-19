@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, memo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ProductCard } from './ProductCard';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Product } from '@/contexts/CartContext';
 import { Search, Filter, MessageCircle, Flame, ChevronDown } from 'lucide-react';
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/firebase";
 import { Badge } from '@/components/ui/badge';
 import { useCategories } from '@/hooks/use-categories';
@@ -31,15 +31,17 @@ interface ProductsSectionProps {
   selectedCategory: string;
   setSelectedCategory: (cat: string) => void;
   setCategories: (cats: string[]) => void;
+  initialSearchTerm?: string;
 }
 
 export const ProductsSection: React.FC<ProductsSectionProps> = ({
   selectedCategory,
   setSelectedCategory,
   setCategories,
+  initialSearchTerm = '',
 }) => {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [sortBy, setSortBy] = useState('name');
   const [products, setProducts] = useState<Product[]>([]);
   const { categoriesData: categories } = useCategories();
@@ -89,20 +91,48 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
     return allProducts;
   };
 
-  // Cargar productos reales de Firestore
+  // Cargar productos reales de Firestore (solo publicados, limitado inicialmente para rendimiento)
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
-      const querySnapshot = await getDocs(collection(db, "products"));
-      const productsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Product[];
-      setProducts(productsData);
+      try {
+        let productsQuery;
+        try {
+          productsQuery = query(
+            collection(db, "products"),
+            orderBy("createdAt", "desc")
+          );
+        } catch {
+          productsQuery = query(
+            collection(db, "products")
+          );
+        }
+        const querySnapshot = await getDocs(productsQuery);
+        const productsData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Product[];
+        
+        // Filtrar solo productos publicados (isPublished !== false) en memoria
+        // Esto es más rápido que cargar todos los productos
+        const publishedProducts = productsData.filter(product => product.isPublished !== false);
+        
+        setProducts(publishedProducts);
+      } catch (error) {
+        console.error("Error cargando productos:", error);
+        setProducts([]);
+      }
       setLoading(false);
     };
     fetchProducts();
   }, []);
+  
+  // Actualizar searchTerm cuando cambia initialSearchTerm
+  useEffect(() => {
+    if (initialSearchTerm) {
+      setSearchTerm(initialSearchTerm);
+    }
+  }, [initialSearchTerm]);
   
   // Ordenar categorías principales por importancia o cantidad de productos
   const sortedMainCategories = useMemo(() => {
@@ -336,7 +366,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
         {/* CategoryBar - Usar una barra de desplazamiento horizontal en móviles con carga progresiva */}
         <div className="flex flex-col w-full">
           {/* Categorías principales */}
-          <div className="flex overflow-x-auto pb-4 gap-4 sm:gap-6 md:gap-8 mb-6 justify-start md:justify-center">
+          <div className="flex overflow-x-auto pb-4 gap-4 sm:gap-6 md:gap-8 mb-6 justify-start md:justify-center category-scrollbar">
             {categories
               // Filtrar solo categorías principales para el selector principal (sin parentId)
               .filter(cat => cat.name === "Todos" || !cat.parentId)
@@ -352,21 +382,21 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                     // Expandir las subcategorías de esta categoría
                     toggleSubcategoriesVisibility(cat.id || cat.name);
                   }}
-                  className={`flex-shrink-0 flex flex-row items-center bg-transparent px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 rounded-xl transition-all hover:bg-slate-50 focus:outline-none
+                  className={`flex-shrink-0 flex flex-row items-center bg-transparent px-3 py-2 sm:px-4 sm:py-3 md:px-5 md:py-3 rounded-xl transition-all hover:bg-slate-50 focus:outline-none
                     ${selectedCategory === cat.name ? "ring-2 ring-blue-400" : ""}
                   `}
-                  style={{ minWidth: 120, maxWidth: 260 }}
+                  style={{ minWidth: 140, maxWidth: 220 }}
                 >
                   <img
-                    src={cat.image || "https://via.placeholder.com/80x80?text=?"}
+                    src={cat.image || categoryImages[cat.name] || "/placeholder.svg"}
                     alt={cat.name}
-                    className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 object-cover mr-3 sm:mr-4 md:mr-6"
+                    className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 object-cover rounded-md flex-shrink-0"
+                    style={{ marginRight: '0.75rem' }}
                     loading="lazy"
-                    style={{ boxShadow: "none", border: "none", background: "none" }}
                   />
-                  <div className="text-left">
-                    <h3 className="text-md md:text-lg font-bold text-slate-900">{cat.name}</h3>
-                    <p className="text-xs md:text-sm text-slate-500">
+                  <div className="flex flex-col text-left overflow-hidden" style={{ minWidth: 0 }}>
+                    <h3 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 leading-tight mb-0.5 break-words">{cat.name}</h3>
+                    <p className="text-xs md:text-sm text-slate-500 leading-tight whitespace-nowrap">
                       {products.filter(p => {
                         if (cat.name === "Todos") return true;
                         
@@ -725,7 +755,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                     <div className="flex justify-between items-center mb-4">
                       <div className="flex items-center">
                         <img
-                          src={category.image || "https://via.placeholder.com/40x40?text=?"}
+                          src={category.image || "/placeholder.svg"}
                           alt={category.name}
                           className="w-10 h-10 object-cover rounded-md mr-3"
                         />

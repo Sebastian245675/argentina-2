@@ -24,7 +24,6 @@ class SimulatedDB {
 
   setSimulationMode(isSimulated: boolean) {
     this.isSimulated = isSimulated;
-    console.log(`Modo de simulación de base de datos: ${isSimulated ? 'ACTIVADO' : 'DESACTIVADO'}`);
     
     if (isSimulated) {
       // Datos de ejemplo

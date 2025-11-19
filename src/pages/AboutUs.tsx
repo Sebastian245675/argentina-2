@@ -31,7 +31,7 @@ const AboutUs = () => {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 via-white to-slate-50">
       {promoVisible && <TopPromoBar setPromoVisible={setPromoVisible} />}
       <AdvancedHeader
         categories={categories}
@@ -40,53 +40,81 @@ const AboutUs = () => {
         promoVisible={promoVisible}
       />
       <main className="flex-1 flex flex-col">
-        <section className="flex-1 min-h-[calc(100vh-8rem)] w-full flex flex-col justify-center items-center bg-white">
-          <div className="flex flex-col w-full items-center pt-40 pb-24 md:pt-56 md:pb-32">
-            <div className="w-full max-w-7xl mx-auto">
-              <nav className="w-full text-sm text-gray-500 mb-6">
-                <a href="/" className="font-semibold text-black hover:underline">Inicio</a>
-                <span className="mx-2">&gt;</span>
-                <span className="text-black">Sobre Nosotros</span>
-              </nav>
-              <h1 className="text-5xl md:text-7xl font-serif font-bold text-black mb-4 tracking-tight w-full">
-                Sobre Nosotros
-              </h1>
-              {loading ? (
-                <div className="text-center text-blue-500">Cargando información...</div>
-              ) : infoEnabled && customInfo ? (
-                <div className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none whitespace-pre-line">
+        {/* Hero Section */}
+        <section className="relative w-full pt-32 pb-16 md:pt-40 md:pb-20 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50"></div>
+          <div className="absolute inset-0 opacity-5 bg-[url('/placeholder.svg')]"></div>
+          <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6">
+            <nav className="w-full text-sm text-gray-600 mb-8 flex items-center gap-2">
+              <a href="/" className="font-medium text-gray-700 hover:text-blue-600 transition-colors">Inicio</a>
+              <span className="text-gray-400">/</span>
+              <span className="text-gray-900 font-medium">Sobre Nosotros</span>
+            </nav>
+            <h1 className="text-5xl md:text-7xl font-serif font-bold bg-gradient-to-r from-slate-900 via-blue-800 to-indigo-900 bg-clip-text text-transparent mb-6 tracking-tight">
+              Sobre Nosotros
+            </h1>
+          </div>
+        </section>
+
+        {/* Content Section */}
+        <section className="py-12 md:py-16 bg-white">
+          <div className="max-w-7xl mx-auto px-4 md:px-6">
+            {loading ? (
+              <div className="text-center py-20">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+                <p className="mt-4 text-blue-600 font-medium">Cargando información...</p>
+              </div>
+            ) : infoEnabled && customInfo ? (
+              <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 border border-gray-100">
+                <div className="text-lg md:text-xl text-gray-700 font-normal leading-relaxed w-full max-w-none whitespace-pre-line">
                   {customInfo}
                 </div>
-              ) : (
-                <>
-                  <h2 className="text-2xl md:text-3xl font-serif font-semibold text-black mb-10 w-full">¿Quiénes Somos?</h2>
-                  <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none">
-                    Somos una tienda digital pensada para que encuentres ese regalo ideal que estabas buscando, al mejor precio del mercado.
-                  </p>
-                  <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none">
-                    Ofrecemos una amplia variedad de productos: desde peluches, mates parlantes, bicicletas, electrodomésticos, hasta artículos únicos y originales para sorprender o darte un gusto.
-                  </p>
-                  <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none">
+              </div>
+            ) : (
+              <>
+                <h2 className="text-2xl md:text-3xl font-serif font-semibold text-gray-900 mb-8 w-full">¿Quiénes Somos?</h2>
+                
+                <div className="grid md:grid-cols-2 gap-6 mb-8">
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 md:p-8 shadow-md border border-blue-100">
+                    <p className="text-lg md:text-xl text-gray-700 font-normal leading-relaxed">
+                      Somos una tienda digital pensada para que encuentres ese regalo ideal que estabas buscando, al mejor precio del mercado.
+                    </p>
+                  </div>
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 md:p-8 shadow-md border border-purple-100">
+                    <p className="text-lg md:text-xl text-gray-700 font-normal leading-relaxed">
+                      Ofrecemos una amplia variedad de productos: desde peluches, mates parlantes, bicicletas, electrodomésticos, hasta artículos únicos y originales para sorprender o darte un gusto.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="bg-gradient-to-br from-slate-50 to-gray-100 rounded-xl p-6 md:p-8 shadow-md border border-gray-200 mb-8">
+                  <p className="text-lg md:text-xl text-gray-700 font-normal leading-relaxed mb-6">
                     Nuestra misión es clara: que puedas comprar de forma rápida, segura y con la confianza de que estás haciendo una buena elección.
                   </p>
-                  <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none">
+                  <p className="text-lg md:text-xl text-gray-700 font-normal leading-relaxed">
                     ✨ Porque sabemos que regalar es una forma de decir mucho sin palabras, trabajamos día a día para que en nuestra tienda siempre encuentres algo especial.
                   </p>
-                  <p className="text-lg md:text-xl text-gray-700 mb-8 font-normal leading-relaxed w-full max-w-none font-bold">
+                </div>
+                
+                <div className="bg-gradient-to-r from-slate-900 to-gray-800 rounded-2xl p-8 md:p-12 text-white shadow-2xl mb-10">
+                  <p className="text-lg md:text-xl font-bold leading-relaxed text-center">
                     "Encontrá tu regalo ideal al mejor precio" no es solo nuestro eslogan, es un compromiso.
                   </p>
-                  
-                  <div className="mt-10 mb-8 p-6 border rounded-lg bg-gray-50">
-                    <h3 className="text-xl font-bold mb-4">Nuestra Ubicación</h3>
-                    <p className="mb-4">📍 Olavarría 610 (esquina San Luis), Salta, Argentina</p>
-                    <a href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
-                       className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
-                      <span>📍 Cómo llegar</span>
-                    </a>
-                  </div>
-                </>
-              )}
-            </div>
+                </div>
+                
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-8 md:p-10 shadow-xl border border-green-200">
+                  <h3 className="text-xl font-bold mb-4 text-gray-900">Nuestra Ubicación</h3>
+                  <p className="mb-6 text-lg text-gray-700">📍 Olavarría 610 (esquina San Luis), Salta, Argentina</p>
+                  <a 
+                    href="https://maps.app.goo.gl/gonu6cj9cJnDfJBz5?g_st=aw" 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold">
+                    <span>📍 Cómo llegar</span>
+                  </a>
+                </div>
+              </>
+            )}
           </div>
         </section>
       </main>

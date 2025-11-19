@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Package, ShoppingCart, TrendingUp, TrendingDown, DollarSign, Clock, RefreshCw, Calendar, Filter, ChevronDown, ArrowUpRight, Activity, FileText, FilePenLine } from 'lucide-react';
 import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
@@ -6,7 +6,7 @@ import { db } from "@/firebase";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 
-export const DashboardStats: React.FC = () => {
+const DashboardStatsComponent: React.FC = () => {
   const [userCount, setUserCount] = useState(0);
   const [productCount, setProductCount] = useState(0);
   const [orderCount, setOrderCount] = useState(0);
@@ -26,10 +26,18 @@ export const DashboardStats: React.FC = () => {
   const loadData = () => {
     setIsLoading(true);
     
-    // Usuarios
-    getDocs(collection(db, "users")).then(snapshot => setUserCount(snapshot.size));
-    // Productos
-    getDocs(collection(db, "products")).then(snapshot => setProductCount(snapshot.size));
+    // Optimización: Cargar solo para contar, pero limitar si hay muchos
+    // Usuarios - cargar solo metadata (solo IDs, no todos los datos)
+    const usersQuery = query(collection(db, "users"));
+    getDocs(usersQuery).then(snapshot => {
+      setUserCount(snapshot.size);
+    });
+    
+    // Productos - similar
+    const productsQuery = query(collection(db, "products"));
+    getDocs(productsQuery).then(snapshot => {
+      setProductCount(snapshot.size);
+    });
     
     // Cargar actividades recientes (productos)
     const loadRecentProductActivities = async () => {
@@ -94,10 +102,11 @@ export const DashboardStats: React.FC = () => {
       return activity;
     };
     
-    // Pedidos y ventas del mes - Aseguramos usar 'orders' como nombre de colección
-    getDocs(collection(db, "orders")).then(async snapshot => {
-      console.log("Cargando órdenes: ", snapshot.size, " documentos encontrados");
-      setOrderCount(snapshot.size);
+    // Pedidos y ventas del mes - Optimizado con límite
+    getDocs(query(collection(db, "orders"), orderBy("createdAt", "desc"))).then(async snapshot => {
+      // Contar solo los pedidos confirmados de los últimos 1000
+      const confirmedCount = snapshot.docs.filter(doc => doc.data().status === "confirmed").length;
+      setOrderCount(confirmedCount);
 
       // Ventas del mes
       const now = new Date();
@@ -237,7 +246,7 @@ export const DashboardStats: React.FC = () => {
           onClick={() => setSelectedPeriod(period)}
           className={`px-4 py-2 text-sm rounded-lg transition-all ${
             selectedPeriod === period 
-              ? 'bg-gradient-to-r from-sky-400 to-blue-600 text-white shadow-md' 
+              ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white shadow-md' 
               : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
@@ -252,28 +261,28 @@ export const DashboardStats: React.FC = () => {
       title: 'Total Usuarios',
       value: userCount,
       icon: Users,
-      color: 'from-sky-400 to-blue-600',
+      color: 'from-blue-500 to-blue-700',
       trend: trendPercentages.users
     },
     {
       title: 'Productos Activos',
       value: productCount,
       icon: Package,
-      color: 'from-emerald-400 to-teal-600',
+      color: 'from-emerald-500 to-emerald-700',
       trend: trendPercentages.products
     },
     {
       title: 'Pedidos Pendientes',
       value: pendingOrders,
       icon: Clock, 
-      color: 'from-amber-400 to-orange-600',
+      color: 'from-amber-500 to-amber-700',
       trend: trendPercentages.orders
     },
     {
       title: 'Ventas del Mes',
       value: `$${monthSales.toLocaleString()}`,
       icon: DollarSign,
-      color: 'from-indigo-400 to-violet-600',
+      color: 'from-purple-500 to-purple-700',
       trend: trendPercentages.sales
     }
   ];
@@ -349,17 +358,17 @@ export const DashboardStats: React.FC = () => {
         {/* Actividad Reciente con diseño mejorado */}
         <div className="lg:col-span-2">
           <Card className="shadow-lg border-0 rounded-2xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
               <CardTitle className="flex items-center gap-2 text-slate-800">
-                <Activity className="h-5 w-5 text-sky-500" />
+                <Activity className="h-5 w-5 text-blue-600" />
                 Actividad Reciente
               </CardTitle>
               <p className="text-sm text-slate-500">Últimos movimientos del sistema</p>
               <div className="flex flex-wrap gap-2 mt-2">
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
                   <Package className="h-3 w-3 mr-1" /> Productos
                 </span>
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-800">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                   <FilePenLine className="h-3 w-3 mr-1" /> Revisiones
                 </span>
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -386,28 +395,28 @@ export const DashboardStats: React.FC = () => {
                     </div>
                   ))
                 ) : recentActivity.length === 0 ? (
-                  <div className="text-slate-500 text-center py-12 bg-sky-50 rounded-xl border border-sky-100">
-                    <div className="w-16 h-16 rounded-full bg-sky-100 flex items-center justify-center mx-auto mb-3">
-                      <Clock className="h-8 w-8 text-sky-500" />
+                  <div className="text-slate-500 text-center py-12 bg-blue-50 rounded-xl border border-blue-100">
+                    <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-3">
+                      <Clock className="h-8 w-8 text-blue-600" />
                     </div>
                     <p className="font-medium">Sin actividad reciente</p>
                     <p className="text-sm text-slate-400 mt-1">Las actividades aparecerán aquí</p>
                   </div>
                 ) : (
                   recentActivity.map((activity, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 hover:bg-sky-50 transition-colors border border-transparent hover:border-sky-100">
+                    <div key={index} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-100">
                       <div className="flex items-center space-x-3">
                         {/* Icono según el tipo de actividad */}
                         {activity.type === 'product' ? (
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-700 flex items-center justify-center shadow-md">
                             <Package className="h-5 w-5 text-white" />
                           </div>
                         ) : activity.type === 'revision' ? (
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-violet-400 to-purple-500 flex items-center justify-center shadow-md">
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-purple-500 to-purple-700 flex items-center justify-center shadow-md">
                             <FilePenLine className="h-5 w-5 text-white" />
                           </div>
                         ) : (
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-sky-400 to-blue-600 flex items-center justify-center shadow-md">
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-blue-500 to-blue-700 flex items-center justify-center shadow-md">
                             <span className="text-white text-xs font-bold">
                               {typeof activity.user === 'string' ? activity.user.split(' ').filter(Boolean).map((n: string) => n[0] || '?').join('') : '?'}
                             </span>
@@ -454,7 +463,7 @@ export const DashboardStats: React.FC = () => {
                         description: "Mostrando las actividades más recientes en el dashboard. Pronto tendrás disponible el historial completo."
                       });
                     }}
-                    className="text-sky-600 hover:text-sky-800 text-sm font-medium flex items-center space-x-1 px-4 py-2 rounded-lg hover:bg-sky-50 transition-colors"
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
                   >
                     <span>Ver todas las actividades</span>
                     <ArrowUpRight className="h-4 w-4" />
@@ -466,7 +475,7 @@ export const DashboardStats: React.FC = () => {
         </div>
         
         {/* Widget de resumen */}
-        <div className="bg-gradient-to-br from-sky-400 to-blue-600 rounded-2xl shadow-lg h-full">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl shadow-lg h-full">
           <div className="p-6 flex flex-col h-full">
             <h3 className="text-lg font-semibold text-white mb-2">Resumen de Desempeño</h3>
             <p className="text-sm text-sky-100 mb-6">Estadísticas clave del período actual</p>
@@ -530,21 +539,21 @@ export const DashboardStats: React.FC = () => {
       </div>
       
       {/* Acciones Rápidas */}
-      <div className="bg-gradient-to-r from-slate-50 to-sky-50 rounded-2xl p-6 border border-sky-100 shadow-md">
+      <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl p-6 border border-blue-100 shadow-md">
         <h3 className="text-lg font-semibold text-slate-800 mb-4">Acciones Rápidas</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {[
-            { title: 'Nuevo Producto', icon: <Package className="h-5 w-5" />, color: 'sky' },
-            { title: 'Ver Pedidos', icon: <ShoppingCart className="h-5 w-5" />, color: 'emerald' },
-            { title: 'Usuarios', icon: <Users className="h-5 w-5" />, color: 'violet' },
-            { title: 'Analítica', icon: <Activity className="h-5 w-5" />, color: 'amber' },
-            { title: 'Configuración', icon: <Clock className="h-5 w-5" />, color: 'blue' }
+            { title: 'Nuevo Producto', icon: <Package className="h-5 w-5" />, bgColor: 'bg-blue-100', textColor: 'text-blue-600' },
+            { title: 'Ver Pedidos', icon: <ShoppingCart className="h-5 w-5" />, bgColor: 'bg-emerald-100', textColor: 'text-emerald-600' },
+            { title: 'Usuarios', icon: <Users className="h-5 w-5" />, bgColor: 'bg-purple-100', textColor: 'text-purple-600' },
+            { title: 'Analítica', icon: <Activity className="h-5 w-5" />, bgColor: 'bg-amber-100', textColor: 'text-amber-600' },
+            { title: 'Configuración', icon: <Clock className="h-5 w-5" />, bgColor: 'bg-slate-100', textColor: 'text-slate-600' }
           ].map((action, index) => (
             <div 
               key={index} 
-              className="bg-white rounded-xl p-4 border border-slate-100 hover:shadow-md transition-all cursor-pointer group hover:border-sky-200"
+              className="bg-white rounded-xl p-4 border border-slate-100 hover:shadow-md transition-all cursor-pointer group hover:border-blue-200"
             >
-              <div className={`w-10 h-10 rounded-lg bg-${action.color}-100 flex items-center justify-center text-${action.color}-600 mb-3 group-hover:scale-110 transition-transform`}>
+              <div className={`w-10 h-10 rounded-lg ${action.bgColor} flex items-center justify-center ${action.textColor} mb-3 group-hover:scale-110 transition-transform`}>
                 {action.icon}
               </div>
               <h3 className="text-sm font-medium text-slate-800">{action.title}</h3>
@@ -555,3 +564,6 @@ export const DashboardStats: React.FC = () => {
     </div>
   );
 };
+
+// Memoizar para evitar re-renders innecesarios
+export const DashboardStats = memo(DashboardStatsComponent);

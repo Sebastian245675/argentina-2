@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { motion, AnimatePresence, useAnimation, useSpring } from 'framer-motion';
-import { Loader2, Gift, Package, Heart, Sparkles, Star, Clock, Zap } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Loader2, Heart, Sparkles } from 'lucide-react';
+import { CustomClock } from '@/components/ui/CustomClock';
 
 // Animación hiper-realista 3D de persona dando un regalo
 const SplashScreen = () => {
@@ -410,7 +411,7 @@ const SplashScreen = () => {
               transition={{ duration: 3, repeat: Infinity }}
             >
               <span className="inline-flex items-center gap-2">
-                <Clock className="h-4 w-4" /> Preparando experiencia inmersiva
+                <CustomClock className="h-4 w-4" /> Preparando experiencia inmersiva
               </span>
             </motion.div>
           </motion.div>

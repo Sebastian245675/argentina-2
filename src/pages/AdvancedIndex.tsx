@@ -1,24 +1,25 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "@/firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { TopPromoBar } from "@/components/layout/TopPromoBar";
 import { AdvancedHeader } from "@/components/layout/AdvancedHeader";
-import { AdvancedHeroSection } from '@/components/home/AdvancedHeroSection';
 import { ProductsSection } from '@/components/products/ProductsSection';
-import LatestProductsGrid from '@/components/products/LatestProductsGrid';
-import { GlassmorphismCard } from '@/components/ui/glassmorphism-card';
-import { AnimatedGradientText } from '@/components/ui/animated-gradient-text';
-import { MagneticButton } from '@/components/ui/magnetic-button';
-import { FloatingParticles } from '@/components/ui/floating-particles';
+import { StoreStructuredData } from '@/components/seo/StructuredData';
+// Lazy load componentes pesados
+const LatestProductsGrid = lazy(() => import('@/components/products/LatestProductsGrid'));
+const GlassmorphismCard = lazy(() => import('@/components/ui/glassmorphism-card').then(m => ({ default: m.GlassmorphismCard })));
+const AnimatedGradientText = lazy(() => import('@/components/ui/animated-gradient-text').then(m => ({ default: m.AnimatedGradientText })));
+const MagneticButton = lazy(() => import('@/components/ui/magnetic-button').then(m => ({ default: m.MagneticButton })));
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCategories } from '@/hooks/use-categories';
+import { CustomClock } from '@/components/ui/CustomClock';
+import { useReduceMotionDuringScroll } from '@/hooks/use-scroll-performance';
 import {
   Shield,
   Zap,
   Heart,
   Star,
-  Clock,
   Award,
   Smartphone,
   MessageCircle,
@@ -57,15 +58,65 @@ const carouselImages = [
   "/principio3.jpg"
 ];
 
+// Componente para lazy load de secciones
+const LazySection: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '100px' } // Cargar 100px antes de entrar en viewport
+    );
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  return <div ref={ref}>{isVisible ? children : <div className="min-h-[400px]"></div>}</div>;
+};
+
 function Carousel() {
   const [current, setCurrent] = useState(0);
+  const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set([0])); // Cargar solo la primera imagen
+  const [isLowEndDevice, setIsLowEndDevice] = useState(false);
 
   React.useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % carouselImages.length);
-    }, 3500);
-    return () => clearInterval(interval);
+    // Detectar dispositivos de bajos recursos
+    const hardwareConcurrency = navigator.hardwareConcurrency || 2;
+    const deviceMemory = (navigator as any).deviceMemory || 4;
+    setIsLowEndDevice(hardwareConcurrency < 4 || deviceMemory < 4);
   }, []);
+
+  React.useEffect(() => {
+    // Intervalo más largo en dispositivos de bajos recursos
+    const intervalTime = isLowEndDevice ? 5000 : 3500;
+    const interval = setInterval(() => {
+      setCurrent((prev) => {
+        const next = (prev + 1) % carouselImages.length;
+        // Pre-cargar la siguiente imagen
+        setLoadedImages((prev) => new Set([...prev, next]));
+        return next;
+      });
+    }, intervalTime);
+    return () => clearInterval(interval);
+  }, [isLowEndDevice]);
+
+  // Pre-cargar la siguiente imagen cuando cambia current
+  useEffect(() => {
+    const nextIndex = (current + 1) % carouselImages.length;
+    if (!loadedImages.has(nextIndex)) {
+      setLoadedImages((prev) => new Set([...prev, nextIndex]));
+    }
+  }, [current]);
 
   return (
     <div className="w-screen h-[100vh] min-h-[500px] max-h-[1200px] relative overflow-hidden rounded-none shadow-2xl mb-12">
@@ -77,12 +128,18 @@ function Carousel() {
           key={img}
           className={`absolute inset-0 w-full h-full transition-opacity duration-700 ${current === idx ? "opacity-100 z-10" : "opacity-0 z-0"}`}
         >
-          <img
-            src={img}
-            alt={`Principio ${idx + 1}`}
-            className="w-full h-full object-cover"
-            draggable={false}
-          />
+          {loadedImages.has(idx) ? (
+            <img
+              src={img}
+              alt={`Principio ${idx + 1}`}
+              className="w-full h-full object-cover"
+              draggable={false}
+              loading={idx === 0 ? "eager" : "lazy"}
+              decoding="async"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-r from-slate-300 to-slate-400 animate-pulse"></div>
+          )}
           
           {/* Contenido para cada slide */}
           <div className="absolute inset-0 flex items-center justify-center z-30">
@@ -143,6 +200,34 @@ const AdvancedIndex = () => {
   const location = useLocation();
   const navigate = useNavigate();
   
+  // Detectar dispositivos de bajos recursos para reducir animaciones
+  const [isLowEndDevice, setIsLowEndDevice] = useState(false);
+  
+  // Optimización de scroll performance - reducir animaciones durante scroll
+  useReduceMotionDuringScroll();
+  
+  useEffect(() => {
+    // Detectar dispositivos con poca memoria o CPU lento
+    const checkDeviceCapability = () => {
+      const hardwareConcurrency = navigator.hardwareConcurrency || 2;
+      const deviceMemory = (navigator as any).deviceMemory || 4;
+      const connection = (navigator as any).connection;
+      
+      // Considerar de bajos recursos si:
+      // - Menos de 4 cores de CPU
+      // - Menos de 4GB de RAM
+      // - Conexión lenta (2g o slow-2g)
+      const lowEnd = 
+        hardwareConcurrency < 4 ||
+        deviceMemory < 4 ||
+        (connection && (connection.effectiveType === '2g' || connection.effectiveType === 'slow-2g'));
+      
+      setIsLowEndDevice(lowEnd);
+    };
+    
+    checkDeviceCapability();
+  }, []);
+  
   const [promoVisible, setPromoVisible] = useState(true);
   // Estados para el formulario
   const [isLogin, setIsLogin] = useState(true);
@@ -153,12 +238,30 @@ const AdvancedIndex = () => {
   const [success, setSuccess] = useState('');
   const { categories, setCategories } = useCategories();
   const [selectedCategory, setSelectedCategory] = useState("Todos");
+  const [searchTerm, setSearchTerm] = useState("");
   
-  // Manejar la categoría y subcategoría desde la URL
+  // Manejar la categoría, subcategoría y término de búsqueda desde la URL
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const categoryParam = params.get('category');
     const subcategoryParam = params.get('subcategory');
+    const searchParam = params.get('search');
+    
+    // Manejar el parámetro de búsqueda si existe
+    if (searchParam) {
+      setSearchTerm(searchParam);
+      
+      // Desplazar a la sección de productos
+      setTimeout(() => {
+        const productosSection = document.getElementById('productos');
+        if (productosSection) {
+          productosSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 300);
+    } else {
+      // Si no hay búsqueda, limpiar el término
+      setSearchTerm("");
+    }
     
     if (categoryParam) {
       // Esperamos a que las categorías se carguen
@@ -255,16 +358,71 @@ const AdvancedIndex = () => {
   const whatsappNumber = '+543873439775';
   const whatsappUrl = `https://wa.me/${whatsappNumber.replace(/\D/g, '')}`;
 
+  // SEO: Agregar structured data y meta tags dinámicos
+  useEffect(() => {
+    // Actualizar meta description si hay búsqueda o categoría (optimizado para SEO)
+    const updateMetaTags = () => {
+      let description = 'Tienda online de electrodomésticos, regalería y productos para el hogar. Envíos rápidos, domicilios gratis y los mejores precios en Argentina.';
+      
+      if (searchTerm) {
+        description = `Resultados para "${searchTerm}" en REGALA ALGO. Encuentra productos de calidad con envíos rápidos.`;
+      } else if (selectedCategory && selectedCategory !== 'Todos') {
+        description = `Explora ${selectedCategory} en REGALA ALGO. Tu tienda online con los mejores productos y envíos rápidos.`;
+      }
+
+      // Limitar descripción a 160 caracteres
+      if (description.length > 160) {
+        description = description.substring(0, 157) + '...';
+      }
+
+      const metaDescription = document.querySelector('meta[name="description"]');
+      if (metaDescription) {
+        metaDescription.setAttribute('content', description);
+      }
+
+      // Actualizar título (máximo 60 caracteres)
+      let title = 'REGALA ALGO - Tienda Online Electrodomésticos';
+      if (searchTerm) {
+        title = `${searchTerm} | REGALA ALGO`;
+        if (title.length > 60) {
+          title = `${searchTerm.substring(0, 40)}... | REGALA ALGO`;
+        }
+      } else if (selectedCategory && selectedCategory !== 'Todos') {
+        title = `${selectedCategory} | REGALA ALGO`;
+        if (title.length > 60) {
+          title = `${selectedCategory.substring(0, 30)}... | REGALA ALGO`;
+        }
+      }
+      document.title = title;
+
+      // Actualizar canonical URL
+      const canonical = document.querySelector('link[rel="canonical"]');
+      if (canonical) {
+        const baseUrl = window.location.origin;
+        const path = window.location.pathname;
+        canonical.setAttribute('href', `${baseUrl}${path}`);
+      }
+    };
+
+    updateMetaTags();
+  }, [searchTerm, selectedCategory]);
+
   return (
     <div className="min-h-screen bg-white text-neutral-900 overflow-x-hidden">
-      {/* Botón flotante WhatsApp */}
+      {/* Structured Data para SEO */}
+      <StoreStructuredData 
+        name="REGALA ALGO"
+        description="Tu tienda online confiable para electrodomésticos, regalería, productos para el hogar, bebidas, snacks y más"
+      />
+      
+      {/* Botón flotante WhatsApp - optimizado para scroll */}
       <a
         href={whatsappUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 z-50 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-lg p-4 flex items-center justify-center transition-all"
+        className="fixed bottom-6 right-6 z-50 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-lg p-4 flex items-center justify-center transition-all fixed-element"
         title="Contactar por WhatsApp"
-        style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.15)' }}
+        style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.15)', transform: 'translateZ(0)', willChange: 'transform' }}
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
           <path d="M21.67 20.29l-1.2-4.28A8.94 8.94 0 0 0 12 3a9 9 0 0 0-9 9c0 2.39.93 4.58 2.62 6.29l-1.2 4.28a1 1 0 0 0 1.28 1.28l4.28-1.2A8.94 8.94 0 0 0 21 21a1 1 0 0 0 .67-1.71z"></path>
@@ -288,16 +446,16 @@ const AdvancedIndex = () => {
       </div>
 
       <main className="relative z-10 w-full">
-
         {/* Products Section with Advanced Styling */}
-        <section id="productos" className="py-20 relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-500/5 to-blue-500/10 backdrop-blur-3xl"></div>
+        <section id="productos" className="py-20 relative product-section">
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-500/5 to-blue-500/10" style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', willChange: 'backdrop-filter', transform: 'translateZ(0)' }}></div>
           <div className="relative z-10">
             <div className="w-[95%] mx-auto">
               <ProductsSection
                 selectedCategory={selectedCategory}
                 setSelectedCategory={setSelectedCategory}
                 setCategories={setCategories}
+                initialSearchTerm={searchTerm}
               />
             </div>
           </div>
@@ -305,37 +463,40 @@ const AdvancedIndex = () => {
 
 
         {/* Sección avanzada: Productos Destacados - Rediseño para móvil y desktop */}
-        <section className="py-16 md:py-20 relative overflow-hidden">
-          {/* Fondo con efecto mejorado */}
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-500/10 to-blue-500/15 backdrop-blur-3xl"></div>
-          
-          {/* Elementos decorativos para móvil y desktop */}
-          <div className="absolute top-0 right-0 w-40 h-40 bg-blue-400/10 rounded-full blur-3xl -mr-20 -mt-20 md:hidden"></div>
-          <div className="absolute bottom-0 left-0 w-40 h-40 bg-slate-500/10 rounded-full blur-3xl -ml-20 -mb-20 md:hidden"></div>
-          <div className="hidden md:block absolute top-40 left-1/4 w-56 h-56 bg-blue-300/10 rounded-full blur-2xl"></div>
-          <div className="hidden lg:block absolute bottom-20 right-1/4 w-48 h-48 bg-slate-300/10 rounded-full blur-2xl"></div>
-          
-          <div id="novedades" className="relative z-10" style={{ scrollMarginTop: '120px' }}>
-            <div className="flex flex-col items-center">
-              {/* Título con insignia para móvil y desktop */}
-              <div className="flex flex-col items-center mb-8">
-                <div className="bg-gradient-to-r from-blue-500 to-blue-700 text-white px-6 py-2 rounded-full text-sm font-semibold mb-3 shadow-md">
-                  Lo Nuevo
+        <LazySection>
+          <section className="py-16 md:py-20 relative overflow-hidden product-section">
+            {/* Fondo con efecto mejorado - optimizado para scroll */}
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-500/10 to-blue-500/15" style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', willChange: 'auto', transform: 'translateZ(0)' }}></div>
+            
+            {/* Elementos decorativos para móvil y desktop - reducidos para mejor performance */}
+            <div className="absolute top-0 right-0 w-40 h-40 bg-blue-400/10 rounded-full blur-2xl -mr-20 -mt-20 md:hidden" style={{ willChange: 'auto', transform: 'translateZ(0)' }}></div>
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-slate-500/10 rounded-full blur-2xl -ml-20 -mb-20 md:hidden" style={{ willChange: 'auto', transform: 'translateZ(0)' }}></div>
+            <div className="hidden md:block absolute top-40 left-1/4 w-56 h-56 bg-blue-300/10 rounded-full blur-xl" style={{ willChange: 'auto', transform: 'translateZ(0)' }}></div>
+            <div className="hidden lg:block absolute bottom-20 right-1/4 w-48 h-48 bg-slate-300/10 rounded-full blur-xl" style={{ willChange: 'auto', transform: 'translateZ(0)' }}></div>
+            
+            <div id="novedades" className="relative z-10" style={{ scrollMarginTop: '120px' }}>
+              <div className="flex flex-col items-center">
+                {/* Título con insignia para móvil y desktop */}
+                <div className="flex flex-col items-center mb-8">
+                  <div className="bg-gradient-to-r from-blue-500 to-blue-700 text-white px-6 py-2 rounded-full text-sm font-semibold mb-3 shadow-md">
+                    Lo Nuevo
+                  </div>
+                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-black text-gradient bg-gradient-to-r from-slate-700 via-blue-600 to-gray-800 bg-clip-text text-transparent text-center">
+                    Últimos Productos Agregados
+                  </h2>
+                  <div className="h-1.5 w-24 md:w-32 bg-gradient-to-r from-blue-500 to-slate-700 mx-auto mt-4 rounded-full"></div>
+                  <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto mt-5 text-center">
+                    Descubre lo más nuevo que hemos agregado a la tienda. ¡No te lo pierdas!
+                  </p>
                 </div>
-                <h2 className="text-3xl md:text-4xl lg:text-5xl font-black text-gradient bg-gradient-to-r from-slate-700 via-blue-600 to-gray-800 bg-clip-text text-transparent text-center">
-                  Últimos productos agregados
-                </h2>
-                <div className="h-1.5 w-24 md:w-32 bg-gradient-to-r from-blue-500 to-slate-700 mx-auto mt-4 rounded-full"></div>
-                <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto mt-5 text-center">
-                  Descubre lo más nuevo que hemos agregado a la tienda. ¡No te lo pierdas!
-                </p>
-              </div>
-              
-              {/* Contenedor con sombras y bordes mejorados */}
-              <div className="w-[95%] md:w-[90%] lg:w-[85%] max-w-7xl mx-auto bg-white/30 backdrop-blur-sm rounded-2xl p-3 md:p-6 shadow-lg border border-white/20">
-                {/* Mostrar solo los 3 últimos productos agregados */}
-                <LatestProductsGrid maxItems={3} sortBy="createdAt" sortOrder="desc" />
-              </div>
+                
+                {/* Contenedor con sombras y bordes mejorados */}
+                <div className="w-[95%] md:w-[90%] lg:w-[85%] max-w-7xl mx-auto bg-white/30 backdrop-blur-sm rounded-2xl p-3 md:p-6 shadow-lg border border-white/20">
+                  {/* Mostrar solo los 3 últimos productos agregados */}
+                  <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-400"></div></div>}>
+                    <LatestProductsGrid maxItems={3} sortBy="createdAt" sortOrder="desc" />
+                  </Suspense>
+                </div>
               
               {/* Botón "Ver más" - solo visible en móvil */}
               <div className="mt-6 md:hidden">
@@ -348,20 +509,44 @@ const AdvancedIndex = () => {
               </div>
             </div>
           </div>
+          </section>
+        </LazySection>
+
+        {/* SEO: Sección con H1 y contenido textual - Movida debajo de productos, más discreta */}
+        <section className="py-8 md:py-12 bg-gradient-to-b from-white to-gray-50/30">
+          <div className="w-[95%] md:w-[90%] max-w-4xl mx-auto">
+            <h1 className="text-2xl md:text-3xl font-bold text-center mb-6 text-gray-800">REGALA ALGO - Tu Tienda Online de Electrodomésticos y Regalería</h1>
+            <div className="text-center text-gray-600 space-y-3">
+              <p className="text-sm md:text-base leading-relaxed">
+                Bienvenido a <strong className="text-gray-800">REGALA ALGO</strong>, tu tienda online de confianza en Argentina. Ofrecemos una amplia variedad de <a href="/#productos" className="text-blue-600 hover:text-blue-800">electrodomésticos</a>, <a href="/#productos" className="text-blue-600 hover:text-blue-800">regalería</a>, productos para el hogar, <a href="/#productos" className="text-blue-600 hover:text-blue-800">bebidas</a> y <a href="/#productos" className="text-blue-600 hover:text-blue-800">snacks</a> de la más alta calidad.
+              </p>
+              <p className="text-sm md:text-base leading-relaxed">
+                En REGALA ALGO nos especializamos en brindarte los mejores productos para tu hogar y para regalar. Nuestro catálogo incluye desde pequeños electrodomésticos hasta artículos de regalería únicos. Todos nuestros productos son cuidadosamente seleccionados para garantizar calidad y satisfacción.
+              </p>
+              <p className="text-sm md:text-base leading-relaxed">
+                Realizamos <a href="/envios" className="text-blue-600 hover:text-blue-800">envíos rápidos</a> a todo el país con opciones de <strong className="text-gray-800">domicilios gratis</strong> en compras superiores a montos específicos según tu ubicación. Para más información sobre nuestros servicios, visita nuestra página de <a href="/sobre-nosotros" className="text-blue-600 hover:text-blue-800">sobre nosotros</a> o contáctanos directamente.
+              </p>
+              <p className="text-sm md:text-base leading-relaxed">
+                Navega por nuestras categorías y descubre productos increíbles con los mejores precios del mercado. En REGALA ALGO, tu satisfacción es nuestra prioridad.
+              </p>
+            </div>
+          </div>
         </section>
 
         {/* <AdvancedHeroSection /> */} {/* Elimina o comenta esta línea */}
 
         {/* Sección de Innovación y Experiencia Premium */}
         <section className="py-16 md:py-24 relative bg-gradient-to-b from-white to-blue-50/50 overflow-hidden">
-          {/* Elementos decorativos de fondo mejorados */}
-          <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-200/20 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-10 -left-20 w-72 h-72 bg-slate-200/30 rounded-full blur-3xl"></div>
-            <div className="hidden md:block absolute top-40 right-1/4 w-32 h-32 bg-blue-400/10 rounded-full blur-xl"></div>
-            <div className="hidden lg:block absolute top-20 left-1/4 w-48 h-48 bg-slate-300/10 rounded-full blur-2xl"></div>
-            <div className="hidden lg:block absolute bottom-40 right-1/3 w-36 h-36 bg-blue-300/10 rounded-full blur-2xl"></div>
-          </div>
+          {/* Elementos decorativos de fondo mejorados - Reducidos en dispositivos de bajos recursos */}
+          {!isLowEndDevice && (
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-200/20 rounded-full blur-3xl"></div>
+              <div className="absolute bottom-10 -left-20 w-72 h-72 bg-slate-200/30 rounded-full blur-3xl"></div>
+              <div className="hidden md:block absolute top-40 right-1/4 w-32 h-32 bg-blue-400/10 rounded-full blur-xl"></div>
+              <div className="hidden lg:block absolute top-20 left-1/4 w-48 h-48 bg-slate-300/10 rounded-full blur-2xl"></div>
+              <div className="hidden lg:block absolute bottom-40 right-1/3 w-36 h-36 bg-blue-300/10 rounded-full blur-2xl"></div>
+            </div>
+          )}
 
           <div className="w-11/12 md:w-[85%] lg:w-[80%] max-w-6xl mx-auto relative z-10">
             {/* Encabezado renovado con diseño moderno */}
@@ -372,7 +557,7 @@ const AdvancedIndex = () => {
                 </span>
               </div>
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mt-4 mb-6 text-center bg-gradient-to-r from-slate-800 via-blue-700 to-slate-700 bg-clip-text text-transparent">
-                Por qué elegir REGALA ALGO
+                Por Qué Elegir REGALA ALGO
               </h2>
               <div className="h-1.5 w-24 md:w-32 bg-gradient-to-r from-blue-500 to-slate-700 mx-auto mb-6 rounded-full"></div>
               <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto text-center leading-relaxed">
@@ -412,7 +597,7 @@ const AdvancedIndex = () => {
                   color: "from-slate-700 to-slate-900"
                 },
                 {
-                  icon: Clock,
+                  icon: CustomClock,
                   title: "Disponible 24/7",
                   description: "Compra cuando quieras",
                   color: "from-blue-500 to-blue-700"
@@ -427,7 +612,7 @@ const AdvancedIndex = () => {
               ].map((feature, index) => (
                 <div 
                   key={index} 
-                  className={`relative group bg-white rounded-xl shadow-lg overflow-hidden border border-slate-100 transform transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl ${feature.highlight ? 'ring-2 ring-blue-300/50' : ''}`}
+                  className={`relative group bg-white rounded-xl shadow-lg overflow-hidden border border-slate-100 ${isLowEndDevice ? '' : 'transform transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl'} ${feature.highlight ? 'ring-2 ring-blue-300/50' : ''}`}
                 >
                   {/* Fondo superior con gradiente mejorado */}
                   <div className={`h-28 bg-gradient-to-r ${feature.color} w-full`}></div>
@@ -436,7 +621,7 @@ const AdvancedIndex = () => {
                   <div className="px-6 pb-8 pt-16 relative text-center">
                     {/* Icono flotante */}
                     <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
-                      <div className={`w-24 h-24 rounded-full bg-white shadow-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                      <div className={`w-24 h-24 rounded-full bg-white shadow-xl flex items-center justify-center ${isLowEndDevice ? '' : 'group-hover:scale-110 transition-transform duration-300'}`}>
                         <feature.icon className="h-12 w-12 text-blue-600" />
                       </div>
                     </div>
@@ -445,8 +630,10 @@ const AdvancedIndex = () => {
                     <p className="text-slate-600 text-base md:text-lg">{feature.description}</p>
                   </div>
                   
-                  {/* Decoración inferior mejorada */}
-                  <div className="absolute bottom-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  {/* Decoración inferior mejorada - Solo en dispositivos potentes */}
+                  {!isLowEndDevice && (
+                    <div className="absolute bottom-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  )}
                 </div>
               ))}
             </div>
@@ -461,7 +648,7 @@ const AdvancedIndex = () => {
               <div className="flex-1 text-center md:text-left">
                 <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-3">¿Quieres más beneficios exclusivos?</h3>
                 <p className="text-blue-100 text-base lg:text-lg mb-5 max-w-2xl">Registra tu cuenta ahora y accede a descuentos especiales y promociones personalizadas diseñadas específicamente para ti.</p>
-                <button className="bg-white text-blue-900 hover:bg-blue-50 transition-all transform hover:scale-105 font-medium px-6 py-3 rounded-lg shadow-md inline-flex items-center space-x-2">
+                <button className={`bg-white text-blue-900 hover:bg-blue-50 ${isLowEndDevice ? '' : 'transition-all transform hover:scale-105'} font-medium px-6 py-3 rounded-lg shadow-md inline-flex items-center space-x-2`}>
                   <span>Crear cuenta</span>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -473,13 +660,14 @@ const AdvancedIndex = () => {
         </section>
 
         {/* Testimonios de clientes */}
+        <LazySection>
         <section className="w-[95%] mx-auto py-16 px-4">
           <h3 className="text-3xl font-extrabold text-center mb-10 tracking-tight text-neutral-900">
             Lo que dicen nuestros clientes
           </h3>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-8">
             <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col items-center">
-              <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Cliente 1" className="w-16 h-16 rounded-full mb-4 shadow" />
+              <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Cliente 1" className="w-16 h-16 rounded-full mb-4 shadow" loading="lazy" />
               <p className="text-lg text-neutral-700 font-medium mb-2 text-center">
                 "¡Entrega ultra rápida y productos de calidad premium! Recomiendo totalmente REGALA ALGO."
               </p>
@@ -487,7 +675,7 @@ const AdvancedIndex = () => {
               <span className="text-xs text-neutral-400">Conjunto Mirador</span>
             </div>
             <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col items-center">
-              <img src="https://randomuser.me/api/portraits/women/44.jpg" alt="Cliente 2" className="w-16 h-16 rounded-full mb-4 shadow" />
+              <img src="https://randomuser.me/api/portraits/women/44.jpg" alt="Cliente 2" className="w-16 h-16 rounded-full mb-4 shadow" loading="lazy" />
               <p className="text-lg text-neutral-700 font-medium mb-2 text-center">
                 "El mejor servicio del conjunto. Atención personalizada y precios justos."
               </p>
@@ -495,7 +683,7 @@ const AdvancedIndex = () => {
               <span className="text-xs text-neutral-400">Conjunto Cedros</span>
             </div>
             <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col items-center">
-              <img src="https://randomuser.me/api/portraits/men/65.jpg" alt="Cliente 3" className="w-16 h-16 rounded-full mb-4 shadow" />
+              <img src="https://randomuser.me/api/portraits/men/65.jpg" alt="Cliente 3" className="w-16 h-16 rounded-full mb-4 shadow" loading="lazy" />
               <p className="text-lg text-neutral-700 font-medium mb-2 text-center">
                 "Gran variedad de productos y entregas siempre a tiempo. ¡5 estrellas!"
               </p>
@@ -503,7 +691,7 @@ const AdvancedIndex = () => {
               <span className="text-xs text-neutral-400">Conjunto Bosques</span>
             </div>
             <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col items-center">
-              <img src="https://randomuser.me/api/portraits/women/68.jpg" alt="Cliente 4" className="w-16 h-16 rounded-full mb-4 shadow" />
+              <img src="https://randomuser.me/api/portraits/women/68.jpg" alt="Cliente 4" className="w-16 h-16 rounded-full mb-4 shadow" loading="lazy" />
               <p className="text-lg text-neutral-700 font-medium mb-2 text-center">
                 "Me encanta la facilidad de compra y la atención rápida por WhatsApp."
               </p>
@@ -511,7 +699,7 @@ const AdvancedIndex = () => {
               <span className="text-xs text-neutral-400">Conjunto Jardines</span>
             </div>
             <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col items-center">
-              <img src="https://randomuser.me/api/portraits/men/42.jpg" alt="Cliente 5" className="w-16 h-16 rounded-full mb-4 shadow" />
+              <img src="https://randomuser.me/api/portraits/men/42.jpg" alt="Cliente 5" className="w-16 h-16 rounded-full mb-4 shadow" loading="lazy" />
               <p className="text-lg text-neutral-700 font-medium mb-2 text-center">
                 "Siempre encuentro lo que necesito a precios muy competitivos."
               </p>
@@ -519,7 +707,7 @@ const AdvancedIndex = () => {
               <span className="text-xs text-neutral-400">Conjunto Pinos</span>
             </div>
             <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col items-center">
-              <img src="https://randomuser.me/api/portraits/women/33.jpg" alt="Cliente 6" className="w-16 h-16 rounded-full mb-4 shadow" />
+              <img src="https://randomuser.me/api/portraits/women/33.jpg" alt="Cliente 6" className="w-16 h-16 rounded-full mb-4 shadow" loading="lazy" />
               <p className="text-lg text-neutral-700 font-medium mb-2 text-center">
                 "Excelentes promociones y productos siempre frescos. ¡Son los mejores!"
               </p>
@@ -528,8 +716,10 @@ const AdvancedIndex = () => {
             </div>
           </div>
         </section>
+        </LazySection>
 
         {/* Sección de Redes Sociales */}
+        <LazySection>
         <section className="py-16 bg-gradient-to-r from-blue-50 to-slate-50">
           <div className="container mx-auto px-4">
             <div className="text-center mb-10">
@@ -586,8 +776,10 @@ const AdvancedIndex = () => {
             </div>
           </div>
         </section>
+        </LazySection>
 
         {/* Sección de Suscripción */}
+        <LazySection>
         <div className="w-[80%] mx-auto mt-20 rounded-2xl p-10 shadow-2xl border border-neutral-200 text-center relative overflow-hidden"
      style={{ background: "rgba(30,30,30,0.06)", backdropFilter: "blur(2px)" }}>
           <h3 className="text-2xl md:text-3xl font-extrabold text-neutral-900 mb-3 mt-2 tracking-wide uppercase">
@@ -618,32 +810,42 @@ const AdvancedIndex = () => {
     <Mail className="w-16 h-16 text-neutral-900" />
   </div>
         </div>
+        </LazySection>
 
 
         {/* Advanced Footer */}
+        <LazySection>
         <footer className="relative py-20 mt-20 bg-neutral-800">
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
           <div className="w-[95%] mx-auto px-4 relative z-10">
             <div className="grid md:grid-cols-4 lg:grid-cols-6 gap-12 mb-12">
               <div className="space-y-6 lg:col-span-2">
                 <div className="flex items-center space-x-3">
-                  <img src="/logo-nuevo.png" alt="REGALA ALGO Logo" className="h-16 w-auto" />
-                  <AnimatedGradientText size="lg">REGALA ALGO</AnimatedGradientText>
+                  <img src="/logo-nuevo.png" alt="REGALA ALGO Logo" className="h-16 w-auto" loading="lazy" />
+                  <Suspense fallback={<span className="text-xl font-bold">REGALA ALGO</span>}>
+                    <AnimatedGradientText size="lg">REGALA ALGO</AnimatedGradientText>
+                  </Suspense>
                 </div>
                 <p className="text-gray-300 leading-relaxed">
                   Lo que trta la tienda. La mejor experiencia de compra para encontrar el regalo perfecto.
                   Tecnología de vanguardia al servicio de tu comodidad.
                 </p>
                 <div className="flex space-x-4">
-                  <MagneticButton variant="ghost" className="p-3">
-                    <Smartphone className="h-5 w-5" />
-                  </MagneticButton>
-                  <MagneticButton variant="ghost" className="p-3">
-                    <MessageCircle className="h-5 w-5" />
-                  </MagneticButton>
-                  <MagneticButton variant="ghost" className="p-3">
-                    <Mail className="h-5 w-5" />
-                  </MagneticButton>
+                  <Suspense fallback={<button className="p-3"><Smartphone className="h-5 w-5" /></button>}>
+                    <MagneticButton variant="ghost" className="p-3">
+                      <Smartphone className="h-5 w-5" />
+                    </MagneticButton>
+                  </Suspense>
+                  <Suspense fallback={<button className="p-3"><MessageCircle className="h-5 w-5" /></button>}>
+                    <MagneticButton variant="ghost" className="p-3">
+                      <MessageCircle className="h-5 w-5" />
+                    </MagneticButton>
+                  </Suspense>
+                  <Suspense fallback={<button className="p-3"><Mail className="h-5 w-5" /></button>}>
+                    <MagneticButton variant="ghost" className="p-3">
+                      <Mail className="h-5 w-5" />
+                    </MagneticButton>
+                  </Suspense>
                 </div>
               </div>
               
@@ -685,7 +887,7 @@ const AdvancedIndex = () => {
                     
                   </div>
                   <div className="flex items-center space-x-3">
-                    <Clock className="h-5 w-5 text-blue-400" />
+                    <CustomClock className="h-5 w-5 text-blue-400" />
                     <span>24/7 - Siempre Disponible</span>
                   </div>
                 </div>
@@ -703,7 +905,8 @@ const AdvancedIndex = () => {
               </div>
             </div>
             
-            <GlassmorphismCard className="p-6 bg-neutral-700/80 border-none">
+            <Suspense fallback={<div className="p-6 bg-neutral-700/80 rounded-lg"></div>}>
+              <GlassmorphismCard className="p-6 bg-neutral-700/80 border-none">
               <div className="text-center">
                 <p className="text-gray-200">
                   &copy; 2025 REGALA ALGO Premium. Todos los derechos reservados. 
@@ -711,8 +914,10 @@ const AdvancedIndex = () => {
                 </p>
               </div>
             </GlassmorphismCard>
+            </Suspense>
           </div>
         </footer>
+        </LazySection>
       </main>
       
       {/* Botón flotante de WhatsApp */}

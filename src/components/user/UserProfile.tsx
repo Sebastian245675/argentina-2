@@ -8,11 +8,12 @@ import { doc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, lim
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  User as UserIcon, Mail, Phone, MapPin, Gift, Package, Heart, Clock, 
+  User as UserIcon, Mail, Phone, MapPin, Gift, Package, Heart, 
   Edit, Save, AlertCircle, CheckCircle2, Home as HomeIcon, Truck, ChevronRight, 
   Calendar as CalendarIcon, ShoppingBag, BadgeCheck, History, 
   Trash2, Star, Plus, Check, X, CreditCard, MapPinned
 } from "lucide-react";
+import { CustomClock } from '@/components/ui/CustomClock';
 import { motion } from "framer-motion";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -411,7 +412,7 @@ export const UserProfile: React.FC = () => {
   
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'processing': return <Clock className="h-4 w-4" />;
+      case 'processing': return <CustomClock className="h-4 w-4" />;
       case 'shipped': return <Truck className="h-4 w-4" />;
       case 'delivered': return <CheckCircle2 className="h-4 w-4" />;
       case 'cancelled': return <X className="h-4 w-4" />;

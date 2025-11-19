@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, lazy, Suspense, useMemo } from 'react';
 import { auth, db } from '@/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,28 +43,40 @@ import {
   Search,
   Star,
   HeartHandshake,
-  Mail,
-  Clock
+  Mail
 } from 'lucide-react';
-import { ProductForm } from '@/components/admin/ProductForm';
-import { UsersList } from '@/components/admin/UsersList';
-import { OrdersList } from '@/components/admin/OrdersList';
-import { DashboardStats } from '@/components/admin/DashboardStats';
-import { CategoryManager } from '@/components/admin/CategoryManager';
+import { CustomClock } from '@/components/ui/CustomClock';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, getDoc } from "firebase/firestore";
+import { collection, getDocs, getDoc, query, where, limit, orderBy, Timestamp } from "firebase/firestore";
+
+// Lazy load de componentes pesados
+const ProductForm = lazy(() => import('@/components/admin/ProductForm').then(m => ({ default: m.ProductForm })));
+const UsersList = lazy(() => import('@/components/admin/UsersList').then(m => ({ default: m.UsersList })));
+const OrdersList = lazy(() => import('@/components/admin/OrdersList').then(m => ({ default: m.OrdersList })));
+const DashboardStats = lazy(() => import('@/components/admin/DashboardStats').then(m => ({ default: m.DashboardStats })));
+const CategoryManager = lazy(() => import('@/components/admin/CategoryManager').then(m => ({ default: m.CategoryManager })));
+const RevisionList = lazy(() => import('@/components/admin/RevisionList').then(m => ({ default: m.RevisionList })));
+const ProductAnalyticsView = lazy(() => import('@/components/admin/ProductAnalytics').then(m => ({ default: m.ProductAnalyticsView })));
+const InfoManager = lazy(() => import('@/components/admin/InfoManager'));
+const EmployeeManager = lazy(() => import('@/components/admin/EmployeeManager').then(m => ({ default: m.default || m })));
+const ImageUrlUpdater = lazy(() => import('@/components/tools/ImageUrlUpdater').then(m => ({ default: m.default || m })));
 // (ya importado arriba)
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { setDoc, doc } from "firebase/firestore";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { RevisionList } from "@/components/admin/RevisionList";
-import { ProductAnalyticsView } from '@/components/admin/ProductAnalytics';
-import InfoManager from '@/components/admin/InfoManager';
 import Sidebar from '@/components/admin/Sidebar';
-import EmployeeManager from '@/components/admin/EmployeeManager';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Briefcase, Share2 } from 'lucide-react';
+import { useSubAccountRenderFix } from '@/hooks/use-subaccount-render-fix';
+import { useStockNotifications } from '@/hooks/use-stock-notifications';
+
+// Componente de carga para lazy components
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center p-8">
+    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-400"></div>
+  </div>
+);
 
 export const AdminPanel: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -89,30 +101,129 @@ export const AdminPanel: React.FC = () => {
   const [todaySalesLoading, setTodaySalesLoading] = useState<boolean>(true);
   const [monthlySales, setMonthlySales] = useState<number>(0);
   const [monthlySalesLoading, setMonthlySalesLoading] = useState<boolean>(true);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const mouseLeaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  
+  // Implementar el hook para prevenir problemas de pantalla blanca en subcuentas
+  const { hasRenderIssues, manualRefresh } = useSubAccountRenderFix(user?.subCuenta === "si");
+  
+  // Hook para notificaciones de stock
+  const { 
+    notifications: stockNotifications, 
+    unreadCount: stockUnreadCount,
+    markAsRead,
+    markAllAsRead,
+    removeNotification
+  } = useStockNotifications();
 
-  console.log('AdminPanel rendered, user:', user);
+  // Cerrar dropdown de notificaciones al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
 
+    if (showNotifications) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNotifications]);
+
+  // Cleanup del timeout al desmontar
+  useEffect(() => {
+    return () => {
+      if (mouseLeaveTimeoutRef.current) {
+        clearTimeout(mouseLeaveTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Manejar mouse leave con delay para evitar cierres accidentales
+  const handleMouseLeave = () => {
+    if (mouseLeaveTimeoutRef.current) {
+      clearTimeout(mouseLeaveTimeoutRef.current);
+    }
+    mouseLeaveTimeoutRef.current = setTimeout(() => {
+      setShowNotifications(false);
+    }, 200); // 200ms de delay
+  };
+
+  const handleMouseEnter = () => {
+    if (mouseLeaveTimeoutRef.current) {
+      clearTimeout(mouseLeaveTimeoutRef.current);
+      mouseLeaveTimeoutRef.current = null;
+    }
+    setShowNotifications(true);
+  };
+  
+  // Función para formatear el tiempo de notificaciones
+  const formatNotificationTime = (date: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    
+    if (minutes < 1) return 'Hace unos momentos';
+    if (minutes < 60) return `Hace ${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`;
+    if (hours < 24) return `Hace ${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+    if (days < 7) return `Hace ${days} ${days === 1 ? 'día' : 'días'}`;
+    return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  };
+  
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       if (firebaseUser) {
-        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-        const userData = userDoc.data();
-        if (firebaseUser.email === "admin@gmail.com") {
-          setIsAdmin(true);
-          setIsSubAdmin(false);
-        } else if (userData?.subCuenta === "si") {
+        try {
+          const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+          const userData = userDoc.data();
+          if (firebaseUser.email === "admin@gmail.com") {
+            setIsAdmin(true);
+            setIsSubAdmin(false);
+          } else if (userData?.subCuenta === "si") {
+            setIsAdmin(false);
+            setIsSubAdmin(true);
+            
+            // Prevenir traducción automática que causa pantallas blancas
+            // Añadimos clases específicas en elementos del DOM para sub-cuentas
+            document.documentElement.classList.add('notranslate');
+            document.body.setAttribute('translate', 'no');
+            
+            // Forzar refresh del layout para prevenir problemas de renderizado
+            setTimeout(() => {
+              const layoutElements = document.querySelectorAll('.admin-layout, .content-container, table');
+              layoutElements.forEach(el => {
+                if (el instanceof HTMLElement) {
+                  // Truco para forzar recalculation del layout
+                  const currentDisplay = el.style.display;
+                  el.style.display = 'none';
+                  setTimeout(() => { el.style.display = currentDisplay; }, 5);
+                }
+              });
+            }, 500);
+          } else {
+            setIsAdmin(false);
+            setIsSubAdmin(false);
+          }
+          setSessionStart(new Date());
+        } catch (error) {
+          console.error("Error al verificar permisos de usuario:", error);
           setIsAdmin(false);
-          setIsSubAdmin(true);
-        } else {
-          setIsAdmin(false);
           setIsSubAdmin(false);
+        } finally {
+          setLoading(false);
         }
-        setSessionStart(new Date());
       } else {
         setIsAdmin(false);
         setIsSubAdmin(false);
+        setLoading(false);
       }
-      setLoading(false);
     });
     return () => unsubscribe();
   }, []);
@@ -139,41 +250,110 @@ export const AdminPanel: React.FC = () => {
     return () => clearInterval(intervalId);
   }, [sessionStart]);
 
+  // Cargar pedidos solo cuando se necesita el tab de pedidos (optimización)
   useEffect(() => {
+    // Solo cargar si estamos en el tab de pedidos o dashboard
+    if (activeTab !== 'orders' && activeTab !== 'dashboard') {
+      return;
+    }
+    
     const fetchOrders = async () => {
-      const querySnapshot = await getDocs(collection(db, "pedidos"));
-      const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log("Pedidos desde Firestore:", docs);
-      setOrders(docs);
+      try {
+        const ordersQuery = query(
+          collection(db, "orders"),
+          orderBy("createdAt", "desc")
+        );
+        const querySnapshot = await getDocs(ordersQuery);
+        const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setOrders(docs);
+      } catch (error) {
+        // Fallback: intentar con "pedidos" (colección antigua)
+        try {
+          const pedidosQuery = query(
+            collection(db, "pedidos"),
+            orderBy("createdAt", "desc")
+          );
+          const querySnapshot = await getDocs(pedidosQuery);
+          const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setOrders(docs);
+        } catch {
+          // Último fallback: cargar toda la colección
+          const querySnapshot = await getDocs(collection(db, "pedidos"));
+          setOrders(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        }
+      }
     };
     fetchOrders();
-  }, []);
+  }, [activeTab]);
 
+  // Cargar productos solo cuando se necesita
   useEffect(() => {
+    // Solo cargar si estamos en el tab de productos
+    if (activeTab !== 'products') {
+      return;
+    }
+    
     const fetchProducts = async () => {
-      const querySnapshot = await getDocs(collection(db, "products"));
-      const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setProducts(docs);
+      try {
+        // Cargar todos los productos ordenados por fecha de creación
+        const productsQuery = query(
+          collection(db, "products"),
+          orderBy("createdAt", "desc")
+        );
+        const querySnapshot = await getDocs(productsQuery);
+        const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setProducts(docs);
+      } catch {
+        // Fallback: cargar sin límite en caso de que falle el ordenamiento
+        const querySnapshot = await getDocs(collection(db, "products"));
+        const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setProducts(docs);
+      }
     };
     fetchProducts();
-  }, []);
+  }, [activeTab]);
   
-  // Efecto para calcular las ventas del día actual
+  // OPTIMIZACIÓN: Calcular ventas con debouncing y caché de fecha
+  const todayDateRef = useRef<string>('');
+  
   useEffect(() => {
     const calculateTodaySales = async () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayKey = today.toISOString();
+      
+      // Si ya calculamos para hoy, no recalcular a menos que cambie el día
+      if (todayDateRef.current === todayKey && todaySales > 0) {
+        return;
+      }
+      
+      todayDateRef.current = todayKey;
       setTodaySalesLoading(true);
+      
       try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Establecer a inicio del día
-
-        // Consulta para pedidos de hoy que estén confirmados - buscamos en ambas colecciones
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
         let salesTotal = 0;
         
-        // Buscar en colección "orders"
-        const ordersSnapshot = await getDocs(collection(db, "orders"));
-        ordersSnapshot.docs.forEach(doc => {
-          const data = doc.data();
-          if (data.status === "confirmed") {
+        try {
+          // Optimización: Consulta con filtros en Firebase y límite
+          const todayOrdersQuery = query(
+            collection(db, "orders"),
+            where("status", "==", "confirmed"),
+            where("createdAt", ">=", Timestamp.fromDate(today)),
+            where("createdAt", "<", Timestamp.fromDate(tomorrow))
+          );
+          const ordersSnapshot = await getDocs(todayOrdersQuery);
+          ordersSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            salesTotal += Number(data.total || 0);
+          });
+        } catch (queryError: any) {
+          console.warn("Falling back to client-side filter for daily sales:", queryError);
+          const ordersSnapshot = await getDocs(collection(db, "orders"));
+          ordersSnapshot.docs.forEach(doc => {
+            const data = doc.data();
             const orderDate = data.createdAt?.toDate ? 
                             data.createdAt.toDate() : 
                             data.createdAt?.seconds ? new Date(data.createdAt.seconds * 1000) : null;
@@ -181,68 +361,47 @@ export const AdminPanel: React.FC = () => {
             if (orderDate) {
               const orderDay = new Date(orderDate);
               orderDay.setHours(0, 0, 0, 0);
-              
-              // Si la fecha del pedido es hoy y está confirmado, sumarlo
-              if (orderDay.getTime() === today.getTime()) {
+              if (orderDay.getTime() === today.getTime() && data.status === "confirmed") {
                 salesTotal += Number(data.total || 0);
-                console.log("Venta de hoy encontrada en 'orders':", doc.id, "Total:", data.total);
               }
             }
-          }
-        });
+          });
+        }
         
-        // Buscar en colección "pedidos" para retrocompatibilidad
-        const pedidosSnapshot = await getDocs(collection(db, "pedidos"));
-        pedidosSnapshot.docs.forEach(doc => {
-          const data = doc.data();
-          if (data.status === "confirmed" && data.createdAt?.toDate) {
-            const orderDate = data.createdAt.toDate();
-            const orderDay = new Date(orderDate);
-            orderDay.setHours(0, 0, 0, 0);
-            
-            // Si la fecha del pedido es hoy y está confirmado, sumarlo
-            if (orderDay.getTime() === today.getTime()) {
-              salesTotal += Number(data.total || 0);
-              console.log("Venta de hoy encontrada en 'pedidos':", doc.id, "Total:", data.total);
-            }
-          }
-        });
-        
-        console.log("Total ventas de hoy calculadas:", salesTotal);
         setTodaySales(salesTotal);
       } catch (error) {
         console.error("Error al calcular ventas del día:", error);
-        toast({
-          title: "Error",
-          description: "No se pudieron calcular las ventas del día.",
-          variant: "destructive"
-        });
       } finally {
         setTodaySalesLoading(false);
       }
     };
     
-    calculateTodaySales();
-    
-    // Escuchar eventos de actualización del dashboard
+    // Solo calcular si estamos en dashboard
+    if (activeTab === 'dashboard') {
+      // Debouncing: esperar 500ms antes de calcular
+      const timeoutId = setTimeout(calculateTodaySales, 500);
+      return () => clearTimeout(timeoutId);
+    } else {
+      // Limpiar datos si no estamos en dashboard para ahorrar memoria
+      setTodaySales(0);
+      setTodaySalesLoading(false);
+    }
+  }, [activeTab]); // No incluir todaySales para evitar loops
+  
+  // Escuchar eventos de actualización del dashboard (solo cuando dashboard está activo)
+  useEffect(() => {
+    if (activeTab !== 'dashboard') {
+      return;
+    }
     const handleDashboardUpdate = (event: CustomEvent) => {
       if (event.detail?.type === 'orderConfirmed') {
         const orderTotal = Number(event.detail.orderTotal);
-        console.log("Evento de actualización de ventas recibido en AdminPanel:", event.detail);
         
         // Actualizar ventas diarias directamente
-        setTodaySales(prevSales => {
-          const newSales = prevSales + orderTotal;
-          console.log("Actualizando ventas diarias:", prevSales, "+", orderTotal, "=", newSales);
-          return newSales;
-        });
+        setTodaySales(prevSales => prevSales + orderTotal);
         
         // Actualizar ventas mensuales
-        setMonthlySales(prevSales => {
-          const newSales = prevSales + orderTotal;
-          console.log("Actualizando ventas mensuales:", prevSales, "+", orderTotal, "=", newSales);
-          return newSales;
-        });
+        setMonthlySales(prevSales => prevSales + orderTotal);
         
         // Forzar actualización de los elementos del DOM con las clases específicas
         setTimeout(() => {
@@ -272,10 +431,15 @@ export const AdminPanel: React.FC = () => {
     return () => {
       document.removeEventListener('dashboardUpdate', handleDashboardUpdate as EventListener);
     };
-  }, [todaySales, monthlySales]);
+  }, [todaySales, monthlySales, activeTab]);
   
-  // Efecto para calcular los ingresos mensuales
+  // Efecto para calcular los ingresos mensuales (optimizado)
   useEffect(() => {
+    // Solo calcular si estamos en dashboard
+    if (activeTab !== 'dashboard') {
+      return;
+    }
+    
     const calculateMonthlySales = async () => {
       setMonthlySalesLoading(true);
       try {
@@ -296,28 +460,57 @@ export const AdminPanel: React.FC = () => {
         const lastDayOfLastMonth = new Date(currentYear, currentMonth, 0);
         lastDayOfLastMonth.setHours(23, 59, 59, 999);
 
-        // Consulta para pedidos confirmados
-        const pedidosSnapshot = await getDocs(collection(db, "pedidos"));
-        
         let monthlySalesTotal = 0;
         let lastMonthSalesTotal = 0;
         
-        pedidosSnapshot.docs.forEach(doc => {
-          const data = doc.data();
-          if (data.status === "confirmed" && data.createdAt?.toDate) {
-            const orderDate = data.createdAt.toDate();
+        try {
+          // Optimización: Consulta con filtros en Firebase para mes actual
+          const monthlyOrdersQuery = query(
+            collection(db, "orders"),
+            where("status", "==", "confirmed"),
+            where("createdAt", ">=", Timestamp.fromDate(firstDayOfMonth)),
+            where("createdAt", "<=", Timestamp.fromDate(lastDayOfMonth))
+          );
+          const monthlySnapshot = await getDocs(monthlyOrdersQuery);
+          monthlySnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            monthlySalesTotal += Number(data.total || 0);
+          });
+          
+          // Consulta para mes anterior
+          const lastMonthOrdersQuery = query(
+            collection(db, "orders"),
+            where("status", "==", "confirmed"),
+            where("createdAt", ">=", Timestamp.fromDate(firstDayOfLastMonth)),
+            where("createdAt", "<=", Timestamp.fromDate(lastDayOfLastMonth))
+          );
+          const lastMonthSnapshot = await getDocs(lastMonthOrdersQuery);
+          lastMonthSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            lastMonthSalesTotal += Number(data.total || 0);
+          });
+        } catch (queryError: any) {
+          console.warn("Falling back to client-side filter for monthly sales:", queryError);
+          const ordersSnapshot = await getDocs(collection(db, "orders"));
+          ordersSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const orderDate = data.createdAt?.toDate ? 
+                            data.createdAt.toDate() : 
+                            data.createdAt?.seconds ? new Date(data.createdAt.seconds * 1000) : null;
             
-            // Si la fecha del pedido está dentro del mes actual y está confirmado, sumarlo
-            if (orderDate >= firstDayOfMonth && orderDate <= lastDayOfMonth) {
-              monthlySalesTotal += Number(data.total || 0);
+            if (orderDate) {
+              // Si la fecha del pedido está dentro del mes actual
+              if (data.status === "confirmed" && orderDate >= firstDayOfMonth && orderDate <= lastDayOfMonth) {
+                monthlySalesTotal += Number(data.total || 0);
+              }
+              
+              // Si la fecha del pedido está dentro del mes anterior
+              if (data.status === "confirmed" && orderDate >= firstDayOfLastMonth && orderDate <= lastDayOfLastMonth) {
+                lastMonthSalesTotal += Number(data.total || 0);
+              }
             }
-            
-            // Si la fecha del pedido está dentro del mes anterior y está confirmado, sumarlo
-            if (orderDate >= firstDayOfLastMonth && orderDate <= lastDayOfLastMonth) {
-              lastMonthSalesTotal += Number(data.total || 0);
-            }
-          }
-        });
+          });
+        }
         
         setMonthlySales(monthlySalesTotal);
         
@@ -349,8 +542,14 @@ export const AdminPanel: React.FC = () => {
       }
     };
     
-    calculateMonthlySales();
-  }, []);
+    if (activeTab === 'dashboard') {
+      calculateMonthlySales();
+    } else {
+      // Limpiar datos si no estamos en dashboard para ahorrar memoria
+      setMonthlySales(0);
+      setMonthlySalesLoading(false);
+    }
+  }, [activeTab]);
 
   const handleCreateSubAccount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -485,7 +684,7 @@ export const AdminPanel: React.FC = () => {
   const ofertas = products.filter((p: any) => p.category?.toLowerCase() === "ofertas");
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       {/* Advanced Header - Slim Blue Design with Regala Algo - Mobile Optimized */}
       <div className="bg-gradient-to-r from-blue-500/90 via-blue-600/90 to-indigo-700/90 border-b border-blue-400 shadow-lg backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-2 sm:px-4 py-2">
@@ -498,7 +697,7 @@ export const AdminPanel: React.FC = () => {
                 <h1 className="text-base sm:text-lg md:text-xl font-bold text-white flex items-center">
                   <span className="mr-1">✨</span>
                   <span>Regala Algo</span>
-                  <span className="bg-blue-200 text-blue-800 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded ml-1 sm:ml-2 font-semibold">Admin</span>
+                  <span className="bg-blue-200 text-blue-800 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded ml-1 sm:ml-2 font-semibold notranslate">Admin</span>
                 </h1>
                 <div className="flex items-center">
                   <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-green-300 rounded-full mr-1 sm:mr-1.5 animate-pulse"></div>
@@ -509,9 +708,20 @@ export const AdminPanel: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center space-x-1.5 sm:space-x-2 md:space-x-4">
+              {/* Botón de recuperación para subcuentas con problemas de renderizado */}
+              {isSubAdmin && (
+                <Button 
+                  className="bg-blue-700/50 hover:bg-blue-600/70 text-blue-100 rounded-lg border border-blue-400/40 p-1.5"
+                  onClick={manualRefresh}
+                  title="Reparar visualización (usar si hay problemas)"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </Button>
+              )}
+            
               {/* Session Time Display - Mobile Visible */}
               <div className="flex items-center space-x-1 sm:space-x-2 bg-blue-700/50 backdrop-blur-sm px-1.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-blue-400/50 shadow-inner">
-                <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-200" />
+                <CustomClock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-200" />
                 <div>
                   <p className="text-[8px] sm:text-[10px] text-blue-200 font-medium">Sesión</p>
                   <p className="text-[10px] sm:text-xs font-bold text-white">{sessionTime}</p>
@@ -519,39 +729,103 @@ export const AdminPanel: React.FC = () => {
               </div>
               
               {/* Notifications - Blue Theme - Mobile Optimized */}
-              <div className="relative group">
-                <button className="p-1.5 sm:p-2 rounded-lg bg-blue-600/60 hover:bg-blue-500/60 border border-blue-400/40 shadow-sm transition-all duration-300 relative">
+              <div 
+                ref={notificationsRef}
+                className="relative group"
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+              >
+                <button 
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="p-1.5 sm:p-2 rounded-lg bg-blue-600/60 hover:bg-blue-500/60 border border-blue-400/40 shadow-sm transition-all duration-300 relative"
+                >
                   <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-100" />
-                  <span className="absolute top-0 right-0 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-red-400 border border-blue-600 rounded-full transform translate-x-0.5 -translate-y-0.5 animate-pulse"></span>
+                  {stockUnreadCount > 0 && (
+                    <span className="absolute top-0 right-0 w-4 h-4 sm:w-5 sm:h-5 bg-red-500 border-2 border-blue-600 rounded-full transform translate-x-0.5 -translate-y-0.5 flex items-center justify-center text-[8px] sm:text-[10px] font-bold text-white">
+                      {stockUnreadCount > 9 ? '9+' : stockUnreadCount}
+                    </span>
+                  )}
                 </button>
-                <div className="hidden group-hover:block absolute right-0 mt-2 w-60 sm:w-72 bg-blue-900/95 backdrop-blur-md rounded-lg shadow-2xl z-50 border border-blue-700/60 overflow-hidden animate-in fade-in-10 zoom-in-95">
-                  <div className="bg-gradient-to-r from-blue-800/80 to-indigo-800/80 p-2 sm:p-2.5 border-b border-blue-700/70">
+                {showNotifications && (
+                <div className="absolute right-0 mt-2 w-60 sm:w-72 bg-blue-900/95 backdrop-blur-md rounded-lg shadow-2xl z-50 border border-blue-700/60 overflow-hidden animate-in fade-in-10 zoom-in-95">
+                  <div className="bg-gradient-to-r from-blue-800/80 to-indigo-800/80 p-2 sm:p-2.5 border-b border-blue-700/70 flex items-center justify-between">
                     <h3 className="text-xs font-bold text-blue-100 flex items-center">
                       <Bell className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1.5 text-blue-300" />
-                      Notificaciones
+                      Notificaciones {stockUnreadCount > 0 && `(${stockUnreadCount})`}
                     </h3>
+                    {stockUnreadCount > 0 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markAllAsRead();
+                        }}
+                        className="text-[8px] sm:text-[10px] text-blue-300 hover:text-blue-100 underline transition-colors"
+                        title="Marcar todas como leídas"
+                      >
+                        Limpiar
+                      </button>
+                    )}
                   </div>
                   <div className="max-h-60 overflow-y-auto">
-                    <div className="p-2 sm:p-2.5 hover:bg-blue-800/50 border-b border-blue-700/40 transition-colors">
-                      <p className="text-[10px] sm:text-xs font-medium text-blue-100">Nuevo pedido recibido</p>
-                      <p className="text-[8px] sm:text-[10px] text-blue-400 mt-0.5 sm:mt-1 flex items-center">
-                        <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
-                        Hace 5 minutos
-                      </p>
-                    </div>
-                    <div className="p-2 sm:p-2.5 hover:bg-blue-800/50 transition-colors">
-                      <p className="text-[10px] sm:text-xs font-medium text-blue-100">Inventario bajo: Producto X</p>
-                      <p className="text-[8px] sm:text-[10px] text-blue-400 mt-0.5 sm:mt-1 flex items-center">
-                        <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
-                        Hace 2 horas
-                      </p>
-                    </div>
+                    {stockNotifications.length === 0 ? (
+                      <div className="p-4 text-center">
+                        <p className="text-xs text-blue-300">No hay notificaciones</p>
+                      </div>
+                    ) : (
+                      stockNotifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className={`p-2 sm:p-2.5 hover:bg-blue-800/50 border-b border-blue-700/40 transition-colors cursor-pointer ${
+                            !notification.read ? 'bg-blue-800/30' : ''
+                          }`}
+                          onClick={() => {
+                            markAsRead(notification.id);
+                            setSelectedProductId(notification.productId);
+                            setActiveTab('products');
+                            setShowNotifications(false);
+                          }}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] sm:text-xs font-medium text-blue-100 flex items-center gap-1.5">
+                                {notification.type === 'out_of_stock' ? (
+                                  <span className="text-red-400 flex-shrink-0">🔴</span>
+                                ) : (
+                                  <span className="text-yellow-400 flex-shrink-0">⚠️</span>
+                                )}
+                                <span className="truncate">
+                                  {notification.type === 'out_of_stock' 
+                                    ? `Agotado: ${notification.productName}`
+                                    : `Stock bajo: ${notification.productName} (${notification.stock} unidades)`
+                                  }
+                                </span>
+                              </p>
+                              <p className="text-[8px] sm:text-[10px] text-blue-400 mt-0.5 sm:mt-1 flex items-center">
+                                <CustomClock className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1 flex-shrink-0" />
+                                {formatNotificationTime(notification.timestamp)}
+                              </p>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeNotification(notification.id);
+                              }}
+                              className="text-blue-400 hover:text-red-400 text-xs flex-shrink-0 ml-2 transition-colors"
+                              title="Eliminar notificación"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
+                )}
               </div>
               
               {/* User Badge - Blue Theme - Mobile Optimized */}
-              <Badge className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-lg border border-blue-400/30 shadow-md">
+              <Badge className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-lg border border-blue-400/30 shadow-md notranslate">
                 <div className="flex items-center space-x-1 sm:space-x-1.5">
                   <span className="text-xs sm:text-sm">{isAdmin ? "👑" : "🔑"}</span>
                   <div>
@@ -565,9 +839,37 @@ export const AdminPanel: React.FC = () => {
           </div>
         </div>
       </div>
-
+      
+      {/* Mensaje de recuperación en caso de problemas de renderizado */}
+      {hasRenderIssues && isSubAdmin && (
+        <div className="fixed bottom-4 right-4 z-50 p-4 bg-red-50 border border-red-300 rounded-lg shadow-lg max-w-sm animate-bounce">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Problemas de visualización detectados</h3>
+              <div className="mt-2 text-xs text-red-700">
+                <p>Se detectaron problemas en la visualización del panel. Haz clic en el botón para reparar.</p>
+              </div>
+              <div className="mt-2">
+                <Button 
+                  onClick={manualRefresh}
+                  className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  Reparar visualización
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Main content with sidebar */}
-      <div className="flex relative">
+      <div className="flex relative admin-layout notranslate" translate="no">
         {/* Sidebar */}
         <Sidebar 
           activeTab={activeTab} 
@@ -578,24 +880,24 @@ export const AdminPanel: React.FC = () => {
         />
         
         {/* Main content area */}
-        <div className="flex-1 p-4 md:p-6 overflow-auto">
+        <div className="flex-1 p-4 md:p-6 overflow-auto admin-panel-content critical-ui-container" translate="no">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
             {/* Hidden tabs list for state management - visual only */}
             <TabsList className="hidden">
               {!isSubAdmin && <TabsTrigger value="dashboard">Dashboard</TabsTrigger>}
               <TabsTrigger value="products">Products</TabsTrigger>
               <TabsTrigger value="orders">Orders</TabsTrigger>
+              <TabsTrigger value="categories">Categories</TabsTrigger>
               {/* Tabs comunes entre admin y subadmin */}
               <TabsTrigger value="info">Info</TabsTrigger>
               <TabsTrigger value="ai-assistant">AI Assistant</TabsTrigger>
+              <TabsTrigger value="help-manual">Manual de Ayuda</TabsTrigger>
               {!isSubAdmin && (
                 <>
                   <TabsTrigger value="users">Users</TabsTrigger>
-                  <TabsTrigger value="categories">Categories</TabsTrigger>
                   <TabsTrigger value="subaccounts">Subaccounts</TabsTrigger>
                   <TabsTrigger value="revisiones">Revisiones</TabsTrigger>
                   <TabsTrigger value="analytics">Analytics</TabsTrigger>
-                  <TabsTrigger value="help-manual">Manual de Ayuda</TabsTrigger>
                   <TabsTrigger value="employees">Empleados</TabsTrigger>
                 </>
               )}
@@ -604,7 +906,7 @@ export const AdminPanel: React.FC = () => {
             {/* Tab Contents */}
             {!isSubAdmin && (
               <TabsContent value="dashboard" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
                   <Card className="bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0 shadow-xl">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
@@ -636,6 +938,28 @@ export const AdminPanel: React.FC = () => {
                     </CardContent>
                   </Card>
                   
+                  <Card className="bg-gradient-to-r from-amber-500 to-orange-600 text-white border-0 shadow-xl">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-orange-100 text-sm">Ingresos Mensuales</p>
+                          {monthlySalesLoading ? (
+                            <div className="flex items-center space-x-2">
+                              <div className="h-5 w-5 rounded-full border-2 border-orange-200 border-t-transparent animate-spin"></div>
+                              <span className="text-xl font-bold">Calculando...</span>
+                            </div>
+                          ) : (
+                            <p className="text-2xl font-bold dashboard-monthly-sales">${monthlySales.toLocaleString()}</p>
+                          )}
+                          <p className="text-xs text-orange-100/80 mt-1">
+                            Actualizado {new Date().toLocaleDateString('es-AR')}
+                          </p>
+                        </div>
+                        <TrendingUp className="h-8 w-8 text-orange-200" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
                   <Card className="bg-gradient-to-r from-purple-600 to-purple-700 text-white border-0 shadow-xl">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
@@ -650,15 +974,20 @@ export const AdminPanel: React.FC = () => {
                   
                   <button className="dashboard-refresh-button hidden" onClick={() => console.log("Refresh button clicked")}></button>
                 </div>
-                <DashboardStats />
+                <Suspense fallback={<LoadingFallback />}>
+                  <DashboardStats />
+                </Suspense>
               </TabsContent>
             )}
 
             <TabsContent value="products" className="space-y-6">
-              <ProductForm />
+              <Suspense fallback={<LoadingFallback />}>
+                <ProductForm selectedProductId={selectedProductId} onProductSelected={() => setSelectedProductId(null)} />
+              </Suspense>
             </TabsContent>
 
             <TabsContent value="orders" className="space-y-6">
+              <Suspense fallback={<LoadingFallback />}>
               <div className="bg-white rounded-xl shadow p-4 md:p-6 mb-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                   <h2 className="text-xl font-bold flex items-center">
@@ -700,17 +1029,490 @@ export const AdminPanel: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
               </button>
+              </Suspense>
+            </TabsContent>
+            
+            <TabsContent value="categories" className="space-y-6">
+              <Suspense fallback={<LoadingFallback />}>
+                <CategoryManager />
+              </Suspense>
+            </TabsContent>
+            
+            {/* Manual de Ayuda - disponible para todos (admin y subadmin) */}
+            <TabsContent value="help-manual" className="space-y-6">
+              <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-yellow-50 rounded-xl shadow-xl p-8 border border-orange-100 overflow-hidden relative">
+                {/* Elementos de diseño de fondo */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-amber-400/10 to-orange-500/10 rounded-full blur-3xl -z-10"></div>
+                <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-orange-400/10 to-amber-500/10 rounded-full blur-3xl -z-10"></div>
+                
+                {/* Encabezado con efecto de gradiente */}
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-8">
+                  <div className="p-4 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl shadow-lg animate-pulse-slow">
+                    <HelpCircle className="w-12 h-12 text-white" />
+                  </div>
+                  
+                  <div className="flex-1">
+                    <h2 className="text-3xl font-extrabold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent leading-tight">
+                      Manual de Ayuda
+                    </h2>
+                    <p className="mt-2 text-lg text-gray-600">
+                      Todo lo que necesitas saber para gestionar tu tienda de manera efectiva
+                    </p>
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors">Primeros Pasos</Badge>
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors">Gestión de Productos</Badge>
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors">Pedidos</Badge>
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors">Usuarios</Badge>
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors">Analítica</Badge>
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors">Configuración</Badge>
+                    </div>
+                  </div>
+                  
+                  {/* Barra de búsqueda del manual */}
+                  <div className="w-full md:w-auto">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                      <Input 
+                        type="text" 
+                        placeholder="Buscar en el manual..." 
+                        className="pl-10 pr-4 py-2 border-amber-200 focus:border-amber-400 focus:ring-amber-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Mensaje de bienvenida */}
+                <div className="bg-white p-4 rounded-xl border border-orange-200 mb-10 shadow-sm">
+                  <div className="flex items-start">
+                    <div className="bg-amber-100 text-amber-600 p-2 rounded-full mr-4">
+                      <Lightbulb className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900">Bienvenido al Manual Completo de Fuego Shop</h4>
+                      <p className="text-gray-600 text-sm mt-1">
+                        Este manual te guiará paso a paso a través de todas las funcionalidades del panel de administración.
+                        Hemos preparado instrucciones detalladas para cada sección con ejemplos y consejos para optimizar tu experiencia.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Sección de guías principales */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                  {/* Guía de Primeros Pasos */}
+                  <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-orange-100 flex flex-col md:flex-row">
+                    <div className="mr-6 mb-4 md:mb-0">
+                      <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-xl flex items-center justify-center mb-2">
+                        <HelpCircle className="h-8 w-8" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-800 mb-2 flex items-center">
+                        <HelpCircle className="h-5 w-5 mr-2 text-orange-500" />
+                        Guía de Primeros Pasos
+                      </h3>
+                      <p className="text-gray-600 mb-4">Aprende lo básico para configurar y gestionar tu tienda online.</p>
+                      
+                      <div className="mb-4">
+                        <h4 className="font-semibold text-amber-700 mb-2">1. Configuración Inicial de tu Cuenta</h4>
+                        <ul className="list-disc ml-5 space-y-1.5 text-sm text-gray-600">
+                          <li><span className="font-medium">Acceso al sistema:</span> Ingresa con tu correo electrónico y contraseña en la pantalla de inicio. El administrador principal usa "admin@gmail.com" con permisos completos.</li>
+                          <li><span className="font-medium">Perfil de tienda:</span> Dirígete a la pestaña <span className="font-medium">Info</span> para configurar la información básica de tu tienda: nombre, descripción, logo y datos de contacto.</li>
+                          <li><span className="font-medium">Secciones del sitio:</span> Activa o desactiva las secciones principales del sitio como "Sobre Nosotros", "Envíos", "Retiros" y "Métodos de Pago" según las necesidades de tu tienda.</li>
+                          <li><span className="font-medium">Seguridad:</span> Crea usuarios administradores adicionales con permisos limitados para gestionar aspectos específicos de tu tienda.</li>
+                        </ul>
+                      </div>
+                      
+                      <div className="mb-4">
+                        <h4 className="font-semibold text-amber-700 mb-2">2. Estructura de Categorías y Productos</h4>
+                        <ul className="list-disc ml-5 space-y-1.5 text-sm text-gray-600">
+                          <li><span className="font-medium">Creación de categorías:</span> Accede a la sección <span className="font-medium">Categorías</span> y crea una estructura jerárquica con categorías principales, subcategorías y terceras categorías para organizar tus productos.</li>
+                          <li><span className="font-medium">Nombres descriptivos:</span> Utiliza nombres claros y descriptivos para las categorías que ayuden a tus clientes a navegar fácilmente.</li>
+                          <li><span className="font-medium">Imágenes de categoría:</span> Para cada categoría, añade una imagen representativa copiando la URL desde Cloudinary (instrucciones detalladas en la sección de productos).</li>
+                          <li><span className="font-medium">Organización jerárquica:</span> Selecciona la categoría padre al crear subcategorías para mantener una estructura organizada y coherente.</li>
+                        </ul>
+                      </div>
+                      
+                      <div className="mb-4">
+                        <h4 className="font-semibold text-amber-700 mb-2">3. Primeros Productos y Configuraciones</h4>
+                        <ul className="list-disc ml-5 space-y-1.5 text-sm text-gray-600">
+                          <li><span className="font-medium">Crear producto:</span> Ve a la sección <span className="font-medium">Productos</span> y completa el formulario con nombre, descripción, precio, categoría y stock.</li>
+                          <li><span className="font-medium">Métodos de envío:</span> Configura las opciones de envío en la sección <span className="font-medium">Info {'->'} Envíos</span>, detallando zonas, costos y tiempos estimados.</li>
+                          <li><span className="font-medium">Métodos de pago:</span> Establece los métodos de pago aceptados en <span className="font-medium">Info {'->'} Métodos de Pago</span>, con instrucciones claras para tus clientes.</li>
+                          <li><span className="font-medium">FAQs iniciales:</span> Prepara respuestas a las preguntas frecuentes en <span className="font-medium">Info {'->'} FAQs</span> para facilitar información importante a tus clientes.</li>
+                        </ul>
+                      </div>
+                      
+                      <div className="mb-4">
+                        <h4 className="font-semibold text-amber-700 mb-2">4. Verificación y Pruebas</h4>
+                        <ul className="list-disc ml-5 space-y-1.5 text-sm text-gray-600">
+                          <li><span className="font-medium">Vista previa:</span> Usa el botón "Vista previa" en cada producto para verificar cómo se ve desde la perspectiva del cliente.</li>
+                          <li><span className="font-medium">Flujo de compra:</span> Realiza una compra de prueba para verificar el proceso completo desde la selección de productos hasta el pago.</li>
+                          <li><span className="font-medium">Notificaciones:</span> Verifica que recibas las notificaciones de nuevos pedidos correctamente.</li>
+                          <li><span className="font-medium">Optimización móvil:</span> Asegúrate que tu tienda se vea correctamente en dispositivos móviles usando la vista previa responsiva.</li>
+                        </ul>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2 mt-5">
+                        <Button variant="outline" className="text-orange-600 hover:text-orange-700 border-orange-200 hover:border-orange-300">
+                          <Book className="h-5 w-5 mr-2" />
+                          <span>Ver guía completa</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Manual de Administración */}
+                  <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-orange-100 flex flex-col md:flex-row">
+                    <div className="mr-6 mb-4 md:mb-0">
+                      <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-xl flex items-center justify-center mb-2">
+                        <ClipboardList className="h-8 w-8" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-800 mb-2 flex items-center">
+                        <ClipboardList className="h-5 w-5" />
+                        <span className="ml-2">Manual de Administración</span>
+                      </h3>
+                      <p className="text-gray-600 mb-4">Guías avanzadas para optimizar la gestión de tu negocio.</p>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div className="border border-amber-100 rounded-lg p-3 bg-amber-50/50">
+                          <h4 className="font-semibold text-amber-700 flex items-center mb-2">
+                            <Package className="h-4 w-4 mr-2" />
+                            Gestión de Productos e Inventario
+                          </h4>
+                          <ul className="list-disc ml-5 space-y-1 text-sm text-gray-600">
+                            <li><span className="font-medium">Añadir productos:</span> Completa todos los campos del formulario, especialmente los obligatorios (*). Para las imágenes:</li>
+                            <li className="ml-4 list-none">
+                              <ol className="list-decimal ml-4 text-xs space-y-1">
+                                <li>Regístrate en <a href="https://cloudinary.com/users/register_free" target="_blank" className="text-blue-600 hover:underline">Cloudinary</a></li>
+                                <li>Ve a la sección "Media Library" {'->'} "Assets"</li>
+                                <li>Sube tu imagen haciendo clic en "Upload"</li>
+                                <li>Haz clic en la imagen subida</li>
+                                <li>Selecciona "Copy URL" (copiar enlace)</li>
+                                <li>Pega la URL en el campo "URL de imagen" del formulario</li>
+                              </ol>
+                            </li>
+                            <li><span className="font-medium">Ofertas y descuentos:</span> Activa la casilla "Es oferta" y establece el precio original y el descuento para mostrar el ahorro al cliente.</li>
+                            <li><span className="font-medium">Especificaciones técnicas:</span> Añade todas las características importantes del producto con pares nombre/valor (ej. "Tamaño"/"Grande").</li>
+                            <li><span className="font-medium">Variantes de color:</span> Añade los colores disponibles junto con su código hexadecimal y una imagen específica para cada color.</li>
+                          </ul>
+                        </div>
+                        
+                        <div className="border border-amber-100 rounded-lg p-3 bg-amber-50/50">
+                          <h4 className="font-semibold text-amber-700 flex items-center mb-2">
+                            <ShoppingCart className="h-4 w-4 mr-2" />
+                            Procesamiento de Pedidos
+                          </h4>
+                          <ul className="list-disc ml-5 space-y-1 text-sm text-gray-600">
+                            <li><span className="font-medium">Nuevos pedidos:</span> Aparecerán automáticamente en la sección "Pedidos" con estado "En espera" y un ícono de reloj.</li>
+                            <li><span className="font-medium">Confirmar pedido:</span> Haz clic en el botón "Confirmar" (✓) para actualizar el estado a "Confirmado". Esto enviará una notificación automática al cliente.</li>
+                            <li><span className="font-medium">Detalles de envío:</span> Ingresa la información de seguimiento y transportista al confirmar para que el cliente pueda rastrear su pedido.</li>
+                            <li><span className="font-medium">Buscar pedidos:</span> Utiliza el campo de búsqueda para filtrar por nombre de cliente, email o dirección de entrega.</li>
+                            <li><span className="font-medium">Cancelaciones:</span> Para cancelar un pedido, utiliza el botón "Eliminar" (🗑️). Esto eliminará el pedido del sistema pero mantendrá un registro en la base de datos para auditoría.</li>
+                          </ul>
+                        </div>
+                        
+                        <div className="border border-amber-100 rounded-lg p-3 bg-amber-50/50">
+                          <h4 className="font-semibold text-amber-700 flex items-center mb-2">
+                            <Users className="h-4 w-4 mr-2" />
+                            Gestión de Usuarios y Permisos
+                          </h4>
+                          <ul className="list-disc ml-5 space-y-1 text-sm text-gray-600">
+                            <li><span className="font-medium">Tipos de usuarios:</span> Hay dos tipos principales: administradores y clientes. Los administradores pueden tener permisos completos o limitados.</li>
+                            <li><span className="font-medium">Crear subcuentas:</span> En la sección "Subcuentas", haz clic en "Añadir usuario" y completa el formulario con email y contraseña.</li>
+                            <li><span className="font-medium">Permisos "Liberta":</span> Las subcuentas sin permiso "Liberta" enviarán sus cambios a revisión en vez de aplicarlos directamente:</li>
+                            <li className="ml-4 list-none">
+                              <ul className="list-disc ml-4 text-xs space-y-0.5">
+                                <li>Con liberta="yes": Cambios aplicados inmediatamente</li>
+                                <li>Con liberta="no": Cambios enviados a revisión del administrador</li>
+                              </ul>
+                            </li>
+                            <li><span className="font-medium">Gestión de revisiones:</span> Aprueba o rechaza los cambios enviados por subcuentas desde la sección "Revisiones" en el panel de administración.</li>
+                            <li><span className="font-medium">Clientes:</span> Administra las cuentas de clientes desde la sección "Usuarios", donde podrás ver sus datos de contacto e historial de compras.</li>
+                          </ul>
+                        </div>
+                        
+                        <div className="border border-amber-100 rounded-lg p-3 bg-amber-50/50">
+                          <h4 className="font-semibold text-amber-700 flex items-center mb-2">
+                            <BarChart3 className="h-4 w-4 mr-2" />
+                            Analítica y Reportes
+                          </h4>
+                          <ul className="list-disc ml-5 space-y-1 text-sm text-gray-600">
+                            <li><span className="font-medium">Panel de análisis:</span> Accede a través de la pestaña "Analítica" para ver estadísticas de ventas, productos y clientes.</li>
+                            <li><span className="font-medium">Análisis de productos:</span> Visualiza qué productos tienen más vistas y conversiones. Datos clave:</li>
+                            <li className="ml-4 list-none">
+                              <ul className="list-disc ml-4 text-xs space-y-0.5">
+                                <li>Vistas totales por producto</li>
+                                <li>Tiempo promedio en página</li>
+                                <li>Tasa de conversión (vistas vs. compras)</li>
+                                <li>Visitantes únicos vs. recurrentes</li>
+                              </ul>
+                            </li>
+                            <li><span className="font-medium">Exportación de datos:</span> Usa el botón "Descargar" para exportar reportes en formato Excel (.xlsx) o CSV para análisis externos.</li>
+                            <li><span className="font-medium">Filtros temporales:</span> Selecciona el período que deseas analizar: últimos 7 días, 30 días, 3 meses o personalizado.</li>
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        <Button variant="outline" className="text-orange-600 hover:text-orange-700 border-orange-200 hover:border-orange-300">
+                          <Book className="h-5 w-5 mr-2" />
+                          <span>Ver manual completo</span>
+                        </Button>
+                        <Button variant="ghost" className="text-gray-600 hover:text-gray-800">
+                          <Download className="h-5 w-5 mr-2" />
+                          <span>Descargar PDF</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Solución de Problemas */}
+                  <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-orange-100 flex flex-col md:flex-row">
+                    <div className="mr-6 mb-4 md:mb-0">
+                      <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-xl flex items-center justify-center mb-2">
+                        <AlertCircle className="h-8 w-8" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-800 mb-2 flex items-center">
+                        <AlertCircle className="h-5 w-5" />
+                        <span className="ml-2">Solución de Problemas</span>
+                      </h3>
+                      <p className="text-gray-600 mb-4">Guía de resolución para los problemas más comunes del sistema.</p>
+                      
+                      <div className="mb-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+                          <div className="border border-red-100 bg-red-50 rounded-lg p-3 hover:bg-red-100 transition-colors cursor-pointer">
+                            <h4 className="font-semibold text-red-700 flex items-center mb-2">
+                              <DollarSign className="h-4 w-4 mr-2" />
+                              Errores de Pago
+                            </h4>
+                            <p className="text-sm text-gray-700 mb-2">
+                              Soluciones para problemas con transacciones, rechazos de tarjetas y fallos en el procesamiento de pagos.
+                            </p>
+                            <div className="text-xs text-gray-700 space-y-1">
+                              <p><span className="font-medium">Problema:</span> Pago rechazado por tarjeta</p>
+                              <p><span className="font-medium">Solución:</span> Verificar que los datos ingresados sean correctos y que la tarjeta tenga fondos suficientes. Si persiste, solicitar al cliente que contacte a su banco.</p>
+                              
+                              <p className="mt-2"><span className="font-medium">Problema:</span> Error en la pasarela de pagos</p>
+                              <p><span className="font-medium">Solución:</span> Verificar la configuración de la pasarela en "Info {'->'} Métodos de Pago", asegurando que las credenciales de API estén correctamente configuradas.</p>
+                            </div>
+                          </div>
+                          
+                          <div className="border border-blue-100 bg-blue-50 rounded-lg p-3 hover:bg-blue-100 transition-colors cursor-pointer">
+                            <h4 className="font-semibold text-blue-700 flex items-center mb-2">
+                              <ShoppingCart className="h-4 w-4 mr-2" />
+                              Problemas de Envío
+                            </h4>
+                            <p className="text-sm text-gray-700 mb-2">
+                              Resolución de inconvenientes con rastreo, retrasos y gestión de transportistas.
+                            </p>
+                            <div className="text-xs text-gray-700 space-y-1">
+                              <p><span className="font-medium">Problema:</span> Número de rastreo no funciona</p>
+                              <p><span className="font-medium">Solución:</span> Verificar que se haya ingresado correctamente y sin espacios adicionales. El número suele tardar 24-48 horas en activarse en el sistema del transportista.</p>
+                              
+                              <p className="mt-2"><span className="font-medium">Problema:</span> Dirección de envío incorrecta</p>
+                              <p><span className="font-medium">Solución:</span> Contactar inmediatamente al cliente para confirmar la dirección correcta. Si el paquete ya fue enviado, contactar al transportista para intentar corregir la dirección.</p>
+                            </div>
+                          </div>
+                          
+                          <div className="border border-green-100 bg-green-50 rounded-lg p-3 hover:bg-green-100 transition-colors cursor-pointer">
+                            <h4 className="font-semibold text-green-700 flex items-center mb-2">
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Gestión de Devoluciones
+                            </h4>
+                            <p className="text-sm text-gray-700 mb-2">
+                              Guía para procesar reembolsos, cambios y resolver disputas con clientes.
+                            </p>
+                            <div className="text-xs text-gray-700 space-y-1">
+                              <p><span className="font-medium">Proceso de devolución:</span></p>
+                              <ol className="list-decimal ml-4 space-y-0.5">
+                                <li>Registrar la solicitud de devolución en el sistema</li>
+                                <li>Generar código de devolución para el cliente</li>
+                                <li>Esperar recepción del producto (verificar condición)</li>
+                                <li>Procesar reembolso o cambio según política</li>
+                                <li>Actualizar inventario si el producto vuelve al stock</li>
+                              </ol>
+                              <p className="mt-2"><span className="font-medium">Para iniciar una devolución:</span> En la sección Pedidos, selecciona el pedido y haz clic en "Procesar devolución".</p>
+                            </div>
+                          </div>
+                          
+                          <div className="border border-purple-100 bg-purple-50 rounded-lg p-3 hover:bg-purple-100 transition-colors cursor-pointer">
+                            <h4 className="font-semibold text-purple-700 flex items-center mb-2">
+                              <Settings className="h-4 w-4 mr-2" />
+                              Problemas Técnicos
+                            </h4>
+                            <p className="text-sm text-gray-700 mb-2">
+                              Soluciones para fallos del sistema, errores de carga y problemas de rendimiento.
+                            </p>
+                            <div className="text-xs text-gray-700 space-y-1">
+                              <p><span className="font-medium">Problema:</span> Las imágenes de productos no se muestran</p>
+                              <p><span className="font-medium">Solución:</span> Verificar que las URLs de Cloudinary sean correctas y públicas. Si la URL comienza con "res.cloudinary.com", asegúrate de que sea accesible públicamente.</p>
+                              
+                              <p className="mt-2"><span className="font-medium">Problema:</span> Error al guardar cambios</p>
+                              <p><span className="font-medium">Solución:</span> Comprobar la conexión a internet, refrescar la página y verificar que todos los campos obligatorios estén completados. Si persiste, toma una captura de la consola de errores (F12) y envíala a soporte.</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                          <h4 className="font-semibold text-amber-700 flex items-center">
+                            <Info className="h-4 w-4 mr-2" />
+                            ¿No encuentras solución?
+                          </h4>
+                          <p className="text-sm text-gray-700 mt-1">
+                            Nuestro equipo de soporte está disponible 24/7 para ayudarte con cualquier problema que no puedas resolver con esta guía.
+                          </p>
+                          
+                          <div className="flex mt-3">
+                            <div className="bg-white rounded-lg border border-amber-200 p-2 flex-1 flex items-center">
+                              <Search className="h-4 w-4 text-amber-600 mr-2" />
+                              <input 
+                                type="text" 
+                                placeholder="Buscar solución..." 
+                                className="bg-transparent border-none w-full focus:outline-none text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" className="text-orange-600 hover:text-orange-700 border-orange-200 hover:border-orange-300">
+                          <FileQuestion className="h-5 w-5 mr-2" />
+                          <span>Base de conocimientos</span>
+                        </Button>
+                        <Button variant="ghost" className="text-gray-600 hover:text-gray-800">
+                          <HeartHandshake className="h-5 w-5 mr-2" />
+                          <span>Contactar soporte</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Sección de recursos adicionales y soporte */}
+                <div className="bg-gradient-to-r from-amber-100/70 to-orange-100/70 p-6 rounded-xl border border-amber-200 mt-10">
+                  <h3 className="text-xl font-bold text-amber-800 mb-4 flex items-center">
+                    <HeartHandshake className="h-6 w-6 mr-2 text-orange-600" />
+                    Recursos Adicionales y Soporte
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="bg-white rounded-lg p-4 border border-amber-100 shadow-sm">
+                      <h4 className="font-semibold text-gray-800 mb-2">Centro de Descargas</h4>
+                      <p className="text-sm text-gray-600 mb-2">Descarga plantillas, guías PDF y recursos útiles para tu tienda.</p>
+                      <ul className="text-xs text-gray-600 list-disc ml-4 mb-3 space-y-1">
+                        <li>Plantillas de facturas personalizables</li>
+                        <li>Guía completa de administración (PDF)</li>
+                        <li>Checklist para optimizar productos</li>
+                        <li>Hoja de cálculo para gestión de inventario</li>
+                        <li>Manual de mejores prácticas SEO</li>
+                      </ul>
+                      <Button variant="outline" size="sm" className="w-full text-amber-600 hover:text-amber-700 border-amber-200">
+                        <Download className="h-4 w-4 mr-2" />
+                        Explorar recursos
+                      </Button>
+                    </div>
+                    
+                    <div className="bg-white rounded-lg p-4 border border-amber-100 shadow-sm">
+                      <h4 className="font-semibold text-gray-800 mb-2">Comunidad de Usuarios</h4>
+                      <p className="text-sm text-gray-600 mb-2">Conecta con otros usuarios, comparte consejos y resuelve dudas.</p>
+                      <ul className="text-xs text-gray-600 list-disc ml-4 mb-3 space-y-1">
+                        <li>Foro de discusión por temas</li>
+                        <li>Grupos de usuarios por sector</li>
+                        <li>Webinars mensuales de estrategias</li>
+                        <li>Directorio de expertos disponibles</li>
+                        <li>Historias de éxito y casos de estudio</li>
+                      </ul>
+                      <Button variant="outline" size="sm" className="w-full text-amber-600 hover:text-amber-700 border-amber-200">
+                        <Users className="h-4 w-4 mr-2" />
+                        Unirse a la comunidad
+                      </Button>
+                    </div>
+                    
+                    <div className="bg-white rounded-lg p-4 border border-amber-100 shadow-sm">
+                      <h4 className="font-semibold text-gray-800 mb-2">Actualizaciones</h4>
+                      <p className="text-sm text-gray-600 mb-2">Mantente al día con las últimas características y mejoras del sistema.</p>
+                      <div className="text-xs border-l-2 border-amber-300 pl-3 mb-3 space-y-2">
+                        <div>
+                          <p className="font-medium text-amber-800">Versión 2.4.0 (Agosto 2025)</p>
+                          <ul className="list-disc ml-4 mt-1 text-gray-600 space-y-0.5">
+                            <li>Nuevo panel de analítica avanzada</li>
+                            <li>Integración con redes sociales mejorada</li>
+                            <li>Optimización de rendimiento general</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="font-medium text-amber-800">Próximamente:</p>
+                          <ul className="list-disc ml-4 mt-1 text-gray-600 space-y-0.5">
+                            <li>App móvil para gestión en movimiento</li>
+                            <li>Herramientas avanzadas de marketing</li>
+                          </ul>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" className="w-full text-amber-600 hover:text-amber-700 border-amber-200">
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Ver todas las novedades
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col md:flex-row items-center bg-white rounded-xl border border-amber-200 p-4 md:p-6 shadow-sm">
+                    <div className="mb-4 md:mb-0 md:mr-6">
+                      <div className="w-16 h-16 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl flex items-center justify-center shadow-md">
+                        <HelpCircle className="h-8 w-8" />
+                      </div>
+                    </div>
+                    <div className="flex-1 text-center md:text-left mb-4 md:mb-0">
+                      <h4 className="text-lg font-semibold text-gray-800">¿Necesitas ayuda personalizada?</h4>
+                      <p className="text-gray-600 mb-2">
+                        Nuestro equipo de soporte está disponible 24/7 para ayudarte con cualquier duda o problema que tengas.
+                      </p>
+                      <ul className="text-sm text-gray-600 list-none space-y-1 md:columns-2">
+                        <li className="flex items-center">
+                          <Check className="h-4 w-4 text-green-500 mr-2" />
+                          Tiempo de respuesta: &lt;2 horas
+                        </li>
+                        <li className="flex items-center">
+                          <Check className="h-4 w-4 text-green-500 mr-2" />
+                          Soporte en español e inglés
+                        </li>
+                        <li className="flex items-center">
+                          <Check className="h-4 w-4 text-green-500 mr-2" />
+                          Asistencia técnica especializada
+                        </li>
+                        <li className="flex items-center">
+                          <Check className="h-4 w-4 text-green-500 mr-2" />
+                          Consultas ilimitadas
+                        </li>
+                      </ul>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3 md:self-center">
+                      <Button className="bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 shadow-md hover:shadow-lg transition-all duration-300">
+                        <MessagesSquare className="h-5 w-5 mr-2" />
+                        Chat en Vivo
+                      </Button>
+                      <Button variant="outline" className="bg-white text-orange-600 hover:text-orange-700 border-orange-200 hover:border-orange-300">
+                        <Mail className="h-5 w-5 mr-2" />
+                        Enviar Ticket
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </TabsContent>
 
             {/* Solo para admin principal */}
             {!isSubAdmin && (
               <>
                 <TabsContent value="users" className="space-y-6">
-                  <UsersList />
-                </TabsContent>
-                
-                <TabsContent value="categories" className="space-y-6">
-                  <CategoryManager />
+                  <Suspense fallback={<LoadingFallback />}>
+                    <UsersList />
+                  </Suspense>
                 </TabsContent>
                 
                 <TabsContent value="subaccounts" className="space-y-6">
@@ -1181,7 +1983,9 @@ export const AdminPanel: React.FC = () => {
                 </TabsContent>
                 
                 <TabsContent value="analytics" className="space-y-6">
-                  <ProductAnalyticsView />
+                  <Suspense fallback={<LoadingFallback />}>
+                    <ProductAnalyticsView />
+                  </Suspense>
                 </TabsContent>
 
                 <TabsContent value="revisiones" className="space-y-6">
@@ -1193,330 +1997,14 @@ export const AdminPanel: React.FC = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6">
-                      <RevisionList />
+                      <Suspense fallback={<LoadingFallback />}>
+                        <RevisionList />
+                      </Suspense>
                     </CardContent>
                   </Card>
                 </TabsContent>
                 
-                <TabsContent value="ai-assistant" className="space-y-6">
-                  <div className="bg-gradient-to-r from-purple-50 via-blue-50 to-violet-50 rounded-xl shadow-xl p-8 border border-blue-100 overflow-hidden relative">
-                    {/* Elementos de diseño de fondo */}
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-400/10 to-blue-500/10 rounded-full blur-3xl -z-10"></div>
-                    <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-blue-400/10 to-purple-500/10 rounded-full blur-3xl -z-10"></div>
-                    
-                    {/* Encabezado con efecto de gradiente */}
-                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-12">
-                      <div className="p-4 bg-gradient-to-br from-violet-500 to-blue-600 rounded-2xl shadow-lg animate-pulse-slow">
-                        <BrainCog className="w-12 h-12 text-white" />
-                      </div>
-                      
-                      <div className="flex-1">
-                        <h2 className="text-3xl font-extrabold bg-gradient-to-r from-violet-600 to-blue-600 bg-clip-text text-transparent leading-tight">
-                          Asistente IA Avanzado
-                        </h2>
-                        <p className="mt-2 text-lg text-gray-600">
-                          Potencia tu negocio con nuestra plataforma de inteligencia artificial de última generación
-                        </p>
-                      </div>
-                      
-                      <div className="hidden md:flex">
-                        <Button 
-                          onClick={() => toast({
-                            title: "Próximamente",
-                            description: "Muy pronto, aún no disponible",
-                            variant: "default"
-                          })}
-                          className="bg-gradient-to-r from-violet-600 to-blue-600 text-white hover:from-violet-700 hover:to-blue-700 px-8 py-6 font-medium text-lg shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl"
-                        >
-                          <Sparkles className="w-5 h-5 mr-2" />
-                          Activar IA Pro
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {/* Sección de características principales */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-                      {/* Tarjeta 1: Atención al Cliente */}
-                      <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-blue-100">
-                        <div className="w-12 h-12 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center mb-4">
-                          <MessagesSquare className="w-6 h-6" />
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-800 mb-2">Atención al Cliente 24/7</h3>
-                        <p className="text-gray-600 mb-4">Respuestas instantáneas a consultas de clientes con personalidad y empatía.</p>
-                        <ul className="space-y-2 text-sm">
-                          <li className="flex items-center">
-                            <Check className="w-4 h-4 text-green-500 mr-2" />
-                            <span>Respuestas instantáneas</span>
-                          </li>
-                          <li className="flex items-center">
-                            <Check className="w-4 h-4 text-green-500 mr-2" />
-                            <span>Solución de problemas</span>
-                          </li>
-                          <li className="flex items-center">
-                            <Check className="w-4 h-4 text-green-500 mr-2" />
-                            <span>Seguimiento personalizado</span>
-                          </li>
-                        </ul>
-                      </div>
-                      
-                      {/* Tarjeta 2: Generación de Ventas */}
-                      <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-blue-100">
-                        <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
-                          <TrendingUp className="w-6 h-6" />
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-800 mb-2">Generación de Ventas</h3>
-                        <p className="text-gray-600 mb-4">Incrementa tus conversiones con recomendaciones personalizadas y ofertas.</p>
-                        <ul className="space-y-2 text-sm">
-                          <li className="flex items-center">
-                            <Check className="w-4 h-4 text-green-500 mr-2" />
-                            <span>Recomendaciones personalizadas</span>
-                          </li>
-                          <li className="flex items-center">
-                            <Check className="w-4 h-4 text-green-500 mr-2" />
-                            <span>Sugerencias complementarias</span>
-                          </li>
-                          <li className="flex items-center">
-                            <Check className="w-4 h-4 text-green-500 mr-2" />
-                            <span>Análisis predictivo</span>
-                          </li>
-                        </ul>
-                      </div>
-                      
-                      {/* Tarjeta 3: Creación de Contenido */}
-                      <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-blue-100">
-                        <div className="w-12 h-12 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center mb-4">
-                          <ImageIcon className="w-6 h-6" />
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-800 mb-2">Creación de Contenido</h3>
-                        <p className="text-gray-600 mb-4">Genera imágenes, textos y videos profesionales para tu marketing digital.</p>
-                        <ul className="space-y-2 text-sm">
-                          <li className="flex items-center">
-                            <Check className="w-4 h-4 text-green-500 mr-2" />
-                            <span>Generación de imágenes</span>
-                          </li>
-                          <li className="flex items-center">
-                            <Check className="w-4 h-4 text-green-500 mr-2" />
-                            <span>Edición automática</span>
-                          </li>
-                          <li className="flex items-center">
-                            <Check className="w-4 h-4 text-green-500 mr-2" />
-                            <span>Videos promocionales</span>
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                    
-                    {/* Estadísticas y demo */}
-                    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-12">
-                      {/* Estadísticas de uso */}
-                      <div className="lg:col-span-2 bg-gradient-to-br from-blue-50 to-violet-50 p-6 rounded-xl shadow-md border border-blue-100">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                          <ChartBar className="w-5 h-5 mr-2 text-blue-600" />
-                          Estadísticas de Uso
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-white p-4 rounded-lg">
-                            <p className="text-sm text-gray-500">Consultas IA</p>
-                            <p className="text-2xl font-bold text-blue-600">1,248</p>
-                            <p className="text-xs text-green-500 flex items-center mt-1">
-                              <ArrowUp className="w-3 h-3 mr-1" />
-                              24% vs mes anterior
-                            </p>
-                          </div>
-                          <div className="bg-white p-4 rounded-lg">
-                            <p className="text-sm text-gray-500">Contenidos</p>
-                            <p className="text-2xl font-bold text-violet-600">357</p>
-                            <p className="text-xs text-green-500 flex items-center mt-1">
-                              <ArrowUp className="w-3 h-3 mr-1" />
-                              18% vs mes anterior
-                            </p>
-                          </div>
-                          <div className="bg-white p-4 rounded-lg">
-                            <p className="text-sm text-gray-500">Ventas IA</p>
-                            <p className="text-2xl font-bold text-pink-600">$12,590</p>
-                            <p className="text-xs text-green-500 flex items-center mt-1">
-                              <ArrowUp className="w-3 h-3 mr-1" />
-                              32% vs mes anterior
-                            </p>
-                          </div>
-                          <div className="bg-white p-4 rounded-lg">
-                            <p className="text-sm text-gray-500">Ahorro Tiempo</p>
-                            <p className="text-2xl font-bold text-teal-600">178h</p>
-                            <p className="text-xs text-green-500 flex items-center mt-1">
-                              <ArrowUp className="w-3 h-3 mr-1" />
-                              45% vs mes anterior
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Demo de chat */}
-                      <div className="lg:col-span-3 bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
-                        <div className="bg-slate-100 p-4 border-b border-slate-200">
-                          <div className="flex items-center">
-                            <div className="w-8 h-8 bg-gradient-to-r from-violet-500 to-blue-500 rounded-full flex items-center justify-center mr-3">
-                              <BrainCog className="w-4 h-4 text-white" />
-                            </div>
-                            <div>
-                              <h4 className="font-medium text-slate-800">Asistente IA</h4>
-                              <p className="text-xs text-slate-500">En línea ahora</p>
-                            </div>
-                            <div className="ml-auto flex gap-2">
-                              <button className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500">
-                                <RefreshCw className="w-4 h-4" />
-                              </button>
-                              <button className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500">
-                                <Maximize2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex-1 p-4 overflow-y-auto space-y-4 max-h-[280px]">
-                          <div className="flex items-start">
-                            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 mr-3 flex-shrink-0">
-                              <User className="w-4 h-4" />
-                            </div>
-                            <div className="bg-slate-100 rounded-lg py-2 px-3 max-w-[80%]">
-                              <p className="text-sm text-slate-800">¿Cómo puedo utilizar el asistente para mejorar mis ventas?</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-start">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-violet-500 to-blue-500 flex items-center justify-center text-white mr-3 flex-shrink-0">
-                              <BrainCog className="w-4 h-4" />
-                            </div>
-                            <div className="bg-blue-50 border border-blue-100 rounded-lg py-2 px-3 max-w-[80%]">
-                              <p className="text-sm text-slate-800">¡Claro! Puedes utilizar nuestro asistente IA de varias formas para aumentar tus ventas:</p>
-                              <ul className="list-disc text-sm text-slate-700 pl-5 mt-2 space-y-1">
-                                <li>Generando recomendaciones personalizadas para cada cliente según su historial</li>
-                                <li>Creando descripciones de productos más atractivas y persuasivas</li>
-                                <li>Analizando patrones de compra para predecir tendencias</li>
-                                <li>Automatizando seguimientos post-venta</li>
-                              </ul>
-                              <p className="text-sm text-slate-800 mt-2">¿Te gustaría que configuremos una estrategia específica para tu tienda?</p>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="border-t border-slate-200 p-3">
-                          <div className="relative">
-                            <input 
-                              type="text" 
-                              placeholder="Escribe un mensaje..." 
-                              className="w-full pr-12 pl-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <button className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-gradient-to-r from-violet-600 to-blue-600 rounded-lg flex items-center justify-center text-white">
-                              <Send className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Casos de uso y configuración */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Casos de uso */}
-                      <div className="bg-white p-6 rounded-xl shadow-md border border-blue-100">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                          <Lightbulb className="w-5 h-5 mr-2 text-amber-500" />
-                          Casos de Uso Populares
-                        </h3>
-                        <ul className="space-y-3">
-                          <li className="flex items-center bg-amber-50 p-3 rounded-lg border border-amber-100">
-                            <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mr-3">
-                              <ShoppingBag className="w-4 h-4" />
-                            </div>
-                            <span className="text-sm">Recomendación inteligente de productos</span>
-                          </li>
-                          <li className="flex items-center bg-green-50 p-3 rounded-lg border border-green-100">
-                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600 mr-3">
-                              <MessagesSquare className="w-4 h-4" />
-                            </div>
-                            <span className="text-sm">Asistente de chat para servicio al cliente</span>
-                          </li>
-                          <li className="flex items-center bg-blue-50 p-3 rounded-lg border border-blue-100">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 mr-3">
-                              <PenTool className="w-4 h-4" />
-                            </div>
-                            <span className="text-sm">Creación de contenido para marketing</span>
-                          </li>
-                          <li className="flex items-center bg-violet-50 p-3 rounded-lg border border-violet-100">
-                            <div className="w-8 h-8 bg-violet-100 rounded-full flex items-center justify-center text-violet-600 mr-3">
-                              <LineChart className="w-4 h-4" />
-                            </div>
-                            <span className="text-sm">Análisis predictivo de inventario</span>
-                          </li>
-                        </ul>
-                      </div>
-                      
-                      {/* Configuración rápida */}
-                      <div className="bg-gradient-to-br from-slate-50 to-blue-50 p-6 rounded-xl shadow-md border border-blue-100">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                          <Settings className="w-5 h-5 mr-2 text-slate-600" />
-                          Configuración Rápida
-                        </h3>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-medium text-slate-600 mb-1.5 block">Nivel de Creatividad</label>
-                            <div className="bg-white h-2 rounded-full overflow-hidden">
-                              <div className="bg-gradient-to-r from-blue-500 to-violet-500 h-full w-3/4 rounded-full"></div>
-                            </div>
-                            <div className="flex justify-between text-xs text-slate-500 mt-1">
-                              <span>Conservador</span>
-                              <span>Equilibrado</span>
-                              <span>Creativo</span>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="text-sm font-medium text-slate-700">Modo Proactivo</h4>
-                              <p className="text-xs text-slate-500">El asistente iniciará conversaciones</p>
-                            </div>
-                            <Switch checked={true} />
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="text-sm font-medium text-slate-700">Análisis Avanzado</h4>
-                              <p className="text-xs text-slate-500">Habilitar procesamiento de datos</p>
-                            </div>
-                            <Switch checked={true} />
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="text-sm font-medium text-slate-700">Generación de Imágenes</h4>
-                              <p className="text-xs text-slate-500">Crear visualizaciones automáticas</p>
-                            </div>
-                            <Switch checked={false} />
-                          </div>
-                          
-                          <Button className="w-full mt-2 bg-gradient-to-r from-blue-500 to-violet-500 text-white hover:from-blue-600 hover:to-violet-600">
-                            Guardar Configuración
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Botón de activación móvil */}
-                    <div className="md:hidden flex justify-center mt-8">
-                      <Button 
-                        onClick={() => toast({
-                          title: "Próximamente",
-                          description: "Muy pronto, aún no disponible",
-                          variant: "default"
-                        })}
-                        className="bg-gradient-to-r from-violet-600 to-blue-600 text-white hover:from-violet-700 hover:to-blue-700 px-8 py-6 font-medium text-lg shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl w-full"
-                      >
-                        <Sparkles className="w-5 h-5 mr-2" />
-                        Activar IA Pro
-                      </Button>
-                    </div>
-                  </div>
-                </TabsContent>
-
+                {/* Manual de Ayuda - disponible para todos (admin y subadmin) */}
                 <TabsContent value="help-manual" className="space-y-6">
                   <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-yellow-50 rounded-xl shadow-xl p-8 border border-orange-100 overflow-hidden relative">
                     {/* Elementos de diseño de fondo */}
@@ -1635,10 +2123,6 @@ export const AdminPanel: React.FC = () => {
                             <Button variant="outline" className="text-orange-600 hover:text-orange-700 border-orange-200 hover:border-orange-300">
                               <Book className="h-5 w-5 mr-2" />
                               <span>Ver guía completa</span>
-                            </Button>
-                            <Button variant="ghost" className="text-gray-600 hover:text-gray-800">
-                              <Video className="h-5 w-5 mr-2" />
-                              <span>Tutorial en video</span>
                             </Button>
                           </div>
                         </div>
@@ -1875,165 +2359,7 @@ export const AdminPanel: React.FC = () => {
                         </div>
                       </div>
                       
-                      {/* Tutoriales en Video */}
-                      <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-orange-100 flex flex-col md:flex-row">
-                        <div className="mr-6 mb-4 md:mb-0">
-                          <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-xl flex items-center justify-center mb-2">
-                            <Video className="h-8 w-8" />
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-xl font-bold text-gray-800 mb-2 flex items-center">
-                            <Video className="h-5 w-5" />
-                            <span className="ml-2">Tutoriales en Video</span>
-                          </h3>
-                          <p className="text-gray-600 mb-4">Aprende visualmente con nuestras guías paso a paso en video. Cada tutorial está diseñado para explicar en detalle las funcionalidades clave del sistema.</p>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-                            <div className="border border-amber-100 rounded-lg overflow-hidden group cursor-pointer">
-                              <div className="relative bg-amber-800 aspect-video flex items-center justify-center">
-                                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-orange-600/40"></div>
-                                <div className="w-14 h-14 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                                  <Video className="h-6 w-6 text-white" />
-                                </div>
-                                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">3:24</div>
-                              </div>
-                              <div className="p-3">
-                                <h4 className="font-medium text-gray-800 group-hover:text-amber-600 transition-colors">Configuración Inicial del Panel</h4>
-                                <p className="text-xs text-gray-600 mt-1 line-clamp-2">Guía completa del primer acceso al panel, configuración de perfiles y personalización del sistema.</p>
-                                <div className="flex items-center justify-between mt-2">
-                                  <p className="text-xs text-gray-500">Actualizado: Ago 2025</p>
-                                  <div className="flex items-center">
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-gray-300" />
-                                  </div>
-                                </div>
-                                <div className="mt-2 text-xs text-gray-500">
-                                  <p className="font-semibold">Temas cubiertos:</p>
-                                  <ul className="list-disc ml-4 mt-1 space-y-0.5">
-                                    <li>Inicio de sesión y verificación</li>
-                                    <li>Configuración de perfil de tienda</li>
-                                    <li>Navegación por el panel de control</li>
-                                  </ul>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="border border-amber-100 rounded-lg overflow-hidden group cursor-pointer">
-                              <div className="relative bg-amber-800 aspect-video flex items-center justify-center">
-                                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-orange-600/40"></div>
-                                <div className="w-14 h-14 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                                  <Video className="h-6 w-6 text-white" />
-                                </div>
-                                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">5:12</div>
-                              </div>
-                              <div className="p-3">
-                                <h4 className="font-medium text-gray-800 group-hover:text-amber-600 transition-colors">Gestión de Productos</h4>
-                                <p className="text-xs text-gray-600 mt-1 line-clamp-2">Tutorial completo para añadir, editar y optimizar productos en tu tienda con todos sus detalles.</p>
-                                <div className="flex items-center justify-between mt-2">
-                                  <p className="text-xs text-gray-500">Actualizado: Ago 2025</p>
-                                  <div className="flex items-center">
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                  </div>
-                                </div>
-                                <div className="mt-2 text-xs text-gray-500">
-                                  <p className="font-semibold">Temas cubiertos:</p>
-                                  <ul className="list-disc ml-4 mt-1 space-y-0.5">
-                                    <li>Creación de productos desde cero</li>
-                                    <li>Optimización de imágenes con Cloudinary</li>
-                                    <li>Configuración de variantes y descuentos</li>
-                                    <li>Gestión de inventario y stock</li>
-                                  </ul>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="border border-amber-100 rounded-lg overflow-hidden group cursor-pointer">
-                              <div className="relative bg-amber-800 aspect-video flex items-center justify-center">
-                                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-orange-600/40"></div>
-                                <div className="w-14 h-14 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                                  <Video className="h-6 w-6 text-white" />
-                                </div>
-                                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">7:45</div>
-                              </div>
-                              <div className="p-3">
-                                <h4 className="font-medium text-gray-800 group-hover:text-amber-600 transition-colors">Analítica Avanzada</h4>
-                                <p className="text-xs text-gray-600 mt-1 line-clamp-2">Aprende a interpretar datos y métricas para tomar decisiones estratégicas basadas en el comportamiento de tus clientes.</p>
-                                <div className="flex items-center justify-between mt-2">
-                                  <p className="text-xs text-gray-500">Actualizado: Ago 2025</p>
-                                  <div className="flex items-center">
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-gray-300" />
-                                  </div>
-                                </div>
-                                <div className="mt-2 text-xs text-gray-500">
-                                  <p className="font-semibold">Temas cubiertos:</p>
-                                  <ul className="list-disc ml-4 mt-1 space-y-0.5">
-                                    <li>Interpretación de gráficos de rendimiento</li>
-                                    <li>Análisis de conversiones y embudo de ventas</li>
-                                    <li>Exportación de reportes para análisis externo</li>
-                                    <li>Estrategias basadas en datos de usuario</li>
-                                  </ul>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="border border-amber-100 rounded-lg overflow-hidden group cursor-pointer">
-                              <div className="relative bg-amber-800 aspect-video flex items-center justify-center">
-                                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-orange-600/40"></div>
-                                <div className="w-14 h-14 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                                  <Video className="h-6 w-6 text-white" />
-                                </div>
-                                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">6:18</div>
-                              </div>
-                              <div className="p-3">
-                                <h4 className="font-medium text-gray-800 group-hover:text-amber-600 transition-colors">Procesamiento de Pedidos</h4>
-                                <p className="text-xs text-gray-600 mt-1 line-clamp-2">Tutorial paso a paso para gestionar pedidos desde la recepción hasta la entrega y seguimiento.</p>
-                                <div className="flex items-center justify-between mt-2">
-                                  <p className="text-xs text-gray-500">Actualizado: Ago 2025</p>
-                                  <div className="flex items-center">
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                    <Star className="h-3 w-3 text-amber-500" fill="#f59e0b" />
-                                  </div>
-                                </div>
-                                <div className="mt-2 text-xs text-gray-500">
-                                  <p className="font-semibold">Temas cubiertos:</p>
-                                  <ul className="list-disc ml-4 mt-1 space-y-0.5">
-                                    <li>Confirmación y procesamiento de pedidos</li>
-                                    <li>Gestión de envíos y números de seguimiento</li>
-                                    <li>Manejo de devoluciones y cambios</li>
-                                    <li>Comunicación con clientes durante el proceso</li>
-                                  </ul>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex flex-wrap gap-2">
-                            <Button variant="outline" className="text-orange-600 hover:text-orange-700 border-orange-200 hover:border-orange-300">
-                              <Video className="h-5 w-5 mr-2" />
-                              <span>Ver biblioteca completa</span>
-                            </Button>
-                            <Button variant="ghost" className="text-gray-600 hover:text-gray-800">
-                              <Download className="h-5 w-5 mr-2" />
-                              <span>Descargar para ver offline</span>
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
+
                     </div>
                     
                     {/* Sección de recursos adicionales y soporte */}
@@ -2152,7 +2478,43 @@ export const AdminPanel: React.FC = () => {
 
             {/* Info tab - disponible para admin y subadmin */}
             <TabsContent value="info" className="space-y-6">
-              <InfoManager />
+              <Suspense fallback={<LoadingFallback />}>
+                <InfoManager />
+              </Suspense>
+            </TabsContent>
+
+            {/* Herramienta de actualización de URLs de imágenes */}
+            <TabsContent value="update-image-urls" className="space-y-6">
+              <Card className="shadow-lg border-0">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-sky-100 border-b">
+                  <CardTitle className="text-xl flex items-center gap-2 text-blue-800">
+                    <Share2 className="h-6 w-6 text-blue-600" />
+                    Actualizador de URLs de Imágenes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <Suspense fallback={<LoadingFallback />}>
+                    <ImageUrlUpdater />
+                  </Suspense>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Herramienta de conversión a WebP - Placeholder para futura implementación */}
+            <TabsContent value="webp-converter" className="space-y-6">
+              <Card className="shadow-lg border-0">
+                <CardHeader className="bg-gradient-to-r from-sky-50 to-indigo-100 border-b">
+                  <CardTitle className="text-xl flex items-center gap-2 text-blue-800">
+                    <ImageIcon className="h-6 w-6 text-blue-600" />
+                    Conversión de Imágenes a WebP
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="bg-amber-50 border-l-4 border-amber-500 p-4">
+                    <p>Esta funcionalidad estará disponible próximamente. Permitirá convertir imágenes JPG/PNG a formato WebP para optimizar el rendimiento del sitio.</p>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* Empleados - Nueva sección */}
@@ -2165,7 +2527,9 @@ export const AdminPanel: React.FC = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <EmployeeManager />
+                  <Suspense fallback={<LoadingFallback />}>
+                    <EmployeeManager />
+                  </Suspense>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -2180,48 +2544,49 @@ export const AdminPanel: React.FC = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <EmployeeManager />
+                  <Suspense fallback={<LoadingFallback />}>
+                    <EmployeeManager />
+                  </Suspense>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="ai-assistant" className="space-y-6">
-              <div className="bg-gradient-to-r from-purple-50 via-blue-50 to-violet-50 rounded-xl shadow-xl p-8 border border-blue-100 overflow-hidden relative">
-                {/* Elementos de diseño de fondo */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-400/10 to-blue-500/10 rounded-full blur-3xl -z-10"></div>
-                <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-blue-400/10 to-purple-500/10 rounded-full blur-3xl -z-10"></div>
-                
-                {/* Encabezado con efecto de gradiente */}
-                <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-12">
-                  <div className="p-4 bg-gradient-to-br from-violet-500 to-blue-600 rounded-2xl shadow-lg animate-pulse-slow">
-                    <BrainCog className="w-12 h-12 text-white" />
-                  </div>
-                  
-                  <div className="flex-1">
-                    <h2 className="text-3xl font-extrabold bg-gradient-to-r from-violet-600 to-blue-600 bg-clip-text text-transparent leading-tight">
-                      Asistente IA Avanzado
-                    </h2>
-                    <p className="mt-2 text-lg text-gray-600">
-                      Potencia tu negocio con nuestra plataforma de inteligencia artificial de última generación
-                    </p>
-                  </div>
-                  
-                  <div className="hidden md:flex">
-                    <Button 
-                      onClick={() => toast({
-                        title: "Próximamente",
-                        description: "Muy pronto, aún no disponible",
-                        variant: "default"
-                      })}
-                      className="bg-gradient-to-r from-violet-600 to-blue-600 text-white hover:from-violet-700 hover:to-blue-700 px-8 py-6 font-medium text-lg shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl"
-                    >
-                      <Sparkles className="w-5 h-5 mr-2" />
-                      Activar IA Pro
-                    </Button>
-                  </div>
-                </div>
-                
-                {/* Sección de características principales */}
+                {/* AI Assistant - disponible para todos (admin y subadmin) */}
+                <TabsContent value="ai-assistant" className="space-y-6">
+                  <div className="bg-gradient-to-r from-purple-50 via-blue-50 to-violet-50 rounded-xl shadow-xl p-8 border border-blue-100 overflow-hidden relative">
+                    {/* Elementos de diseño de fondo */}
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-400/10 to-blue-500/10 rounded-full blur-3xl -z-10"></div>
+                    <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-blue-400/10 to-purple-500/10 rounded-full blur-3xl -z-10"></div>
+                    
+                    {/* Encabezado con efecto de gradiente */}
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-12">
+                      <div className="p-4 bg-gradient-to-br from-violet-500 to-blue-600 rounded-2xl shadow-lg animate-pulse-slow">
+                        <BrainCog className="w-12 h-12 text-white" />
+                      </div>
+                      
+                      <div className="flex-1">
+                        <h2 className="text-3xl font-extrabold bg-gradient-to-r from-violet-600 to-blue-600 bg-clip-text text-transparent leading-tight">
+                          Asistente IA Avanzado
+                        </h2>
+                        <p className="mt-2 text-lg text-gray-600">
+                          Potencia tu negocio con nuestra plataforma de inteligencia artificial de última generación
+                        </p>
+                      </div>
+                      
+                      <div className="hidden md:flex">
+                        <Button 
+                          onClick={() => toast({
+                            title: "Próximamente",
+                            description: "Muy pronto, aún no disponible",
+                            variant: "default"
+                          })}
+                          className="bg-gradient-to-r from-violet-600 to-blue-600 text-white hover:from-violet-700 hover:to-blue-700 px-8 py-6 font-medium text-lg shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl"
+                        >
+                          <Sparkles className="w-5 h-5 mr-2" />
+                          Activar IA Pro
+                        </Button>
+                      </div>
+                    </div>                {/* Sección de características principales */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                   {/* Tarjeta 1: Atención al Cliente */}
                   <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-blue-100">

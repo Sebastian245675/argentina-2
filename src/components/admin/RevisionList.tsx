@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { collection, getDocs, deleteDoc, doc, addDoc, updateDoc, Timestamp, getDoc } from "firebase/firestore";
+import { collection, getDocs, deleteDoc, doc, addDoc, updateDoc, Timestamp, getDoc, query, where } from "firebase/firestore";
 import { db } from "@/firebase";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
@@ -8,11 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { 
   CheckCircle, Eye, Trash2, FilePlus2, Edit2, XCircle, 
-  ArrowRightLeft, ArrowLeft, ArrowRight, Clock, AlertCircle 
+  ArrowRightLeft, ArrowLeft, ArrowRight, AlertCircle 
 } from "lucide-react";
+import { CustomClock } from '@/components/ui/CustomClock';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 export const RevisionList: React.FC = () => {
+  const { user } = useAuth();
   const [revisions, setRevisions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any | null>(null);
@@ -58,13 +61,39 @@ export const RevisionList: React.FC = () => {
         };
         await updateDoc(doc(db, "products", revision.data.id), updateData);
       } else if (revision.type === "delete" && revision.data.id) {
-        await updateDoc(doc(db, "products", revision.data.id), { 
-          deleted: true,
-          lastModified: new Date(),
-          deletedAt: new Date(),
-          deletedBy: revision.editorEmail || "unknown",
-          approvedBy: "admin"
-        });
+        // Para eliminar producto, ELIMINARLO PERMANENTEMENTE en lugar de marcarlo
+        if (window.confirm("¿Estás seguro de eliminar este producto permanentemente? Esta acción no se puede deshacer.")) {
+          // Eliminar el documento completamente de la colección de productos
+          await deleteDoc(doc(db, "products", revision.data.id));
+          
+          // Buscar y eliminar cualquier revisión pendiente relacionada con este producto
+          try {
+            const revisionsQuery = query(
+              collection(db, "revision"),
+              where("data.id", "==", revision.data.id)
+            );
+            
+            const revisionsSnapshot = await getDocs(revisionsQuery);
+            
+            const deletePromises = revisionsSnapshot.docs
+              .filter(doc => doc.id !== revision.id) // No eliminar la revisión actual
+              .map(revDoc => deleteDoc(doc(db, "revision", revDoc.id)));
+            
+            if (deletePromises.length > 0) {
+              await Promise.all(deletePromises);
+            }
+          } catch (cleanupError) {
+            console.error("Error limpiando revisiones relacionadas:", cleanupError);
+            // Continuar el proceso incluso si hay error en la limpieza
+          }
+        } else {
+          // Si el usuario cancela la eliminación permanente
+          toast({ 
+            title: "Operación cancelada", 
+            description: "La eliminación permanente fue cancelada." 
+          });
+          return;
+        }
       } 
       // Para info sections
       else if (revision.type === "info_edit" && revision.sectionId) {
@@ -80,7 +109,15 @@ export const RevisionList: React.FC = () => {
       }
       
       await deleteDoc(doc(db, "revision", revision.id));
-      toast({ title: "Cambio aplicado", description: "La revisión fue aprobada y aplicada." });
+      
+      // Mensaje específico según el tipo de operación
+      toast({ 
+        title: "Cambio aplicado", 
+        description: revision.type === "delete" 
+          ? "El producto ha sido eliminado permanentemente." 
+          : "La revisión fue aprobada y aplicada." 
+      });
+      
       fetchRevisions();
       setSelected(null);
       setDialogOpen(false);
@@ -91,11 +128,83 @@ export const RevisionList: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await deleteDoc(doc(db, "revision", id));
-    toast({ title: "Revisión eliminada", description: "La revisión fue eliminada." });
-    fetchRevisions();
-    setSelected(null);
-    setDialogOpen(false);
+    try {
+      // Buscar la revisión para obtener información antes de eliminarla
+      const revisionRef = doc(db, "revision", id);
+      const revisionSnap = await getDoc(revisionRef);
+      
+      if (!revisionSnap.exists()) {
+        toast({ 
+          title: "Error", 
+          description: "La revisión no existe o ya fue eliminada", 
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      const revisionData = revisionSnap.data();
+      
+      // Si es una solicitud de eliminación y está autorizado, preguntar si quiere eliminar también el producto
+      if (revisionData.type === "delete" && revisionData.data?.id && user?.role === "admin") {
+        if (window.confirm("Esta es una solicitud de eliminación. ¿Desea eliminar también el producto de la base de datos?")) {
+          try {
+            // Eliminar el producto referenciado
+            await deleteDoc(doc(db, "products", revisionData.data.id));
+            
+            // También limpiar revisiones pendientes relacionadas con este producto
+            try {
+              const revisionsQuery = query(
+                collection(db, "revision"),
+                where("data.id", "==", revisionData.data.id)
+              );
+              
+              const revisionsSnapshot = await getDocs(revisionsQuery);
+              
+              const deletePromises = revisionsSnapshot.docs
+                .filter(doc => doc.id !== id) // No eliminar la revisión actual
+                .map(revDoc => deleteDoc(doc(db, "revision", revDoc.id)));
+              
+              if (deletePromises.length > 0) {
+                await Promise.all(deletePromises);
+              }
+            } catch (cleanupError) {
+              console.error("Error limpiando revisiones relacionadas:", cleanupError);
+              // Continuar incluso si hay error en la limpieza
+            }
+            
+            toast({ 
+              title: "Producto eliminado", 
+              description: `El producto ${revisionData.data.name || ''} ha sido eliminado permanentemente.` 
+            });
+          } catch (prodError) {
+            console.error("Error eliminando producto:", prodError);
+            toast({ 
+              title: "Error", 
+              description: "No se pudo eliminar el producto de la base de datos.", 
+              variant: "destructive" 
+            });
+          }
+        }
+      }
+      
+      // Eliminar la revisión de la base de datos
+      await deleteDoc(revisionRef);
+      toast({ 
+        title: "Revisión eliminada", 
+        description: "La revisión fue eliminada correctamente." 
+      });
+      
+      fetchRevisions();
+      setSelected(null);
+      setDialogOpen(false);
+    } catch (error) {
+      console.error("Error al eliminar revisión:", error);
+      toast({ 
+        title: "Error", 
+        description: "Ocurrió un error al eliminar la revisión.", 
+        variant: "destructive" 
+      });
+    }
   };
 
   // Función para cargar los datos actuales y mostrar la comparación
@@ -448,7 +557,7 @@ export const RevisionList: React.FC = () => {
                         </div>
                       )}
                       <div className="mt-3 p-3 bg-red-100 rounded-lg text-red-800 text-sm">
-                        <p>⚠️ Esta acción marcará el producto como eliminado en la base de datos.</p>
+                        <p>⚠️ Esta acción eliminará permanentemente el producto de la base de datos.</p>
                       </div>
                     </>
                   )}
@@ -636,9 +745,13 @@ export const RevisionList: React.FC = () => {
                       size="sm"
                       variant="outline"
                       className="border-red-400 text-red-700 hover:bg-red-50"
-                      onClick={() => handleDelete(rev.id)}
+                      onClick={() => {
+                        if(window.confirm("¿Estás seguro de rechazar esta revisión? Esta acción eliminará la solicitud de cambio.")) {
+                          handleDelete(rev.id);
+                        }
+                      }}
                     >
-                      <XCircle className="w-4 h-4 mr-1" /> Eliminar
+                      <XCircle className="w-4 h-4 mr-1" /> Rechazar
                     </Button>
                     <Button
                       size="sm"
@@ -692,7 +805,12 @@ export const RevisionList: React.FC = () => {
                   </Button>
                   <Button 
                     className="bg-red-600 hover:bg-red-700 text-white"
-                    onClick={() => handleDelete(currentRevision.id)}
+                    onClick={() => {
+                      if (window.confirm("¿Estás seguro de rechazar esta revisión? Esta acción eliminará la solicitud de cambio.")) {
+                        handleDelete(currentRevision.id);
+                        setDialogOpen(false);
+                      }
+                    }}
                   >
                     <XCircle className="w-4 h-4 mr-1" /> Rechazar
                   </Button>

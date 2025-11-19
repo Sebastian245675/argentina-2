@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +19,7 @@ interface ProductCardProps {
   onClick?: (product: Product) => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => {
+const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) => {
   const { addToCart } = useCart();
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
@@ -319,3 +319,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
     </Card>
   );
 };
+
+// Memoizar el componente para evitar re-renders innecesarios
+export const ProductCard = memo(ProductCardComponent, (prevProps, nextProps) => {
+  // Solo re-renderizar si cambian datos importantes del producto
+  return (
+    prevProps.product.id === nextProps.product.id &&
+    prevProps.product.price === nextProps.product.price &&
+    prevProps.product.name === nextProps.product.name &&
+    prevProps.product.stock === nextProps.product.stock &&
+    prevProps.product.image === nextProps.product.image &&
+    prevProps.product.isOnSale === nextProps.product.isOnSale
+  );
+});

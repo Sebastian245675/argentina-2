@@ -11,9 +11,10 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
 import { 
   Plus, Package, Edit, Trash2, Search, Save, X, Image, AlertTriangle, Check, CreditCard, 
-  ShieldCheck, Award, Wand2, ChevronDown, Calendar, Clock, Filter, RefreshCw, Tags, History, 
+  ShieldCheck, Award, Wand2, ChevronDown, Calendar, Filter, RefreshCw, Tags, History, 
   SlidersHorizontal, Loader2, Eye
 } from 'lucide-react';
+import { CustomClock } from '@/components/ui/CustomClock';
 import { sampleProducts } from '@/data/products';
 import {
   AlertDialog,
@@ -575,7 +576,7 @@ export const ProductForm: React.FC = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem onClick={() => setSortOrder('recent')} className={sortOrder === 'recent' ? 'bg-sky-50 text-sky-700' : ''}>
-                    <Clock className="h-4 w-4 mr-2 opacity-70" /> Más recientes
+                    <CustomClock className="h-4 w-4 mr-2 opacity-70" /> Más recientes
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setSortOrder('oldest')} className={sortOrder === 'oldest' ? 'bg-sky-50 text-sky-700' : ''}>
                     <History className="h-4 w-4 mr-2 opacity-70" /> Más antiguos
@@ -660,7 +661,7 @@ export const ProductForm: React.FC = () => {
                           onLoad={() => handleImageLoadEnd(product.id)}
                           onError={(e) => {
                             handleImageLoadEnd(product.id);
-                            e.currentTarget.src = 'https://via.placeholder.com/80?text=No+Image';
+                            e.currentTarget.src = '/placeholder.svg';
                           }}
                           onLoadStart={() => handleImageLoadStart(product.id)}
                         />
@@ -699,7 +700,7 @@ export const ProductForm: React.FC = () => {
                           </Badge>
                           {product.lastModified && (
                             <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 ml-2">
-                              <Clock className="h-3 w-3 mr-1 opacity-70" />
+                              <CustomClock className="h-3 w-3 mr-1 opacity-70" />
                               {new Date(product.lastModified.toDate?.() || product.lastModified).toLocaleDateString()}
                             </Badge>
                           )}
