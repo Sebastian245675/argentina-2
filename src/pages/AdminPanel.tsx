@@ -43,7 +43,10 @@ import {
   Search,
   Star,
   HeartHandshake,
-  Mail
+  Mail,
+  Activity,
+  TrendingDown,
+  Percent
 } from 'lucide-react';
 import { CustomClock } from '@/components/ui/CustomClock';
 import { useNavigate } from 'react-router-dom';
@@ -70,6 +73,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import { Briefcase, Share2 } from 'lucide-react';
 import { useSubAccountRenderFix } from '@/hooks/use-subaccount-render-fix';
 import { useStockNotifications } from '@/hooks/use-stock-notifications';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 // Componente de carga para lazy components
 const LoadingFallback = () => (
@@ -101,10 +105,29 @@ export const AdminPanel: React.FC = () => {
   const [todaySalesLoading, setTodaySalesLoading] = useState<boolean>(true);
   const [monthlySales, setMonthlySales] = useState<number>(0);
   const [monthlySalesLoading, setMonthlySalesLoading] = useState<boolean>(true);
+  const [todayProfits, setTodayProfits] = useState<number>(0);
+  const [todayProfitsLoading, setTodayProfitsLoading] = useState<boolean>(true);
+  const [monthlyProfits, setMonthlyProfits] = useState<number>(0);
+  const [monthlyProfitsLoading, setMonthlyProfitsLoading] = useState<boolean>(true);
+  const [profitDetails, setProfitDetails] = useState<{
+    totalSales: number;
+    totalCosts: number;
+    totalProfit: number;
+    productsWithoutCost: number;
+    productsWithLoss: number;
+  } | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [activityStats, setActivityStats] = useState({
+    recentOrders: 0,
+    pendingRevisions: 0,
+    newProducts: 0,
+    totalActivity: 0
+  });
+  const [activityLoading, setActivityLoading] = useState(true);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const mouseLeaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [showProfitsModal, setShowProfitsModal] = useState(false);
   
   // Implementar el hook para prevenir problemas de pantalla blanca en subcuentas
   const { hasRenderIssues, manualRefresh } = useSubAccountRenderFix(user?.subCuenta === "si");
@@ -312,6 +335,71 @@ export const AdminPanel: React.FC = () => {
     };
     fetchProducts();
   }, [activeTab]);
+
+  // Cargar estadísticas de actividad para la tarjeta morada
+  useEffect(() => {
+    if (activeTab !== 'dashboard') {
+      return;
+    }
+
+    const loadActivityStats = async () => {
+      setActivityLoading(true);
+      try {
+        const now = new Date();
+        const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        
+        // Contar pedidos recientes (últimas 24 horas)
+        const recentOrdersQuery = query(
+          collection(db, "orders"),
+          where("createdAt", ">=", Timestamp.fromDate(last24Hours))
+        );
+        const recentOrdersSnapshot = await getDocs(recentOrdersQuery);
+        const recentOrdersCount = recentOrdersSnapshot.size;
+
+        // Contar revisiones pendientes
+        const pendingRevisionsQuery = query(
+          collection(db, "revision"),
+          where("status", "==", "pendiente")
+        );
+        const pendingRevisionsSnapshot = await getDocs(pendingRevisionsQuery);
+        const pendingRevisionsCount = pendingRevisionsSnapshot.size;
+
+        // Contar productos nuevos (últimas 24 horas)
+        const newProductsQuery = query(
+          collection(db, "products"),
+          where("createdAt", ">=", Timestamp.fromDate(last24Hours))
+        );
+        const newProductsSnapshot = await getDocs(newProductsQuery);
+        const newProductsCount = newProductsSnapshot.size;
+
+        // Calcular actividad total
+        const totalActivity = recentOrdersCount + pendingRevisionsCount + newProductsCount;
+
+        setActivityStats({
+          recentOrders: recentOrdersCount,
+          pendingRevisions: pendingRevisionsCount,
+          newProducts: newProductsCount,
+          totalActivity: totalActivity
+        });
+      } catch (error) {
+        console.error("Error al cargar estadísticas de actividad:", error);
+        // En caso de error, usar valores por defecto
+        setActivityStats({
+          recentOrders: 0,
+          pendingRevisions: 0,
+          newProducts: 0,
+          totalActivity: 0
+        });
+      } finally {
+        setActivityLoading(false);
+      }
+    };
+
+    loadActivityStats();
+    // Actualizar cada 30 segundos
+    const interval = setInterval(loadActivityStats, 30000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
   
   // OPTIMIZACIÓN: Calcular ventas con debouncing y caché de fecha
   const todayDateRef = useRef<string>('');
@@ -432,6 +520,221 @@ export const AdminPanel: React.FC = () => {
       document.removeEventListener('dashboardUpdate', handleDashboardUpdate as EventListener);
     };
   }, [todaySales, monthlySales, activeTab]);
+
+  // Función para calcular ganancias reales basadas en costos de productos
+  const calculateProfits = async (orders: any[]) => {
+    let totalProfit = 0;
+    const productCostsCache = new Map<string, number>();
+    const problematicProducts: Array<{productId: string, name: string, salePrice: number, cost: number, quantity: number, loss: number}> = [];
+
+    for (const order of orders) {
+      const items = order.items || [];
+      
+      for (const item of items) {
+        const productId = item.productId || item.id;
+        if (!productId) {
+          console.warn("Item sin productId:", item);
+          continue;
+        }
+        
+        const quantity = Number(item.quantity || 1);
+        // El precio en el item es el precio unitario
+        const salePricePerUnit = Number(item.price || 0);
+        const productName = item.name || 'Sin nombre';
+        
+        // Obtener costo del producto (usar caché si está disponible)
+        let productCost = productCostsCache.get(productId);
+        let productCurrentPrice = salePricePerUnit;
+        
+        if (productCost === undefined) {
+          try {
+            const productDoc = await getDoc(doc(db, "products", productId));
+            if (productDoc.exists()) {
+              const productData = productDoc.data();
+              productCost = Number(productData.cost || 0);
+              productCurrentPrice = Number(productData.price || salePricePerUnit);
+              
+              // Validar que el costo sea razonable
+              if (productCost < 0) {
+                console.warn(`Costo negativo para producto ${productId} (${productName}), usando 0`);
+                productCost = 0;
+              }
+              
+              // Si el costo es 0 o no está definido, usar el precio actual como referencia para detectar errores
+              if (productCost === 0) {
+                console.info(`Producto ${productId} (${productName}) sin costo registrado. Se usará 0 para el cálculo.`);
+              }
+              
+              productCostsCache.set(productId, productCost);
+            } else {
+              console.warn(`Producto ${productId} no encontrado en la base de datos. Usando costo 0.`);
+              productCost = 0;
+              productCostsCache.set(productId, 0);
+            }
+          } catch (error) {
+            console.warn(`No se pudo obtener costo del producto ${productId}:`, error);
+            productCost = 0;
+            productCostsCache.set(productId, 0);
+          }
+        }
+        
+        // Calcular ganancia: (precio_venta_unitario - costo_unitario) * cantidad
+        const profitPerUnit = salePricePerUnit - productCost;
+        const profitPerItem = profitPerUnit * quantity;
+        totalProfit += profitPerItem;
+        
+        // Registrar productos problemáticos
+        if (profitPerItem < 0) {
+          problematicProducts.push({
+            productId,
+            name: productName,
+            salePrice: salePricePerUnit,
+            cost: productCost,
+            quantity,
+            loss: Math.abs(profitPerItem)
+          });
+          
+          console.warn(`⚠️ PÉRDIDA: ${productName} (ID: ${productId})`, {
+            precioVenta: `$${salePricePerUnit}`,
+            costo: `$${productCost}`,
+            cantidad: quantity,
+            perdidaTotal: `$${Math.abs(profitPerItem)}`
+          });
+        } else if (productCost > salePricePerUnit && productCost > 0) {
+          console.warn(`⚠️ ADVERTENCIA: ${productName} (ID: ${productId}) - Costo ($${productCost}) > Precio Venta ($${salePricePerUnit})`);
+        }
+      }
+    }
+    
+    // Mostrar resumen de productos problemáticos
+    if (problematicProducts.length > 0) {
+      console.group('📊 Resumen de Productos con Pérdidas:');
+      problematicProducts.forEach(p => {
+        console.log(`- ${p.name}: Venta $${p.salePrice} - Costo $${p.cost} = Pérdida $${p.loss} (x${p.quantity})`);
+      });
+      console.groupEnd();
+    }
+    
+    return totalProfit;
+  };
+  
+  // Efecto para calcular ganancias del día
+  useEffect(() => {
+    if (activeTab !== 'dashboard') {
+      return;
+    }
+
+    const calculateTodayProfits = async () => {
+      setTodayProfitsLoading(true);
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        let todayOrders: any[] = [];
+        
+        try {
+          const todayOrdersQuery = query(
+            collection(db, "orders"),
+            where("status", "==", "confirmed"),
+            where("createdAt", ">=", Timestamp.fromDate(today)),
+            where("createdAt", "<", Timestamp.fromDate(tomorrow))
+          );
+          const ordersSnapshot = await getDocs(todayOrdersQuery);
+          todayOrders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (queryError: any) {
+          console.warn("Falling back to client-side filter for daily profits:", queryError);
+          const ordersSnapshot = await getDocs(collection(db, "orders"));
+          ordersSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const orderDate = data.createdAt?.toDate ? 
+                            data.createdAt.toDate() : 
+                            data.createdAt?.seconds ? new Date(data.createdAt.seconds * 1000) : null;
+            
+            if (orderDate) {
+              const orderDay = new Date(orderDate);
+              orderDay.setHours(0, 0, 0, 0);
+              if (orderDay.getTime() === today.getTime() && data.status === "confirmed") {
+                todayOrders.push({ id: doc.id, ...data });
+              }
+            }
+          });
+        }
+        
+        const profits = await calculateProfits(todayOrders);
+        setTodayProfits(profits);
+      } catch (error) {
+        console.error("Error al calcular ganancias del día:", error);
+        setTodayProfits(0);
+      } finally {
+        setTodayProfitsLoading(false);
+      }
+    };
+
+    const timeoutId = setTimeout(calculateTodayProfits, 500);
+    return () => clearTimeout(timeoutId);
+  }, [activeTab, todaySales]);
+
+  // Efecto para calcular ganancias mensuales
+  useEffect(() => {
+    if (activeTab !== 'dashboard') {
+      return;
+    }
+
+    const calculateMonthlyProfits = async () => {
+      setMonthlyProfitsLoading(true);
+      try {
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        
+        const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+        firstDayOfMonth.setHours(0, 0, 0, 0);
+        
+        const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
+        lastDayOfMonth.setHours(23, 59, 59, 999);
+
+        let monthlyOrders: any[] = [];
+        
+        try {
+          const monthlyOrdersQuery = query(
+            collection(db, "orders"),
+            where("status", "==", "confirmed"),
+            where("createdAt", ">=", Timestamp.fromDate(firstDayOfMonth)),
+            where("createdAt", "<=", Timestamp.fromDate(lastDayOfMonth))
+          );
+          const ordersSnapshot = await getDocs(monthlyOrdersQuery);
+          monthlyOrders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (queryError: any) {
+          console.warn("Falling back to client-side filter for monthly profits:", queryError);
+          const ordersSnapshot = await getDocs(collection(db, "orders"));
+          ordersSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const orderDate = data.createdAt?.toDate ? 
+                            data.createdAt.toDate() : 
+                            data.createdAt?.seconds ? new Date(data.createdAt.seconds * 1000) : null;
+            
+            if (orderDate && data.status === "confirmed" && 
+                orderDate >= firstDayOfMonth && orderDate <= lastDayOfMonth) {
+              monthlyOrders.push({ id: doc.id, ...data });
+            }
+          });
+        }
+        
+        const profits = await calculateProfits(monthlyOrders);
+        setMonthlyProfits(profits);
+      } catch (error) {
+        console.error("Error al calcular ganancias mensuales:", error);
+        setMonthlyProfits(0);
+      } finally {
+        setMonthlyProfitsLoading(false);
+      }
+    };
+
+    const timeoutId = setTimeout(calculateMonthlyProfits, 500);
+    return () => clearTimeout(timeoutId);
+  }, [activeTab, monthlySales]);
   
   // Efecto para calcular los ingresos mensuales (optimizado)
   useEffect(() => {
@@ -907,14 +1210,40 @@ export const AdminPanel: React.FC = () => {
             {!isSubAdmin && (
               <TabsContent value="dashboard" className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-                  <Card className="bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0 shadow-xl">
+                  <Card 
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0 shadow-xl hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
+                    onClick={() => setShowProfitsModal(true)}
+                  >
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-blue-100 text-sm">Estado del Sistema</p>
-                          <p className="text-2xl font-bold">🟢 Activo</p>
+                        <div className="flex-1">
+                          <p className="text-blue-100 text-sm mb-1">Estado del Sistema</p>
+                          <p className="text-2xl font-bold mb-2">🟢 Activo</p>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-blue-100/90">Ganancia Real (Hoy):</span>
+                              <span className="text-sm font-bold text-green-200">
+                                {todayProfitsLoading ? (
+                                  <span className="text-xs">Calculando...</span>
+                                ) : (
+                                  `$${todayProfits.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-blue-100/90">Ganancia Real (Mes):</span>
+                              <span className="text-sm font-bold text-green-200">
+                                {monthlyProfitsLoading ? (
+                                  <span className="text-xs">Calculando...</span>
+                                ) : (
+                                  `$${monthlyProfits.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-xs text-blue-100/70 mt-2 italic">Haz clic para ver análisis completo</p>
                         </div>
-                        <BarChart3 className="h-8 w-8 text-blue-200" />
+                        <BarChart3 className="h-8 w-8 text-blue-200 ml-4" />
                       </div>
                     </CardContent>
                   </Card>
@@ -960,14 +1289,29 @@ export const AdminPanel: React.FC = () => {
                     </CardContent>
                   </Card>
                   
-                  <Card className="bg-gradient-to-r from-purple-600 to-purple-700 text-white border-0 shadow-xl">
+                  <Card className="bg-gradient-to-r from-purple-600 to-purple-700 text-white border-0 shadow-xl hover:shadow-2xl transition-shadow cursor-pointer">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-purple-100 text-sm">Estadísticas</p>
-                          <p className="text-2xl font-bold">Actividad</p>
+                        <div className="flex-1">
+                          <p className="text-purple-100 text-sm mb-1">Estadísticas</p>
+                          {activityLoading ? (
+                            <div className="flex items-center space-x-2">
+                              <div className="h-5 w-5 rounded-full border-2 border-purple-200 border-t-transparent animate-spin"></div>
+                              <span className="text-xl font-bold">Cargando...</span>
+                            </div>
+                          ) : (
+                            <p className="text-2xl font-bold">{activityStats.totalActivity}</p>
+                          )}
+                          <div className="mt-2 space-y-1">
+                            <p className="text-xs text-purple-100/80">
+                              {activityStats.recentOrders} pedidos • {activityStats.pendingRevisions} revisiones • {activityStats.newProducts} productos
+                            </p>
+                            <p className="text-xs text-purple-100/60">
+                              Últimas 24 horas
+                            </p>
+                          </div>
                         </div>
-                        <AlertCircle className="h-8 w-8 text-purple-200" />
+                        <Activity className="h-8 w-8 text-purple-200" />
                       </div>
                     </CardContent>
                   </Card>
@@ -977,6 +1321,207 @@ export const AdminPanel: React.FC = () => {
                 <Suspense fallback={<LoadingFallback />}>
                   <DashboardStats />
                 </Suspense>
+
+                {/* Modal de Ganancias */}
+                <Dialog open={showProfitsModal} onOpenChange={setShowProfitsModal}>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                        <DollarSign className="h-6 w-6 text-green-600" />
+                        Análisis de Ganancias
+                      </DialogTitle>
+                      <DialogDescription>
+                        Resumen detallado de tus ganancias y rentabilidad
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-6 mt-4">
+                      {/* Resumen de Ventas */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Card className="border-2 border-green-200 bg-green-50">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm text-gray-600 mb-1">Ventas de Hoy</p>
+                                {todaySalesLoading ? (
+                                  <div className="flex items-center space-x-2">
+                                    <div className="h-4 w-4 rounded-full border-2 border-green-400 border-t-transparent animate-spin"></div>
+                                    <span className="text-lg font-bold">Calculando...</span>
+                                  </div>
+                                ) : (
+                                  <p className="text-2xl font-bold text-green-700">
+                                    ${todaySales.toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                              <DollarSign className="h-8 w-8 text-green-600" />
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-2 border-orange-200 bg-orange-50">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm text-gray-600 mb-1">Ingresos Mensuales</p>
+                                {monthlySalesLoading ? (
+                                  <div className="flex items-center space-x-2">
+                                    <div className="h-4 w-4 rounded-full border-2 border-orange-400 border-t-transparent animate-spin"></div>
+                                    <span className="text-lg font-bold">Calculando...</span>
+                                  </div>
+                                ) : (
+                                  <p className="text-2xl font-bold text-orange-700">
+                                    ${monthlySales.toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                              <TrendingUp className="h-8 w-8 text-orange-600" />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                              Actualizado {new Date().toLocaleDateString('es-AR')}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Cálculo de Ganancias Reales */}
+                      <div className="space-y-4">
+                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                          <Percent className="h-5 w-5 text-blue-600" />
+                          Análisis de Rentabilidad Real
+                        </h3>
+                        
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-700">Cálculo basado en:</span>
+                              <Badge className="bg-green-600 text-white">Precio de Venta - Costo de Compra</Badge>
+                            </div>
+                            
+                            <div className="space-y-3 pt-3 border-t border-blue-200">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-600">Ganancia Real (Hoy):</span>
+                                <span className="text-lg font-bold text-green-700">
+                                  {todayProfitsLoading ? (
+                                    <span className="text-sm">Calculando...</span>
+                                  ) : (
+                                    `$${todayProfits.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
+                                  )}
+                                </span>
+                              </div>
+                              
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-600">Ganancia Real (Mes):</span>
+                                <span className="text-lg font-bold text-green-700">
+                                  {monthlyProfitsLoading ? (
+                                    <span className="text-sm">Calculando...</span>
+                                  ) : (
+                                    `$${monthlyProfits.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
+                                  )}
+                                </span>
+                              </div>
+                              
+                              <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+                                <span className="text-sm text-gray-600">Costo Total (Mes):</span>
+                                <span className="text-sm font-medium text-gray-700">
+                                  {monthlySalesLoading || monthlyProfitsLoading ? (
+                                    <span className="text-xs">Calculando...</span>
+                                  ) : (
+                                    `$${(monthlySales - monthlyProfits).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
+                                  )}
+                                </span>
+                              </div>
+                              
+                              {monthlySales > 0 && !monthlyProfitsLoading && !monthlySalesLoading && (
+                                <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+                                  <span className="text-sm text-gray-600">Margen Real Promedio:</span>
+                                  <Badge className={monthlyProfits < 0 ? "bg-red-600 text-white" : "bg-blue-600 text-white"}>
+                                    {((monthlyProfits / monthlySales) * 100).toFixed(1)}%
+                                  </Badge>
+                                </div>
+                              )}
+                              
+                              {monthlyProfits < 0 && !monthlyProfitsLoading && (
+                                <div className="mt-3 pt-3 border-t border-red-200 bg-red-50 rounded p-3">
+                                  <div className="flex items-start gap-2">
+                                    <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                                    <div className="text-sm text-red-800">
+                                      <p className="font-medium mb-1">⚠️ Ganancias Negativas Detectadas</p>
+                                      <p className="text-xs">
+                                        Hay productos con costos mayores que sus precios de venta. 
+                                        Abre la consola del navegador (F12) para ver el detalle de productos problemáticos.
+                                        Revisa y corrige los costos en la sección de gestión de productos.
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Estadísticas Adicionales */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <Card className="bg-purple-50 border-purple-200">
+                            <CardContent className="p-4 text-center">
+                              <p className="text-sm text-gray-600 mb-1">Pedidos</p>
+                              {activityLoading ? (
+                                <div className="h-5 w-5 mx-auto rounded-full border-2 border-purple-400 border-t-transparent animate-spin"></div>
+                              ) : (
+                                <p className="text-2xl font-bold text-purple-700">
+                                  {activityStats.recentOrders}
+                                </p>
+                              )}
+                            </CardContent>
+                          </Card>
+
+                          <Card className="bg-amber-50 border-amber-200">
+                            <CardContent className="p-4 text-center">
+                              <p className="text-sm text-gray-600 mb-1">Revisiones</p>
+                              {activityLoading ? (
+                                <div className="h-5 w-5 mx-auto rounded-full border-2 border-amber-400 border-t-transparent animate-spin"></div>
+                              ) : (
+                                <p className="text-2xl font-bold text-amber-700">
+                                  {activityStats.pendingRevisions}
+                                </p>
+                              )}
+                            </CardContent>
+                          </Card>
+
+                          <Card className="bg-teal-50 border-teal-200">
+                            <CardContent className="p-4 text-center">
+                              <p className="text-sm text-gray-600 mb-1">Productos</p>
+                              {activityLoading ? (
+                                <div className="h-5 w-5 mx-auto rounded-full border-2 border-teal-400 border-t-transparent animate-spin"></div>
+                              ) : (
+                                <p className="text-2xl font-bold text-teal-700">
+                                  {activityStats.newProducts}
+                                </p>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </div>
+
+                        {/* Nota informativa */}
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                          <div className="flex items-start gap-2">
+                            <Info className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                            <div className="text-sm text-green-800">
+                              <p className="font-medium mb-1">✅ Cálculo Real de Ganancias:</p>
+                              <p className="text-xs mb-2">
+                                Las ganancias se calculan automáticamente usando la fórmula: <strong>Ganancia = (Precio de Venta - Costo de Compra) × Cantidad</strong>.
+                              </p>
+                              <p className="text-xs font-medium text-orange-700">
+                                ⚠️ Importante: Si un producto tiene un costo mayor que su precio de venta, resultará en pérdida. 
+                                Verifica los costos en la sección de gestión de productos.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </TabsContent>
             )}
 

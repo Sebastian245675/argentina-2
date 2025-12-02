@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription }
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { Lock, KeyRound, CheckCircle2 as CheckCircle } from "lucide-react";
 import { db } from "@/firebase";
 import { doc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, limit, addDoc, deleteDoc, writeBatch, Timestamp } from "firebase/firestore";
 import { toast } from "@/hooks/use-toast";
@@ -11,7 +12,7 @@ import {
   User as UserIcon, Mail, Phone, MapPin, Gift, Package, Heart, 
   Edit, Save, AlertCircle, CheckCircle2, Home as HomeIcon, Truck, ChevronRight, 
   Calendar as CalendarIcon, ShoppingBag, BadgeCheck, History, 
-  Trash2, Star, Plus, Check, X, CreditCard, MapPinned
+  Trash2, Star, Plus, Check, X, CreditCard, MapPinned, Eye, EyeOff
 } from "lucide-react";
 import { CustomClock } from '@/components/ui/CustomClock';
 import { motion } from "framer-motion";
@@ -53,7 +54,7 @@ interface SavedAddress {
 }
 
 export const UserProfile: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, changePassword } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
   const [formData, setFormData] = useState({
     name: "",
@@ -86,6 +87,14 @@ export const UserProfile: React.FC = () => {
     isDefault: false
   });
   const [addingAddress, setAddingAddress] = useState(false);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
 
   // Carga los datos del usuario desde Firestore
   useEffect(() => {
@@ -622,6 +631,215 @@ export const UserProfile: React.FC = () => {
                             />
                           </div>
                         </div>
+                      </div>
+                      
+                      <Separator className="my-6" />
+                      
+                      {/* Sección de cambio de contraseña */}
+                      <div className="space-y-4 pt-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                              <Lock className="h-4 w-4 text-gray-500" />
+                              Seguridad de la cuenta
+                            </h3>
+                            <p className="text-sm text-gray-500 mt-1">
+                              Cambia tu contraseña para mantener tu cuenta segura
+                            </p>
+                          </div>
+                          {!showPasswordChange && (
+                            <Button
+                              onClick={() => setShowPasswordChange(true)}
+                              variant="outline"
+                              className="h-10"
+                            >
+                              <KeyRound className="h-4 w-4 mr-2" />
+                              Cambiar contraseña
+                            </Button>
+                          )}
+                        </div>
+
+                        {showPasswordChange && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-orange-50 border border-orange-200 rounded-lg p-6 space-y-4"
+                          >
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">
+                                  Contraseña actual
+                                </label>
+                                <div className="relative">
+                                  <Input
+                                    type={showCurrentPassword ? "text" : "password"}
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    placeholder="Ingresa tu contraseña actual"
+                                    className="h-11 pr-10"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-0 top-0 h-11 px-3"
+                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                  >
+                                    {showCurrentPassword ? (
+                                      <EyeOff className="h-4 w-4" />
+                                    ) : (
+                                      <Eye className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">
+                                  Nueva contraseña
+                                </label>
+                                <div className="relative">
+                                  <Input
+                                    type={showNewPassword ? "text" : "password"}
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    placeholder="Mínimo 6 caracteres"
+                                    className="h-11 pr-10"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-0 top-0 h-11 px-3"
+                                    onClick={() => setShowNewPassword(!showNewPassword)}
+                                  >
+                                    {showNewPassword ? (
+                                      <EyeOff className="h-4 w-4" />
+                                    ) : (
+                                      <Eye className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">
+                                  Confirmar nueva contraseña
+                                </label>
+                                <div className="relative">
+                                  <Input
+                                    type={showConfirmPassword ? "text" : "password"}
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    placeholder="Confirma tu nueva contraseña"
+                                    className="h-11 pr-10"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-0 top-0 h-11 px-3"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                  >
+                                    {showConfirmPassword ? (
+                                      <EyeOff className="h-4 w-4" />
+                                    ) : (
+                                      <Eye className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                                {confirmPassword && newPassword !== confirmPassword && (
+                                  <p className="text-xs text-red-500">
+                                    Las contraseñas no coinciden
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="flex gap-3 pt-2">
+                                <Button
+                                  onClick={async () => {
+                                    if (!currentPassword || !newPassword || !confirmPassword) {
+                                      toast({
+                                        title: "Campos incompletos",
+                                        description: "Por favor completa todos los campos",
+                                        variant: "destructive",
+                                      });
+                                      return;
+                                    }
+
+                                    if (newPassword !== confirmPassword) {
+                                      toast({
+                                        title: "Error",
+                                        description: "Las contraseñas no coinciden",
+                                        variant: "destructive",
+                                      });
+                                      return;
+                                    }
+
+                                    if (newPassword.length < 6) {
+                                      toast({
+                                        title: "Contraseña débil",
+                                        description: "La contraseña debe tener al menos 6 caracteres",
+                                        variant: "destructive",
+                                      });
+                                      return;
+                                    }
+
+                                    setPasswordChangeLoading(true);
+                                    const result = await changePassword(
+                                      currentPassword,
+                                      newPassword
+                                    );
+
+                                    if (result.success) {
+                                      toast({
+                                        title: "✅ Contraseña actualizada",
+                                        description: "Tu contraseña ha sido cambiada exitosamente.",
+                                      });
+                                      // Resetear formulario
+                                      setShowPasswordChange(false);
+                                      setCurrentPassword('');
+                                      setNewPassword('');
+                                      setConfirmPassword('');
+                                    } else {
+                                      toast({
+                                        title: "Error",
+                                        description: result.error || "No se pudo cambiar la contraseña",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                    setPasswordChangeLoading(false);
+                                  }}
+                                  className="gradient-orange flex-1"
+                                  disabled={passwordChangeLoading}
+                                >
+                                  {passwordChangeLoading ? (
+                                    <>
+                                      <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
+                                      Cambiando contraseña...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="h-4 w-4 mr-2" />
+                                      Cambiar contraseña
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setShowPasswordChange(false);
+                                    setCurrentPassword('');
+                                    setNewPassword('');
+                                    setConfirmPassword('');
+                                  }}
+                                >
+                                  Cancelar
+                                </Button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
                       </div>
                       
                       <div className="pt-4 flex justify-end gap-3">

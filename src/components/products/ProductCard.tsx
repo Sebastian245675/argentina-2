@@ -238,7 +238,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) 
         </p>
         
         {/* Envío gratis badge */}
-        {product.price > 100 && (
+        {product.price && product.price > 100 && (
           <div className="mb-3 flex">
             <span className="bg-green-50 text-green-700 text-xs font-medium flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-green-100">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -256,12 +256,21 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) 
         <div className="flex items-center justify-between mt-auto">
           <div className="flex flex-col">
             <div className="flex items-baseline gap-2">
-              <span
-                className={`text-2xl font-extrabold ${product.discount || product.isOffer ? 'text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-slate-700' : 'text-slate-800'}`}
-                style={{ fontFamily: "'Montserrat', sans-serif" }} 
-              >
-                {product.price.toLocaleString('es-AR', { minimumFractionDigits: 0 })} <span className="text-base font-semibold text-blue-700">ARS</span>
-              </span>
+              {product.price !== undefined && product.price !== null ? (
+                <span
+                  className={`text-2xl font-extrabold ${product.discount || product.isOffer ? 'text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-slate-700' : 'text-slate-800'}`}
+                  style={{ fontFamily: "'Montserrat', sans-serif" }} 
+                >
+                  {product.price.toLocaleString('es-AR', { minimumFractionDigits: 0 })} <span className="text-base font-semibold text-blue-700">ARS</span>
+                </span>
+              ) : (
+                <span
+                  className="text-2xl font-extrabold text-slate-800"
+                  style={{ fontFamily: "'Montserrat', sans-serif" }} 
+                >
+                  Precio no disponible
+                </span>
+              )}
               {(product.discount || product.isOffer) && product.originalPrice && (
                 <span className="text-sm text-gray-500 line-through">
                   {product.originalPrice.toLocaleString('es-AR', { minimumFractionDigits: 0 })} ARS

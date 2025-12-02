@@ -9,14 +9,17 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import { 
   User, Mail, Lock, Phone, Eye, EyeOff, AlertCircle, 
-  ArrowLeft, ArrowRight, CheckCircle2, Loader2, Home
+  ArrowLeft, ArrowRight, CheckCircle2, Loader2, Home, CheckCircle
 } from 'lucide-react';
 import { auth, db } from "@/firebase";
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
-  sendEmailVerification
+  sendEmailVerification,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider
 } from "firebase/auth";
 import { setDoc, doc } from "firebase/firestore";
 
@@ -62,6 +65,13 @@ export const AuthPage: React.FC = () => {
   });
   
   const [resetPasswordEmail, setResetPasswordEmail] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordVerified, setPasswordVerified] = useState(false);
 
   const handleQuickAdminLogin = async () => {
     setIsLoading(true);
@@ -164,8 +174,8 @@ export const AuthPage: React.FC = () => {
     }
   };
 
-  // Handle password reset
-  const handleResetPassword = async (e: React.FormEvent) => {
+  // Verificar contraseña actual
+  const handleVerifyCurrentPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
     setErrors({
@@ -178,22 +188,131 @@ export const AuthPage: React.FC = () => {
       return;
     }
     
+    if (!currentPassword) {
+      toast({
+        title: "Campo requerido",
+        description: "Ingresa tu contraseña actual",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
-      await sendPasswordResetEmail(auth, resetPasswordEmail);
+      // Intentar iniciar sesión con el email y contraseña actual para verificar
+      await signInWithEmailAndPassword(auth, resetPasswordEmail, currentPassword);
+      
+      // Si llegamos aquí, la contraseña es correcta
+      setPasswordVerified(true);
       toast({
-        title: "Correo enviado",
-        description: "Revisa tu bandeja de entrada para restablecer tu contraseña",
+        title: "Contraseña verificada",
+        description: "Ahora puedes ingresar tu nueva contraseña",
       });
-      setShowForgotPassword(false);
     } catch (error: any) {
       if (error.code === 'auth/user-not-found') {
         setErrors(prev => ({...prev, resetEmail: 'No existe una cuenta con este email'}));
+      } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        toast({
+          title: "Contraseña incorrecta",
+          description: "La contraseña actual no es correcta",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Error",
-          description: "No se pudo enviar el correo de recuperación",
+          description: "No se pudo verificar la contraseña",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Cambiar contraseña después de verificar
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newPassword || !confirmPassword) {
+      toast({
+        title: "Campos incompletos",
+        description: "Por favor completa todos los campos",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Las contraseñas no coinciden",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      toast({
+        title: "Contraseña débil",
+        description: "La contraseña debe tener al menos 6 caracteres",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      // Obtener el usuario actual
+      const user = auth.currentUser;
+      if (!user) {
+        // Si no hay usuario en sesión, intentar iniciar sesión nuevamente
+        const credential = await signInWithEmailAndPassword(auth, resetPasswordEmail, currentPassword);
+        const currentUser = credential.user;
+        
+        // Reautenticar y cambiar contraseña
+        const emailCredential = EmailAuthProvider.credential(resetPasswordEmail, currentPassword);
+        await reauthenticateWithCredential(currentUser, emailCredential);
+        await updatePassword(currentUser, newPassword);
+      } else {
+        // Si ya hay usuario en sesión, reautenticar y cambiar
+        const emailCredential = EmailAuthProvider.credential(resetPasswordEmail, currentPassword);
+        await reauthenticateWithCredential(user, emailCredential);
+        await updatePassword(user, newPassword);
+      }
+      
+      toast({
+        title: "✅ Contraseña actualizada",
+        description: "Tu contraseña ha sido cambiada exitosamente",
+      });
+      
+      // Resetear formulario y volver al login
+      setShowForgotPassword(false);
+      setResetPasswordEmail('');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordVerified(false);
+      
+    } catch (error: any) {
+      console.error('Error al cambiar contraseña:', error);
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        toast({
+          title: "Error",
+          description: "La contraseña actual es incorrecta",
+          variant: "destructive",
+        });
+      } else if (error.code === 'auth/weak-password') {
+        toast({
+          title: "Contraseña débil",
+          description: "La nueva contraseña es muy débil",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "No se pudo cambiar la contraseña",
           variant: "destructive",
         });
       }
@@ -394,46 +513,186 @@ export const AuthPage: React.FC = () => {
                   <Button 
                     variant="ghost" 
                     className="mb-4" 
-                    onClick={() => setShowForgotPassword(false)}
+                    onClick={() => {
+                      setShowForgotPassword(false);
+                      setPasswordVerified(false);
+                      setResetPasswordEmail('');
+                      setCurrentPassword('');
+                      setNewPassword('');
+                      setConfirmPassword('');
+                    }}
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Volver
                   </Button>
                   
-                  <form onSubmit={handleResetPassword} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="reset-email">Email</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-3 h-5 w-5 text-orange-400" />
-                        <Input
-                          id="reset-email"
-                          type="email"
-                          placeholder="tu@email.com"
-                          className="pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12"
-                          value={resetPasswordEmail}
-                          onChange={(e) => setResetPasswordEmail(e.target.value)}
-                        />
-                        {errors.resetEmail && (
-                          <div className="text-sm text-red-500 mt-1 flex items-center">
-                            <AlertCircle className="h-4 w-4 mr-1" />
-                            {errors.resetEmail}
-                          </div>
+                  {!passwordVerified ? (
+                    <form onSubmit={handleVerifyCurrentPassword} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="reset-email">Email</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-3 h-5 w-5 text-orange-400" />
+                          <Input
+                            id="reset-email"
+                            type="email"
+                            placeholder="tu@email.com"
+                            className="pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12"
+                            value={resetPasswordEmail}
+                            onChange={(e) => setResetPasswordEmail(e.target.value)}
+                            disabled={isLoading}
+                          />
+                          {errors.resetEmail && (
+                            <div className="text-sm text-red-500 mt-1 flex items-center">
+                              <AlertCircle className="h-4 w-4 mr-1" />
+                              {errors.resetEmail}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="current-password">Contraseña actual</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-3 h-5 w-5 text-orange-400" />
+                          <Input
+                            id="current-password"
+                            type={showCurrentPassword ? "text" : "password"}
+                            placeholder="Ingresa tu contraseña actual"
+                            className="pl-10 pr-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12"
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            disabled={isLoading}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-12 px-3"
+                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                          >
+                            {showCurrentPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <Button 
+                        type="submit" 
+                        className="w-full gradient-orange hover:opacity-90 transition-opacity h-12 text-lg"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Verificando...</>
+                        ) : (
+                          'Verificar contraseña'
+                        )}
+                      </Button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleChangePassword} className="space-y-4">
+                      <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 mb-4">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                          <p className="text-sm font-medium text-green-900">
+                            Contraseña verificada correctamente
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="new-password">Nueva contraseña</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-3 h-5 w-5 text-orange-400" />
+                          <Input
+                            id="new-password"
+                            type={showNewPassword ? "text" : "password"}
+                            placeholder="Mínimo 6 caracteres"
+                            className="pl-10 pr-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            disabled={isLoading}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-12 px-3"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                          >
+                            {showNewPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="confirm-password">Confirmar nueva contraseña</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-3 h-5 w-5 text-orange-400" />
+                          <Input
+                            id="confirm-password"
+                            type={showConfirmPassword ? "text" : "password"}
+                            placeholder="Confirma tu nueva contraseña"
+                            className="pl-10 pr-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 h-12"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            disabled={isLoading}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-12 px-3"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          >
+                            {showConfirmPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                        {confirmPassword && newPassword !== confirmPassword && (
+                          <p className="text-xs text-red-500">
+                            Las contraseñas no coinciden
+                          </p>
                         )}
                       </div>
-                    </div>
-                    
-                    <Button 
-                      type="submit" 
-                      className="w-full gradient-orange hover:opacity-90 transition-opacity h-12 text-lg"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Enviando...</>
-                      ) : (
-                        'Enviar enlace de recuperación'
-                      )}
-                    </Button>
-                  </form>
+                      
+                      <div className="flex gap-3">
+                        <Button 
+                          type="submit" 
+                          className="flex-1 gradient-orange hover:opacity-90 transition-opacity h-12 text-lg"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? (
+                            <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Cambiando contraseña...</>
+                          ) : (
+                            'Cambiar contraseña'
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setPasswordVerified(false);
+                            setCurrentPassword('');
+                            setNewPassword('');
+                            setConfirmPassword('');
+                          }}
+                          className="h-12"
+                        >
+                          Volver
+                        </Button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               ) : registerStep === 'verification' ? (
                 <div className="text-center space-y-6 py-8">

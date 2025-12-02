@@ -466,10 +466,23 @@ export const OrdersList: React.FC<OrdersListProps> = ({ orders: initialOrders })
     try {
       updatedStocks = await runTransaction(db, async (transaction) => {
         const stockUpdates: Array<{ id: string; name: string; newStock: number }> = [];
+        const productRefs: Array<{ ref: any; product: any }> = [];
         
+        // PASO 1: Hacer TODAS las lecturas primero
         for (const selectedProduct of selectedProducts) {
           const productRef = doc(db, "products", selectedProduct.id);
-          const productSnapshot = await transaction.get(productRef);
+          productRefs.push({ ref: productRef, product: selectedProduct });
+        }
+        
+        // Leer todos los productos
+        const productSnapshots = await Promise.all(
+          productRefs.map(({ ref }) => transaction.get(ref))
+        );
+        
+        // PASO 2: Validar todos los datos después de las lecturas
+        for (let i = 0; i < productSnapshots.length; i++) {
+          const productSnapshot = productSnapshots[i];
+          const selectedProduct = productRefs[i].product;
           
           if (!productSnapshot.exists()) {
             throw new Error(JSON.stringify({
@@ -498,11 +511,6 @@ export const OrdersList: React.FC<OrdersListProps> = ({ orders: initialOrders })
           
           const newStock = currentStock - quantityRequested;
           
-          transaction.update(productRef, {
-            stock: newStock,
-            lastModified: serverTimestamp()
-          });
-          
           stockUpdates.push({
             id: selectedProduct.id,
             name: selectedProduct.name,
@@ -510,6 +518,18 @@ export const OrdersList: React.FC<OrdersListProps> = ({ orders: initialOrders })
           });
         }
         
+        // PASO 3: Hacer TODAS las escrituras después de todas las lecturas
+        for (let i = 0; i < productRefs.length; i++) {
+          const productRef = productRefs[i].ref;
+          const newStock = stockUpdates[i].newStock;
+          
+          transaction.update(productRef, {
+            stock: newStock,
+            lastModified: serverTimestamp()
+          });
+        }
+        
+        // Crear la orden (también es una escritura)
         transaction.set(orderRef, {
           userName: physicalSaleData.customerName,
           userPhone: physicalSaleData.customerPhone,

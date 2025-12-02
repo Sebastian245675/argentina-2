@@ -1,4 +1,4 @@
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updatePassword, sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, sendWelcomeEmail } from "@/firebase";
 import { getDocumentById, createDocumentWithId, updateDocument } from "@/lib/database";
@@ -23,6 +23,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
   isAuthenticated: boolean;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -179,6 +180,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
+  // Cambiar contraseña (solo requiere contraseña actual y nueva)
+  const changePassword = async (
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser || !currentUser.email) {
+      return { success: false, error: 'No hay usuario autenticado' };
+    }
+
+    try {
+      // Reautenticar usuario con contraseña actual (requisito de Firebase)
+      const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+      await reauthenticateWithCredential(currentUser, credential);
+
+      // Cambiar contraseña usando Firebase Auth (esto actualiza la contraseña real)
+      await updatePassword(currentUser, newPassword);
+
+      // La contraseña ha sido cambiada exitosamente en Firebase Auth
+      // El usuario ahora puede iniciar sesión con la nueva contraseña
+      console.log('✅ Contraseña actualizada exitosamente en Firebase Auth');
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error al cambiar contraseña:', error);
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        return { success: false, error: 'La contraseña actual es incorrecta' };
+      } else if (error.code === 'auth/weak-password') {
+        return { success: false, error: 'La nueva contraseña es muy débil. Debe tener al menos 6 caracteres.' };
+      } else if (error.code === 'auth/requires-recent-login') {
+        return { success: false, error: 'Por seguridad, debes iniciar sesión nuevamente' };
+      }
+      return { success: false, error: error.message || 'Error al cambiar la contraseña' };
+    }
+  };
+
   // No mostramos nada mientras verificamos el estado de autenticación
   if (loading) {
     return <div className="loading">Cargando...</div>;
@@ -193,6 +229,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     updateUser,
     isAuthenticated: !!user,
+    changePassword,
   };
 
   return (

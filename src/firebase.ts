@@ -14,7 +14,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyCI748T09o7MbzOHqbRvk8ay9Ai8v6k-SA",
   authDomain: "tienda-arg.firebaseapp.com",
   projectId: "tienda-arg",
-  storageBucket: "tienda-arg.firebasestorage.app", // Bucket correcto de Firebase Storage
+  storageBucket: "tienda-arg.firebasestorage.app",
   messagingSenderId: "607179205513",
   appId: "1:607179205513:web:3512cb3674301b42720f58",
   measurementId: "G-ZF7PYT3MTC"

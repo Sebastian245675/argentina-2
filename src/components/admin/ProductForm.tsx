@@ -94,6 +94,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({ selectedProductId, onP
     breakdown: Array<{category: string; cost: number; count: number}>;
   } | null>(null);
   const [isLoadingCosts, setIsLoadingCosts] = useState(false);
+  const [totalImagesSize, setTotalImagesSize] = useState<number>(0);
+  const [isLoadingImagesSize, setIsLoadingImagesSize] = useState(false);
   const { user } = useAuth();
   // Por defecto, establecemos liberta como "no" para asegurar que los cambios vayan a revisión
   // hasta que se verifique el permiso
@@ -209,6 +211,90 @@ export const ProductForm: React.FC<ProductFormProps> = ({ selectedProductId, onP
     fetchCategories();
     fetchProducts();
   }, [user]);
+
+  // Función para formatear bytes a formato legible
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  // Función optimizada para calcular el peso total de imágenes (versión ligera)
+  const calculateTotalImagesSize = async (productsList: any[]) => {
+    setIsLoadingImagesSize(true);
+    const imageUrls = new Set<string>();
+
+    // Recopilar todas las URLs de imágenes únicas
+    productsList.forEach(product => {
+      if (product.image && product.image.trim()) {
+        imageUrls.add(product.image.trim());
+      }
+      if (product.additionalImages && Array.isArray(product.additionalImages)) {
+        product.additionalImages.forEach((img: string) => {
+          if (img && img.trim()) {
+            imageUrls.add(img.trim());
+          }
+        });
+      }
+    });
+
+    // OPTIMIZACIÓN: Usar una aproximación más rápida
+    // En lugar de hacer fetch de todas las imágenes, usar una estimación basada en URLs conocidas
+    // o hacer fetch solo de una muestra representativa
+    let totalSize = 0;
+    const urlsArray = Array.from(imageUrls);
+    const sampleSize = Math.min(20, urlsArray.length); // Muestra de 20 imágenes
+    const sampleUrls = urlsArray.slice(0, sampleSize);
+
+    // Calcular tamaño de la muestra
+    const sampleSizes = await Promise.all(
+      sampleUrls.map(async (url) => {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000);
+          
+          try {
+            const response = await fetch(url, { 
+              method: 'HEAD',
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            const contentLength = response.headers.get('content-length');
+            return contentLength ? parseInt(contentLength, 10) : 0;
+          } catch {
+            clearTimeout(timeoutId);
+            return 0;
+          }
+        } catch {
+          return 0;
+        }
+      })
+    );
+
+    const avgSize = sampleSizes.filter(s => s > 0).length > 0
+      ? sampleSizes.filter(s => s > 0).reduce((a, b) => a + b, 0) / sampleSizes.filter(s => s > 0).length
+      : 0;
+
+    // Estimar el total basado en la muestra
+    totalSize = avgSize * urlsArray.length;
+    
+    setTotalImagesSize(totalSize);
+    setIsLoadingImagesSize(false);
+  };
+
+  // Calcular el peso de las imágenes cuando se cargan los productos (con debounce largo)
+  useEffect(() => {
+    if (products.length > 0 && !loadingProducts) {
+      // Debounce de 3 segundos para no interferir con la carga inicial
+      const timeoutId = setTimeout(() => {
+        calculateTotalImagesSize(products);
+      }, 3000);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [products.length, loadingProducts]);
 
   // Efecto para abrir automáticamente un producto cuando se selecciona desde una notificación
   useEffect(() => {
@@ -1951,7 +2037,16 @@ export const ProductForm: React.FC<ProductFormProps> = ({ selectedProductId, onP
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <Package className="h-5 w-5 text-blue-600" />
                 </div>
-                <span className="text-blue-700">Inventario de Productos ({sortedProducts.length})</span>
+                <span className="text-blue-700">
+                  Inventario de Productos ({sortedProducts.length})
+                  {isLoadingImagesSize ? (
+                    <span className="ml-2 text-xs text-gray-500">(Calculando peso...)</span>
+                  ) : totalImagesSize > 0 ? (
+                    <span className="ml-2 text-xs text-gray-600 font-normal">
+                      • Total imágenes: {formatBytes(totalImagesSize)}
+                    </span>
+                  ) : null}
+                </span>
               </CardTitle>
               <Button
                 onClick={() => {
