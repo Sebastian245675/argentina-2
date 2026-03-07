@@ -1,15 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { doc, collection, getDocs, addDoc, updateDoc, deleteDoc, getDoc, query, where, increment, setDoc } from "firebase/firestore";
 import { db } from '@/firebase';
-import { 
-  Calendar, 
-  Users, 
-  Phone, 
-  MapPin, 
-  Bookmark, 
-  Gift, 
-  Film, 
-  BookOpen, 
+
+// Mocks para evitar errores de referencia tras eliminar la librería Firebase
+const doc = (...args: any[]) => ({}) as any;
+const collection = (...args: any[]) => ({}) as any;
+const getDocs = async (...args: any[]) => ({ docs: [], empty: true, forEach: () => { } }) as any;
+const addDoc = async (...args: any[]) => ({ id: "mock-id" }) as any;
+const updateDoc = async (...args: any[]) => ({}) as any;
+const deleteDoc = async (...args: any[]) => ({}) as any;
+const getDoc = async (...args: any[]) => ({ exists: () => false, data: () => ({}) }) as any;
+const query = (...args: any[]) => ({}) as any;
+const where = (...args: any[]) => ({}) as any;
+const increment = (n: number) => n;
+const setDoc = async (...args: any[]) => ({}) as any;
+import {
+  Calendar,
+  Users,
+  Phone,
+  MapPin,
+  Bookmark,
+  Gift,
+  Film,
+  BookOpen,
   Briefcase,
   Clock,
   Plus,
@@ -146,10 +158,10 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
         id: doc.id,
         ...doc.data()
       })) as Employee[];
-      
+
       // Ordenar por nombre
       employeesData.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      
+
       setEmployees(employeesData);
     } catch (error) {
       console.error("Error al obtener los empleados:", error);
@@ -166,27 +178,27 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
   // Cargar al iniciar
   useEffect(() => {
     fetchEmployees();
-    
+
     // Si acceso es compartido, incrementar contador de uso
     if (isSharedAccess && shareToken) {
       trackShareUsage(shareToken);
     }
-    
+
     // Cargar configuración de correo y plantillas de notificaciones
     if (currentUser) {
       loadEmailSettings();
       loadNotificationTemplates();
     }
   }, [isSharedAccess, shareToken, currentUser]);
-  
+
   // Cargar configuración de correo guardada
   const loadEmailSettings = async () => {
     if (!currentUser) return;
-    
+
     try {
       const docRef = doc(db, "settings", currentUser.uid);
       const docSnap = await getDoc(docRef);
-      
+
       if (docSnap.exists() && docSnap.data().emailSettings) {
         setEmailSettings(docSnap.data().emailSettings);
       }
@@ -194,15 +206,15 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
       console.error("Error al cargar configuración de correo:", error);
     }
   };
-  
+
   // Cargar plantillas de notificaciones guardadas
   const loadNotificationTemplates = async () => {
     if (!currentUser) return;
-    
+
     try {
       const docRef = doc(db, "settings", currentUser.uid);
       const docSnap = await getDoc(docRef);
-      
+
       if (docSnap.exists() && docSnap.data().notificationTemplates) {
         setNotificationTemplates(docSnap.data().notificationTemplates);
       }
@@ -210,15 +222,15 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
       console.error("Error al cargar plantillas de notificaciones:", error);
     }
   };
-  
+
   // Guardar configuración de correo y plantillas
   const saveEmailSettingsAndTemplates = async () => {
     if (!currentUser) return;
-    
+
     try {
       const docRef = doc(db, "settings", currentUser.uid);
       const docSnap = await getDoc(docRef);
-      
+
       if (docSnap.exists()) {
         // Actualizar documento existente
         await updateDoc(docRef, {
@@ -232,7 +244,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
           notificationTemplates
         });
       }
-      
+
       toast({
         title: "Configuración guardada",
         description: "La configuración de correo y plantillas se han guardado correctamente",
@@ -247,7 +259,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
       });
     }
   };
-  
+
   // Cargar datos de enlaces compartidos
   useEffect(() => {
     if (currentUser && showSharePanel) {
@@ -259,24 +271,24 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
   useEffect(() => {
     checkBirthdays();
   }, [employees]);
-  
+
   // Enviar notificaciones automáticas de cumpleaños
   useEffect(() => {
     if (todayBirthdays.length > 0 && currentUser) {
       sendAutomaticBirthdayEmails();
     }
   }, [todayBirthdays, emailSettings, currentUser]);
-  
+
   // Función para enviar notificaciones automáticas de cumpleaños
   const sendAutomaticBirthdayEmails = async () => {
     if (!currentUser || todayBirthdays.length === 0) return;
-    
+
     try {
       // Verificar si están habilitadas las notificaciones
       if (!emailSettings.adminEnabled && !emailSettings.clientEnabled) return;
-      
+
       const emailCollection = collection(db, "pendingEmails");
-      
+
       // Obtener registro de correos ya enviados hoy
       const today = format(new Date(), 'yyyy-MM-dd');
       const emailsSentToday = await getDocs(
@@ -285,20 +297,20 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
           where("sentDate", "==", today)
         )
       );
-      
+
       // Lista de IDs de empleados que ya recibieron correo hoy
       const alreadySentToday = emailsSentToday.docs.map(doc => doc.data().employeeId);
-      
+
       // Procesar cada cumpleaños de hoy
       for (const employee of todayBirthdays) {
         if (alreadySentToday.includes(employee.id)) continue;
-        
+
         // Enviar correo al administrador si está habilitado
         if (emailSettings.adminEnabled) {
           const adminTemplate = notificationTemplates.admin.birthday;
           const adminSubject = adminTemplate.subject.replace('{nombre}', employee.nombre);
           const adminMessage = adminTemplate.message.replace('{nombre}', employee.nombre);
-          
+
           await addDoc(emailCollection, {
             to: 'admin@example.com',
             subject: adminSubject,
@@ -310,13 +322,13 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
             sentBy: 'system'
           });
         }
-        
+
         // Enviar correo al usuario de cumpleaños si está habilitado
         if (emailSettings.clientEnabled) {
           const userTemplate = notificationTemplates.client.birthday;
           const userSubject = userTemplate.subject.replace('{nombre}', employee.nombre);
           const userMessage = userTemplate.message.replace('{nombre}', employee.nombre);
-          
+
           await addDoc(emailCollection, {
             to: `${employee.telefono}@example.com`, // Suponer que tenemos correos
             subject: userSubject,
@@ -328,7 +340,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
             sentBy: 'system'
           });
         }
-        
+
         // Registrar que se envió correo a este empleado hoy
         await addDoc(collection(db, "sentEmails"), {
           employeeId: employee.id,
@@ -336,7 +348,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
           timestamp: new Date()
         });
       }
-      
+
       if ((emailSettings.adminEnabled || emailSettings.clientEnabled) && todayBirthdays.length > 0) {
         toast({
           title: "Notificaciones enviadas",
@@ -348,14 +360,14 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
       console.error("Error al enviar notificaciones automáticas:", error);
     }
   };
-  
+
   // Registrar uso del enlace compartido
   const trackShareUsage = async (token: string) => {
     try {
       // Buscar el documento con el token
       const q = query(collection(db, "sharedLinks"), where("token", "==", token));
       const querySnapshot = await getDocs(q);
-      
+
       if (!querySnapshot.empty) {
         const docRef = doc(db, "sharedLinks", querySnapshot.docs[0].id);
         // Incrementar el contador de uso
@@ -367,25 +379,25 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
       console.error("Error registrando uso del enlace:", error);
     }
   };
-  
+
   // Obtener datos de enlaces compartidos
   const fetchShareData = async () => {
     if (!currentUser) return;
-    
+
     setLoadingShareData(true);
     try {
       const q = query(
-        collection(db, "sharedLinks"), 
+        collection(db, "sharedLinks"),
         where("type", "==", "employees"),
         where("createdBy", "==", currentUser.uid)
       );
-      
+
       const querySnapshot = await getDocs(q);
       const shareLinks = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as SharedLinkData[];
-      
+
       setShareData(shareLinks);
     } catch (error) {
       console.error("Error obteniendo datos de enlaces compartidos:", error);
@@ -399,13 +411,13 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
     const today = new Date();
     const todayMonth = today.getMonth() + 1;
     const todayDay = today.getDate();
-    
+
     const birthdaysToday: Employee[] = [];
     const upcomingBirthdays: Employee[] = [];
-    
+
     employees.forEach(employee => {
       if (!employee.cumpleanos) return;
-      
+
       let birthDate;
       if (typeof employee.cumpleanos === 'string') {
         birthDate = new Date(employee.cumpleanos);
@@ -414,33 +426,33 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
       } else {
         return;
       }
-      
+
       const birthMonth = birthDate.getMonth() + 1;
       const birthDay = birthDate.getDate();
-      
+
       // Verificar si es hoy
       if (birthMonth === todayMonth && birthDay === todayDay) {
         birthdaysToday.push(employee);
       }
-      
+
       // Verificar si es en los próximos 15 días
       const nextDate = new Date();
       nextDate.setDate(today.getDate() + 15); // Próximos 15 días
-      
+
       // Crear una fecha con el día y mes del cumpleaños pero en el año actual
       const thisYearBirthday = new Date(today.getFullYear(), birthMonth - 1, birthDay);
-      
+
       // Si el cumpleaños ya pasó este año, considerar para el próximo año
       if (thisYearBirthday < today) {
         thisYearBirthday.setFullYear(today.getFullYear() + 1);
       }
-      
+
       // Si está dentro del rango pero no es hoy
       if (thisYearBirthday > today && thisYearBirthday <= nextDate) {
         upcomingBirthdays.push(employee);
       }
     });
-    
+
     // Ordenar próximos cumpleaños por cercanía
     upcomingBirthdays.sort((a, b) => {
       const getDateFromEmployee = (emp: Employee) => {
@@ -452,26 +464,26 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
         } else {
           return new Date();
         }
-        
+
         // Crear fecha con el año actual
         const thisYear = new Date().getFullYear();
         const result = new Date(thisYear, birthDate.getMonth(), birthDate.getDate());
-        
+
         // Si ya pasó, usar próximo año
         if (result < new Date()) {
           result.setFullYear(thisYear + 1);
         }
-        
+
         return result;
       };
-      
+
       return getDateFromEmployee(a).getTime() - getDateFromEmployee(b).getTime();
     });
-    
+
     // Establecer los estados
     setTodayBirthdays(birthdaysToday);
     setUpcomingBirthdays(upcomingBirthdays);
-    
+
     // Mostrar toast para cumpleaños de hoy
     birthdaysToday.forEach(employee => {
       toast({
@@ -490,12 +502,12 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
       [name]: value
     }));
   };
-  
+
   // Manejar cambios en las plantillas de notificaciones
   const handleTemplateChange = (
-    userType: 'admin' | 'client', 
-    templateType: 'welcome' | 'update' | 'birthday', 
-    field: 'subject' | 'message', 
+    userType: 'admin' | 'client',
+    templateType: 'welcome' | 'update' | 'birthday',
+    field: 'subject' | 'message',
     value: string
   ) => {
     setNotificationTemplates(prev => ({
@@ -509,7 +521,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
       }
     }));
   };
-  
+
   // Manejar cambios en las configuraciones de correo
   const handleEmailSettingsChange = (type: 'adminEnabled' | 'clientEnabled') => {
     setEmailSettings(prev => ({
@@ -517,7 +529,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
       [type]: !prev[type]
     }));
   };
-  
+
   // Enviar correo de cumpleaños manualmente
   const handleSendBirthdayEmail = async (employee: Employee, type: 'admin' | 'user') => {
     if (!currentUser) {
@@ -528,20 +540,20 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
       });
       return;
     }
-    
+
     try {
       // Obtener la plantilla correcta según el tipo
-      const template = type === 'admin' 
-        ? notificationTemplates.admin.birthday 
+      const template = type === 'admin'
+        ? notificationTemplates.admin.birthday
         : notificationTemplates.client.birthday;
-      
+
       // Reemplazar placeholders en el mensaje
       const subject = template.subject.replace('{nombre}', employee.nombre);
       const message = template.message.replace('{nombre}', employee.nombre);
-      
+
       // Crear colección de correos pendientes
       const emailCollection = collection(db, "pendingEmails");
-      
+
       // Añadir el correo a la cola
       await addDoc(emailCollection, {
         to: type === 'admin' ? 'admin@example.com' : employee.telefono + '@example.com', // Suponer que tenemos correos
@@ -553,11 +565,11 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
         employeeId: employee.id,
         sentBy: currentUser.uid
       });
-      
+
       toast({
         title: "Correo enviado",
-        description: type === 'admin' 
-          ? "Se ha notificado al administrador sobre este cumpleaños" 
+        description: type === 'admin'
+          ? "Se ha notificado al administrador sobre este cumpleaños"
           : `Se ha enviado un correo de felicitación a ${employee.nombre}`,
         variant: "default"
       });
@@ -574,7 +586,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
   // Añadir nuevo empleado
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       // Validar campos requeridos
       if (!formData.nombre || !formData.telefono) {
@@ -585,25 +597,25 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
         });
         return;
       }
-      
+
       const docRef = await addDoc(collection(db, "empleados"), {
         ...formData,
         fechaInscripcion: formData.fechaInscripcion || format(new Date(), 'yyyy-MM-dd')
       });
-      
+
       const newEmployee = {
         id: docRef.id,
         ...formData
       };
-      
+
       setEmployees(prev => [...prev, newEmployee].sort((a, b) => a.nombre.localeCompare(b.nombre)));
-      
+
       toast({
         title: "Empleado guardado",
         description: "El empleado se ha registrado correctamente",
         variant: "default"
       });
-      
+
       // Resetear formulario
       setFormData({
         nombre: '',
@@ -616,10 +628,10 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
         fechaInscripcion: format(new Date(), 'yyyy-MM-dd'),
         empleo: ''
       });
-      
+
       // Cerrar formulario
       setShowForm(false);
-      
+
     } catch (error) {
       console.error("Error al guardar el empleado:", error);
       toast({
@@ -633,26 +645,26 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
   // Actualizar empleado
   const handleUpdateEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!editingId) return;
-    
+
     try {
       await updateDoc(doc(db, "empleados", editingId), formData);
-      
-      setEmployees(prev => prev.map(emp => 
+
+      setEmployees(prev => prev.map(emp =>
         emp.id === editingId ? { ...emp, ...formData } : emp
       ));
-      
+
       toast({
         title: "Empleado actualizado",
         description: "Los datos del empleado se actualizaron correctamente",
         variant: "default"
       });
-      
+
       // Salir del modo edición
       setIsEditing(false);
       setEditingId(null);
-      
+
     } catch (error) {
       console.error("Error al actualizar el empleado:", error);
       toast({
@@ -673,7 +685,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
       const date = employee.cumpleanos.toDate();
       cumpleanosFormatted = format(date, 'yyyy-MM-dd');
     }
-    
+
     let fechaInscripcionFormatted = '';
     if (typeof employee.fechaInscripcion === 'string') {
       fechaInscripcionFormatted = employee.fechaInscripcion;
@@ -681,7 +693,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
       const date = employee.fechaInscripcion.toDate();
       fechaInscripcionFormatted = format(date, 'yyyy-MM-dd');
     }
-    
+
     setFormData({
       nombre: employee.nombre,
       telefono: employee.telefono,
@@ -693,7 +705,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
       fechaInscripcion: fechaInscripcionFormatted,
       empleo: employee.empleo || ''
     });
-    
+
     setEditingId(employee.id);
     setIsEditing(true);
     setShowForm(true);
@@ -704,18 +716,18 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
     if (!window.confirm('¿Estás seguro de que deseas eliminar este empleado?')) {
       return;
     }
-    
+
     try {
       await deleteDoc(doc(db, "empleados", id));
-      
+
       setEmployees(prev => prev.filter(emp => emp.id !== id));
-      
+
       toast({
         title: "Empleado eliminado",
         description: "El empleado se ha eliminado correctamente",
         variant: "default"
       });
-      
+
     } catch (error) {
       console.error("Error al eliminar el empleado:", error);
       toast({
@@ -729,7 +741,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
   // Formatear la fecha de cumpleaños para mostrar
   const formatBirthday = (date: string | { toDate?: () => Date } | undefined) => {
     if (!date) return "No especificado";
-    
+
     try {
       if (typeof date === 'string') {
         return format(new Date(date), 'd MMMM', { locale: es });
@@ -763,7 +775,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
             Administra la información de tu equipo de trabajo
           </p>
         </div>
-        
+
         <div className="flex gap-2">
           {currentUser && (
             <>
@@ -775,7 +787,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                 <Share2 className="h-4 w-4 mr-2" />
                 {showSharePanel ? 'Ocultar opciones' : 'Compartir acceso'}
               </Button>
-              
+
               <Button
                 onClick={() => setShowNotificationTemplates(!showNotificationTemplates)}
                 variant="outline"
@@ -786,8 +798,8 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
               </Button>
             </>
           )}
-          
-          <Button 
+
+          <Button
             onClick={() => {
               setShowForm(!showForm);
               if (!showForm) {
@@ -822,15 +834,15 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
           </Button>
         </div>
       </div>
-      
+
       {/* Panel de compartir */}
       {showSharePanel && (
         <>
-          <ShareableLinkGenerator 
-            moduleType="employees" 
-            moduleName="Gestión de Empleados" 
+          <ShareableLinkGenerator
+            moduleType="employees"
+            moduleName="Gestión de Empleados"
           />
-          
+
           {shareData.length > 0 && (
             <Card className="border-blue-200 shadow-md mb-6">
               <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
@@ -849,14 +861,14 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                     shareData.map(link => {
                       const isExpired = link.expiresAt && link.expiresAt.toDate() < new Date();
                       const url = `${window.location.origin}/shared/employees?token=${link.token}`;
-                      
+
                       return (
-                        <div 
-                          key={link.id} 
-                          className={`p-3 border rounded-md ${isExpired 
-                            ? 'border-red-200 bg-red-50' 
+                        <div
+                          key={link.id}
+                          className={`p-3 border rounded-md ${isExpired
+                            ? 'border-red-200 bg-red-50'
                             : 'border-blue-100 bg-blue-50'
-                          }`}
+                            }`}
                         >
                           <div className="flex justify-between items-start">
                             <div>
@@ -886,7 +898,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                               Copiar
                             </Button>
                           </div>
-                          
+
                           <div className="mt-2 flex items-center justify-between text-xs">
                             <div className="space-x-3">
                               <span className="text-blue-700">
@@ -914,7 +926,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
           )}
         </>
       )}
-      
+
       {/* Panel de configuración de correos */}
       {showNotificationTemplates && (
         <Card className="border-blue-200 shadow-md mb-6 overflow-hidden">
@@ -964,7 +976,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                           className="border-blue-200 mt-1"
                         />
                       </div>
-                      
+
                       <div>
                         <Label htmlFor="adminMessage" className="text-sm text-blue-700">Mensaje</Label>
                         <Textarea
@@ -1017,7 +1029,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                           className="border-pink-200 mt-1"
                         />
                       </div>
-                      
+
                       <div>
                         <Label htmlFor="userMessage" className="text-sm text-pink-700">Mensaje</Label>
                         <Textarea
@@ -1076,7 +1088,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                     required
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                     <Phone className="h-4 w-4 text-blue-600" />
@@ -1091,7 +1103,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                     required
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-blue-600" />
@@ -1105,7 +1117,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                     className="border-blue-200 focus:border-blue-400"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                     <Bookmark className="h-4 w-4 text-blue-600" />
@@ -1119,7 +1131,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                     className="border-blue-200 focus:border-blue-400"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                     <Gift className="h-4 w-4 text-blue-600" />
@@ -1133,7 +1145,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                     className="border-blue-200 focus:border-blue-400"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                     <Clock className="h-4 w-4 text-blue-600" />
@@ -1147,7 +1159,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                     className="border-blue-200 focus:border-blue-400"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                     <Film className="h-4 w-4 text-blue-600" />
@@ -1161,7 +1173,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                     className="border-blue-200 focus:border-blue-400"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                     <BookOpen className="h-4 w-4 text-blue-600" />
@@ -1175,7 +1187,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                     className="border-blue-200 focus:border-blue-400"
                   />
                 </div>
-                
+
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                     <Briefcase className="h-4 w-4 text-blue-600" />
@@ -1190,9 +1202,9 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                   />
                 </div>
               </div>
-              
+
               <div className="flex justify-end gap-3 pt-4">
-                <Button 
+                <Button
                   type="button"
                   variant="outline"
                   onClick={() => {
@@ -1205,7 +1217,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                   <X className="h-4 w-4 mr-2" />
                   Cancelar
                 </Button>
-                <Button 
+                <Button
                   type="submit"
                   className="bg-blue-600 hover:bg-blue-700"
                 >
@@ -1226,7 +1238,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
           </CardContent>
         </Card>
       )}
-      
+
       {/* Sección de cumpleaños */}
       {!loading && (todayBirthdays.length > 0 || upcomingBirthdays.length > 0) && (
         <Card className="border-blue-200 shadow-md mb-6 overflow-hidden">
@@ -1244,12 +1256,12 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                   <Gift className="h-4 w-4" />
                   Cumpleaños Hoy
                 </h3>
-                
+
                 {todayBirthdays.length === 0 ? (
                   <p className="text-gray-500 italic text-sm">No hay cumpleaños hoy</p>
                 ) : (
                   todayBirthdays.map(employee => (
-                    <div 
+                    <div
                       key={`today-${employee.id}`}
                       className="bg-gradient-to-r from-pink-50 to-pink-100 rounded-lg p-4 shadow-sm border border-pink-200"
                     >
@@ -1268,8 +1280,8 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                         </div>
                       </div>
                       <div className="mt-3 flex justify-end gap-2">
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => handleSendBirthdayEmail(employee, 'admin')}
                           className="text-xs h-7 border-blue-200 text-blue-700 hover:bg-blue-50"
@@ -1277,7 +1289,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                           <Mail className="h-3 w-3 mr-1" />
                           Notificar admin
                         </Button>
-                        <Button 
+                        <Button
                           size="sm"
                           onClick={() => handleSendBirthdayEmail(employee, 'user')}
                           className="text-xs h-7 bg-pink-600 hover:bg-pink-700"
@@ -1290,14 +1302,14 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                   ))
                 )}
               </div>
-              
+
               {/* Próximos cumpleaños */}
               <div className="space-y-3">
                 <h3 className="font-semibold text-lg text-blue-700 flex items-center gap-2 border-b border-blue-100 pb-2">
                   <Calendar className="h-4 w-4" />
                   Próximos Cumpleaños
                 </h3>
-                
+
                 {upcomingBirthdays.length === 0 ? (
                   <p className="text-gray-500 italic text-sm">No hay cumpleaños próximos</p>
                 ) : (
@@ -1309,20 +1321,20 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                     } else if (employee.cumpleanos?.toDate && typeof employee.cumpleanos.toDate === 'function') {
                       birthDate = employee.cumpleanos.toDate();
                     }
-                    
+
                     const today = new Date();
                     const thisYear = today.getFullYear();
                     const nextBirthday = new Date(thisYear, birthDate?.getMonth() || 0, birthDate?.getDate() || 0);
-                    
+
                     // Si ya pasó este año, usar el próximo año
                     if (nextBirthday < today) {
                       nextBirthday.setFullYear(thisYear + 1);
                     }
-                    
+
                     const daysUntilBirthday = Math.ceil((nextBirthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                    
+
                     return (
-                      <div 
+                      <div
                         key={`upcoming-${employee.id}`}
                         className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-3 shadow-sm border border-blue-200"
                       >
@@ -1346,7 +1358,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                     );
                   })
                 )}
-                
+
                 {upcomingBirthdays.length > 5 && (
                   <p className="text-xs text-blue-600 text-center mt-2">
                     + {upcomingBirthdays.length - 5} cumpleaños próximos más
@@ -1386,15 +1398,14 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
           {employees.map(employee => {
             // Determinar si está de cumpleaños hoy
             const isBirthdayToday = todayBirthdays.some(e => e.id === employee.id);
-            
+
             return (
-              <Card 
-                key={employee.id} 
-                className={`${
-                  isBirthdayToday 
-                    ? 'border-pink-300 bg-gradient-to-r from-pink-50 to-white' 
+              <Card
+                key={employee.id}
+                className={`${isBirthdayToday
+                    ? 'border-pink-300 bg-gradient-to-r from-pink-50 to-white'
                     : 'border-blue-100 hover:border-blue-300'
-                } shadow hover:shadow-md transition-all duration-300`}
+                  } shadow hover:shadow-md transition-all duration-300`}
               >
                 <CardContent className="p-6">
                   <div className="flex justify-between items-start mb-4">
@@ -1412,17 +1423,17 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                       )}
                     </div>
                     <div className="flex gap-1">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => startEditing(employee)}
                         className="h-8 w-8 text-blue-600 hover:text-blue-800 hover:bg-blue-100"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleDeleteEmployee(employee.id)}
                         className="h-8 w-8 text-red-600 hover:text-red-800 hover:bg-red-100"
                       >
@@ -1430,18 +1441,18 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                       </Button>
                     </div>
                   </div>
-                  
+
                   <div className="flex flex-col gap-3">
                     {/* Línea divisoria con degradado */}
                     <div className={`h-0.5 w-full ${isBirthdayToday ? 'bg-gradient-to-r from-pink-200 to-transparent' : 'bg-gradient-to-r from-blue-100 to-transparent'}`}></div>
-                    
+
                     {/* Información principal */}
                     <div className="grid grid-cols-2 gap-2 mb-2">
                       <div className="flex items-center rounded-lg bg-gray-50 p-2">
                         <Phone className={`h-4 w-4 ${isBirthdayToday ? 'text-pink-600' : 'text-blue-600'} mr-2`} />
                         <span className="text-sm text-gray-700 truncate">{employee.telefono}</span>
                       </div>
-                      
+
                       <div className="flex items-center rounded-lg bg-gray-50 p-2">
                         <Gift className={`h-4 w-4 ${isBirthdayToday ? 'text-pink-600' : 'text-blue-600'} mr-2`} />
                         <span className="text-sm text-gray-700 truncate">
@@ -1449,7 +1460,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                         </span>
                       </div>
                     </div>
-                    
+
                     {/* Dirección completa si existe */}
                     {employee.direccion && (
                       <div className="flex items-start rounded-lg bg-gray-50 p-2">
@@ -1464,7 +1475,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                         </div>
                       </div>
                     )}
-                    
+
                     {/* Contenedor para preferencias */}
                     <div className={`rounded-lg p-3 ${isBirthdayToday ? 'bg-pink-50 border border-pink-100' : 'bg-blue-50 border border-blue-100'}`}>
                       <h4 className={`text-xs font-medium mb-2 ${isBirthdayToday ? 'text-pink-700' : 'text-blue-700'}`}>
@@ -1473,17 +1484,17 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                       <div className="grid grid-cols-2 gap-2">
                         <div className="flex flex-col">
                           <span className={`text-xs ${isBirthdayToday ? 'text-pink-600' : 'text-blue-600'}`}>
-                            <Film className="h-3.5 w-3.5 inline-block mr-1" /> 
+                            <Film className="h-3.5 w-3.5 inline-block mr-1" />
                             Película
                           </span>
                           <span className="text-sm truncate">
                             {employee.pelicula || "No especificado"}
                           </span>
                         </div>
-                        
+
                         <div className="flex flex-col">
                           <span className={`text-xs ${isBirthdayToday ? 'text-pink-600' : 'text-blue-600'}`}>
-                            <BookOpen className="h-3.5 w-3.5 inline-block mr-1" /> 
+                            <BookOpen className="h-3.5 w-3.5 inline-block mr-1" />
                             Libro
                           </span>
                           <span className="text-sm truncate">
@@ -1492,16 +1503,16 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ isSharedAccess = fals
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Pie de la tarjeta */}
                     <div className="flex justify-end mt-1">
                       {employee.fechaInscripcion && (
                         <span className="text-xs text-gray-500 flex items-center">
                           <Calendar className={`h-3.5 w-3.5 ${isBirthdayToday ? 'text-pink-500' : 'text-blue-500'} mr-1`} />
-                          Desde: {typeof employee.fechaInscripcion === 'string' 
+                          Desde: {typeof employee.fechaInscripcion === 'string'
                             ? new Date(employee.fechaInscripcion).toLocaleDateString()
-                            : employee.fechaInscripcion?.toDate?.() 
-                              ? employee.fechaInscripcion.toDate().toLocaleDateString() 
+                            : employee.fechaInscripcion?.toDate?.()
+                              ? employee.fechaInscripcion.toDate().toLocaleDateString()
                               : "Fecha no disponible"}
                         </span>
                       )}

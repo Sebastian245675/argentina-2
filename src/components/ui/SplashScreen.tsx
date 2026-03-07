@@ -402,7 +402,7 @@ const SplashScreen = () => {
               transition={{ duration: 8, repeat: Infinity }}
               style={{ backgroundSize: '200% auto' }}
             >
-              REGALA ALGO
+              VISFUM
             </motion.div>
             
             <motion.div 
@@ -763,7 +763,7 @@ const SplashScreen = () => {
             />
           </div>
           
-          {/* Texto de REGALA ALGO */}
+          {/* Texto de VISFUM */}
           <motion.div 
             className="absolute bottom-24 left-0 w-full text-center"
             initial={{ opacity: 0, y: 20 }}
@@ -779,7 +779,7 @@ const SplashScreen = () => {
                 scale: { duration: 0.5, delay: 1.2 }
               }}
             >
-              REGALA ALGO
+              VISFUM
             </motion.div>
             
             <motion.div 

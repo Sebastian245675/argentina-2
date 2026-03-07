@@ -32,7 +32,7 @@ const Index = () => {
                     <div className="w-8 h-8 gradient-orange rounded-lg flex items-center justify-center">
                       <span className="text-white font-bold text-sm">T</span>
                     </div>
-                    <span className="text-lg font-bold gradient-text-orange">REGALA ALGO</span>
+                    <span className="text-lg font-bold gradient-text-orange">VISFUM</span>
                   </div>
                   <p className="text-muted-foreground text-sm">
                     Tu tienda premium con los mejores productos y atención personalizada.
@@ -62,7 +62,7 @@ const Index = () => {
                 <div>
                   <h4 className="font-semibold mb-4">Contacto</h4>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li>WhatsApp: +54 3873439775</li>
+                    <li>WhatsApp: 11 2671-1308</li>
                     <li>Email: Regalo.Algo@gmail.com</li>
                     <li>Horario: 8AM - 8PM</li>
                   </ul>
@@ -70,7 +70,7 @@ const Index = () => {
               </div>
               
               <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
-                <p>&copy; 2024 REGALA ALGO. Todos los derechos reservados.</p>
+                <p>&copy; 2024 VISFUM. Todos los derechos reservados.</p>
               </div>
             </div>
           </footer>

@@ -3,6 +3,11 @@ import App from './App.tsx'
 import './index.css'
 import './styles/scroll-optimization.css'
 import { preventAutomaticTranslation } from './lib/translation-blocker'
+import { initMercadoPago } from '@mercadopago/sdk-react'
+
+// Inicializar Mercado Pago
+const MP_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || 'APP_USR-a4c9fa9b-cf26-439f-98fb-e832b68466f7';
+initMercadoPago(MP_PUBLIC_KEY, { locale: 'es-AR' });
 
 // Prevenir traducción automática para evitar problemas de UI
 preventAutomaticTranslation();

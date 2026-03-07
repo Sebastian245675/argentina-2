@@ -1,5 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs } from "firebase/firestore";
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { db } from "@/firebase";
 
 export interface Category {
@@ -20,7 +19,12 @@ export function useCategories() {
     const fetchCategories = async () => {
       setLoading(true);
       try {
-        const querySnapshot = await getDocs(collection(db, "categories"));
+        const { data: categoriesData, error } = await db
+          .from('categories')
+          .select('*');
+        
+        if (error) throw error;
+        
         // Obtener todas las categorías y procesarlas
         const todosCategory = { 
           id: "todos", 
@@ -29,20 +33,18 @@ export function useCategories() {
           isMain: true 
         };
 
-        const firebaseCats = querySnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            name: data.name,
-            image: data.image,
-            parentId: data.parentId,
-            parentName: data.parentName,
+        const processedCats = [
+          todosCategory,
+          ...(categoriesData || []).map((cat: any) => ({
+            id: cat.id,
+            name: cat.name,
+            image: cat.image,
+            parentId: cat.parent_id,
+            parentName: cat.parent_name,
             // Es categoría principal si no tiene parentId o está vacío
-            isMain: !data.parentId || data.parentId === ""
-          };
-        });
-
-        const processedCats = [todosCategory, ...firebaseCats];
+            isMain: !cat.parent_id || cat.parent_id === ""
+          }))
+        ];
 
         setCategoriesData(processedCats);
         
@@ -67,28 +69,94 @@ export function useCategories() {
     return categoriesData.filter(cat => cat.isMain);
   }, [categoriesData]);
 
-  // Subcategorías agrupadas por categoría principal
+  // Subcategorías agrupadas por categoría principal (key = nombre del padre)
+  // Usar parent.id para obtener el nombre real del padre (más fiable que parentName)
   const subcategoriesByParent = useMemo(() => {
+    const mainCats = categoriesData.filter(c => c.isMain && c.id && c.id !== "todos");
+    const mainIds = new Set(mainCats.map(c => c.id!));
+    const mainById = Object.fromEntries(mainCats.map(c => [c.id!, c]));
     const result: Record<string, Category[]> = {};
-    
     categoriesData.forEach(cat => {
-      if (cat.parentId && cat.parentName) {
-        if (!result[cat.parentName]) {
-          result[cat.parentName] = [];
+      if (cat.parentId && mainIds.has(cat.parentId)) {
+        const parent = mainById[cat.parentId];
+        const parentName = parent?.name;
+        if (parentName) {
+          if (!result[parentName]) result[parentName] = [];
+          result[parentName].push(cat);
         }
-        result[cat.parentName].push(cat);
       }
     });
-    
     return result;
   }, [categoriesData]);
 
-  return { 
-    categories, 
-    categoriesData, 
+  // Terceras categorías agrupadas por subcategoría (key = sub id, por parent_id)
+  const thirdLevelBySubcategory = useMemo(() => {
+    const mainIds = new Set(
+      categoriesData.filter(c => c.isMain && c.id && c.id !== "todos").map(c => c.id!)
+    );
+    const subIds = new Set(
+      categoriesData
+        .filter(c => c.parentId && mainIds.has(c.parentId))
+        .map(c => c.id!)
+    );
+    const result: Record<string, Category[]> = {};
+    categoriesData
+      .filter(c => c.id && c.id !== "todos")
+      .forEach(cat => {
+        if (cat.parentId && subIds.has(cat.parentId)) {
+          const key = cat.parentId;
+          if (!result[key]) result[key] = [];
+          result[key].push(cat);
+        }
+      });
+    return result;
+  }, [categoriesData]);
+
+  const categoriesById = useMemo(() => {
+    const m: Record<string, Category> = {};
+    categoriesData.forEach((c) => {
+      if (c.id) m[c.id] = c;
+    });
+    return m;
+  }, [categoriesData]);
+
+  const categoriesByName = useMemo(() => {
+    const m: Record<string, Category> = {};
+    categoriesData.forEach((c) => {
+      m[c.name] = c;
+    });
+    return m;
+  }, [categoriesData]);
+
+  const getCategoryById = useCallback((id: string) => categoriesById[id], [categoriesById]);
+  const getCategoryByName = useCallback((name: string) => categoriesByName[name], [categoriesByName]);
+
+  const getBreadcrumbPath = useCallback(
+    (categoryName: string): string[] => {
+      if (!categoryName || categoryName === "Todos") return [];
+      const path: string[] = [];
+      let cat = categoriesByName[categoryName];
+      while (cat) {
+        path.unshift(cat.name);
+        cat = cat.parentId ? categoriesById[cat.parentId] : undefined;
+      }
+      if (path.length) path.unshift("Inicio");
+      else path.push("Inicio", categoryName);
+      return path;
+    },
+    [categoriesByName, categoriesById]
+  );
+
+  return {
+    categories,
+    categoriesData,
     mainCategories,
     subcategoriesByParent,
-    loading, 
-    setCategories 
+    thirdLevelBySubcategory,
+    getCategoryById,
+    getCategoryByName,
+    getBreadcrumbPath,
+    loading,
+    setCategories,
   };
 }

@@ -1,9 +1,18 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
-const cors = require('cors')({ origin: true });
+const cors = require('cors')({
+  origin: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+});
+const { MercadoPagoConfig, Preference } = require('mercadopago');
 
 admin.initializeApp();
+
+const mpClient = new MercadoPagoConfig({
+  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || 'APP_USR-8082943511700817-030508-69f017ff1dbb9cfd758e54290ba6953f-439164010'
+});
 
 // Para desarrollo local, puedes usar servicios como Mailtrap o EmailJS
 // Para producción, considera usar SendGrid, Mailgun, o Amazon SES
@@ -19,7 +28,8 @@ try {
     service: process.env.EMAIL_SERVICE || 'gmail',
     auth: {
       user: process.env.EMAIL_USER || 'j24291972@gmail.com',
-pass: process.env.EMAIL_PASSWORD || 'ufxx grvv atvb jued'    }
+      pass: process.env.EMAIL_PASSWORD || 'ufxx grvv atvb jued'
+    }
   });
 } catch (error) {
   console.error('Error configurando transporte de email:', error);
@@ -84,9 +94,9 @@ exports.sendWelcomeEmail = functions.auth.user().onCreate(async (user) => {
     // Obtener datos adicionales del usuario desde Firestore
     const userDoc = await admin.firestore().collection('users').doc(user.uid).get();
     const userData = userDoc.data() || {};
-    
+
     const userName = userData.name || user.displayName || user.email.split('@')[0];
-    
+
     // Configurar el mensaje
     const mailOptions = {
       from: `"REGALA ALGO" <${process.env.EMAIL_USER || 'noreply@regalaalgo.com'}>`,
@@ -108,7 +118,7 @@ exports.sendWelcomeEmail = functions.auth.user().onCreate(async (user) => {
     return await transporter.sendMail(mailOptions);
   } catch (error) {
     console.error('Error al enviar correo de bienvenida:', error);
-    
+
     // Registrar el error
     await admin.firestore().collection('email_logs').add({
       userId: user?.uid || 'unknown',
@@ -118,7 +128,7 @@ exports.sendWelcomeEmail = functions.auth.user().onCreate(async (user) => {
       success: false,
       error: error.message
     });
-    
+
     return null;
   }
 });
@@ -166,7 +176,7 @@ exports.sendRegistrationEmail = functions.https.onCall(async (data, context) => 
 
     // Registrar intento de envío
     const logRef = admin.firestore().collection('email_logs').doc();
-    
+
     await logRef.set({
       id: logRef.id,
       email: email,
@@ -177,21 +187,21 @@ exports.sendRegistrationEmail = functions.https.onCall(async (data, context) => 
 
     // Enviar el correo
     const info = await transporter.sendMail(mailOptions);
-    
+
     // Actualizar log con éxito
     await logRef.update({
       status: 'sent',
       messageId: info.messageId
     });
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       message: 'Correo enviado correctamente',
       messageId: info.messageId
     };
   } catch (error) {
     console.error('Error al enviar correo de registro:', error);
-    
+
     // Registrar error
     if (logRef) {
       await logRef.update({
@@ -199,13 +209,69 @@ exports.sendRegistrationEmail = functions.https.onCall(async (data, context) => 
         error: error.message
       });
     }
-    
+
     throw new functions.https.HttpsError(
-      'internal', 
-      'Error al enviar el correo', 
+      'internal',
+      'Error al enviar el correo',
       error.message
     );
   }
+});
+
+// Función para crear preferencia de Mercado Pago
+exports.createPreference = functions.https.onRequest((req, res) => {
+  // Cabeceras explícitas para evitar errores de CORS en el navegador
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  cors(req, res, async () => {
+    if (req.method !== 'POST') {
+      res.status(405).send('Method Not Allowed');
+      return;
+    }
+
+    try {
+      const { items, payer, external_reference } = req.body;
+
+      if (!items || !items.length) {
+        res.status(400).send({ error: 'Items son requeridos' });
+        return;
+      }
+
+      const preference = new Preference(mpClient);
+
+      const response = await preference.create({
+        body: {
+          items: items.map(item => ({
+            id: item.id,
+            title: item.title,
+            unit_price: Number(item.unit_price),
+            quantity: Number(item.quantity),
+            currency_id: 'ARS'
+          })),
+          payer: payer,
+          external_reference: external_reference,
+          back_urls: {
+            success: 'https://tienda-arg.web.app/success',
+            failure: 'https://tienda-arg.web.app/cart',
+            pending: 'https://tienda-arg.web.app/cart'
+          },
+          auto_return: 'approved'
+        }
+      });
+
+      res.status(200).send({ id: response.id, init_point: response.init_point });
+    } catch (error) {
+      console.error('Error creando preferencia MP:', error);
+      res.status(500).send({ error: error.message });
+    }
+  });
 });
 
 // Endpoint HTTP para pruebas de correo (solo para desarrollo)
@@ -216,20 +282,20 @@ exports.testEmail = functions.https.onRequest((req, res) => {
       res.status(405).send('Method Not Allowed');
       return;
     }
-    
+
     try {
       const { email, name } = req.body;
-      
+
       if (!email || !name) {
         res.status(400).send({ error: 'Email y nombre son requeridos' });
         return;
       }
-      
+
       if (!transporter) {
         res.status(500).send({ error: 'Servicio de correo no configurado' });
         return;
       }
-      
+
       // Enviar correo de prueba
       const mailOptions = {
         from: `"REGALA ALGO Test" <${process.env.EMAIL_USER || 'test@regalaalgo.com'}>`,
@@ -237,9 +303,9 @@ exports.testEmail = functions.https.onRequest((req, res) => {
         subject: '[PRUEBA] Bienvenido a REGALA ALGO',
         html: createWelcomeEmailHTML(name)
       };
-      
+
       const info = await transporter.sendMail(mailOptions);
-      
+
       res.status(200).send({
         success: true,
         message: 'Correo de prueba enviado',

@@ -51,19 +51,20 @@ export const useCart = () => {
   return context;
 };
 
+const loadCartFromStorage = (): CartItem[] => {
+  try {
+    const saved = localStorage.getItem('cart');
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [items, setItems] = useState<CartItem[]>([]);
+  // Inicializar desde localStorage para que no se sobrescriba con [] al guardar
+  const [items, setItems] = useState<CartItem[]>(loadCartFromStorage);
 
   useEffect(() => {
-    // Cargar carrito desde localStorage
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      setItems(JSON.parse(savedCart));
-    }
-  }, []);
-
-  useEffect(() => {
-    // Guardar carrito en localStorage cuando cambie
     localStorage.setItem('cart', JSON.stringify(items));
   }, [items]);
 

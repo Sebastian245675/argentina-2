@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { collection, query, where, getDocs, DocumentData, Query, QuerySnapshot } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { useCache } from '@/contexts/CacheContext';
 
@@ -14,15 +13,15 @@ interface UseFirestoreQueryOptions {
 }
 
 /**
- * Hook personalizado para consultar Firestore con caché
+ * Hook personalizado para consultar Supabase (ex-Firestore) con caché
  * 
- * Este hook optimiza las consultas a Firestore almacenando los resultados en caché
+ * Este hook optimiza las consultas a Supabase almacenando los resultados en caché
  * para reducir las llamadas a la base de datos y mejorar el rendimiento.
  * 
  * @param options Opciones para la consulta
  * @returns Objeto con los datos, estado de carga y errores
  */
-export function useFirestoreQuery<T = DocumentData>({
+export function useFirestoreQuery<T = any>({
   collectionName,
   queryConstraints = [],
   cacheKey,
@@ -33,20 +32,20 @@ export function useFirestoreQuery<T = DocumentData>({
   const [data, setData] = useState<T[] | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
-  
+
   // Hook de caché
   const cache = useCache();
-  
+
   // Generar clave de caché automáticamente si no se proporciona
-  const effectiveCacheKey = cacheKey || 
-    `firestore_${collectionName}_${JSON.stringify(queryConstraints)}`;
-  
+  const effectiveCacheKey = cacheKey ||
+    `supabase_${collectionName}_${JSON.stringify(queryConstraints)}`;
+
   // Función para ejecutar la consulta
   const executeQuery = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Verificar caché primero si no se omite
       if (!skipCache) {
         const cachedData = cache.get<T[]>(effectiveCacheKey);
@@ -56,21 +55,18 @@ export function useFirestoreQuery<T = DocumentData>({
           return;
         }
       }
-      
-      // Crear y ejecutar la consulta
-      const q = queryConstraints.length > 0
-        ? query(collection(db, collectionName), ...queryConstraints)
-        : collection(db, collectionName);
-      
-      const snapshot = await getDocs(q);
-      const results = snapshot.docs.map(doc => ({ 
-        id: doc.id,
-        ...doc.data() 
-      })) as T[];
-      
+
+      // Ejecutar la consulta en Supabase
+      // db es el cliente de Supabase re-exportado desde @/firebase
+      const { data: results, error: queryError } = await db
+        .from(collectionName)
+        .select('*');
+
+      if (queryError) throw queryError;
+
       // Guardar resultados
-      setData(results);
-      
+      setData(results as T[]);
+
       // Almacenar en caché si no se omite
       if (!skipCache) {
         cache.set(effectiveCacheKey, results);
@@ -81,19 +77,19 @@ export function useFirestoreQuery<T = DocumentData>({
     } finally {
       setLoading(false);
     }
-  }, [collectionName, cache, effectiveCacheKey, skipCache, ...queryConstraints, ...dependencies]);
-  
+  }, [collectionName, cache, effectiveCacheKey, skipCache, ...dependencies]);
+
   useEffect(() => {
     executeQuery();
   }, [executeQuery]);
-  
+
   // Función para refrescar los datos (útil para actualizaciones manuales)
   const refresh = useCallback(async () => {
     // Eliminar de la caché para forzar una recarga
     cache.remove(effectiveCacheKey);
     await executeQuery();
   }, [cache, effectiveCacheKey, executeQuery]);
-  
+
   return {
     data,
     loading,

@@ -110,13 +110,6 @@ export const ProductForm: React.FC = () => {
   // This is now handled by the useMemo implementation later in the code
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      setLoadingProducts(true);
-      const querySnapshot = await getDocs(collection(db, "products"));
-      setProducts(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setLoadingProducts(false);
-    };
-
     const fetchCategories = async () => {
       try {
         // Get all categories
@@ -143,8 +136,41 @@ export const ProductForm: React.FC = () => {
     };
 
     fetchCategories();
-    fetchProducts();
   }, [user]);
+
+  // Efecto para cargar productos cuando las categorías estén disponibles
+  useEffect(() => {
+    const fetchProducts = async () => {
+      if (categories.length === 0) return; // Esperar a que las categorías se carguen
+      
+      setLoadingProducts(true);
+      const querySnapshot = await getDocs(collection(db, "products"));
+      const productsData = querySnapshot.docs.map(doc => {
+        const productData = { id: doc.id, ...doc.data() } as any;
+        
+        // Mapear nombres de categorías desde el array de categorías
+        const categoryId = productData.category_id ?? productData.category ?? '';
+        const subcategoryId = productData.subcategory ?? '';
+        const terceraCategoriaId = productData.terceraCategoria ?? productData.tercera_categoria ?? '';
+        
+        const categoryObj = categories.find(cat => cat.id === categoryId);
+        const subcategoryObj = categories.find(cat => cat.id === subcategoryId);
+        const terceraCategoriaObj = categories.find(cat => cat.id === terceraCategoriaId);
+        
+        return {
+          ...productData,
+          categoryName: categoryObj?.name || productData.categoryName || productData.category_name || (categoryId && categoryId.length > 20 ? 'Categoría no encontrada' : categoryId),
+          subcategoryName: subcategoryObj?.name || productData.subcategoryName || productData.subcategory_name || (subcategoryId && subcategoryId.length > 20 ? null : subcategoryId),
+          terceraCategoriaName: terceraCategoriaObj?.name || productData.terceraCategoriaName || productData.tercera_categoria_name || null,
+        };
+      });
+      
+      setProducts(productsData);
+      setLoadingProducts(false);
+    };
+
+    fetchProducts();
+  }, [categories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -669,35 +695,45 @@ export const ProductForm: React.FC = () => {
                       <div className="flex-1">
                         <h4 className="font-bold text-lg">{product.name}</h4>
                         <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{product.description}</p>
-                        <div className="flex items-center gap-3 mt-2">
-                          <div className="flex flex-wrap gap-1">
-                            <Badge variant="outline" className="font-medium bg-orange-50 text-orange-700 border-orange-200">
-                              <span className="text-xs text-gray-500 mr-1">Categoría:</span> {product.categoryName || product.category}
-                            </Badge>
+                        <div className="mt-3 space-y-2">
+                          {/* Primera fila: Categorías */}
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-gray-500 font-medium">Categoría:</span>
+                              <span className="text-gray-900 font-semibold">{product.categoryName || product.category || 'Sin categoría'}</span>
+                            </div>
                             {product.subcategoryName && (
-                              <div className="flex items-center">
-                                <svg className="h-3 w-3 text-gray-400 mx-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                                <Badge variant="outline" className="font-medium bg-blue-50 text-blue-700 border-blue-200">
-                                  <span className="text-xs text-gray-500 mr-1">Subcategoría:</span> {product.subcategoryName}
-                                </Badge>
-                              </div>
+                              <>
+                                <span className="text-gray-300">|</span>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <span className="text-gray-500 font-medium">Subcategoría:</span>
+                                  <span className="text-gray-900 font-semibold">{product.subcategoryName}</span>
+                                </div>
+                              </>
                             )}
                           </div>
-                          <span className="text-lg font-bold text-green-600">
-                            ${product.price.toLocaleString()}
-                          </span>
-                          <Badge className={cn(
-                            stockStatus.color, 
-                            "flex items-center gap-1"
-                          )}>
-                            <span className={cn(
-                              "w-2 h-2 rounded-full",
-                              stockStatus.text === "En Stock" ? "bg-green-400" : 
-                              stockStatus.text === "Stock Bajo" ? "bg-yellow-400" : 
-                              "bg-red-400"
-                            )}></span>
-                            {stockStatus.text}: {product.stock}
-                          </Badge>
+                          
+                          {/* Segunda fila: Precio */}
+                          <div className="flex items-center gap-4 flex-wrap">
+                            <span className="text-2xl font-bold text-green-600">${product.price.toLocaleString()}</span>
+                          </div>
+                          
+                          {/* Tercera fila: Estado y Stock */}
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <div className={cn(
+                              "flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium",
+                              stockStatus.text === "En Stock" ? "bg-green-100 text-green-800" : 
+                              stockStatus.text === "Stock Bajo" ? "bg-yellow-100 text-yellow-800" : 
+                              "bg-red-100 text-red-800"
+                            )}>
+                              <span className={cn(
+                                "w-1.5 h-1.5 rounded-full",
+                                stockStatus.text === "En Stock" ? "bg-green-500" : 
+                                stockStatus.text === "Stock Bajo" ? "bg-yellow-500" : 
+                                "bg-red-500"
+                              )}></span>
+                              {stockStatus.text}: {product.stock}
+                            </div>
                           {product.lastModified && (
                             <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 ml-2">
                               <CustomClock className="h-3 w-3 mr-1 opacity-70" />

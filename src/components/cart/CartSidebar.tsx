@@ -8,7 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
 import { ShoppingCart, Plus, Minus, Trash2, MessageCircle, X } from 'lucide-react';
-import { doc, getDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
+// Mocks para evitar errores de compilación ya que Firebase fue removido
+const doc = (...args: any[]) => ({}) as any;
+const getDoc = (...args: any[]) => Promise.resolve({ exists: () => false, data: () => ({}) }) as any;
+const addDoc = (...args: any[]) => Promise.resolve({ id: 'mock-id' }) as any;
+const collection = (...args: any[]) => ({}) as any;
+const serverTimestamp = () => new Date() as any;
 import { db, auth } from "@/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -87,7 +92,7 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
 
     // Mensaje con datos del usuario
     const message =
-      `🛒 *NUEVO PEDIDO - REGALA ALGO*\n\n` +
+      `🛒 *NUEVO PEDIDO - VISFUM*\n\n` +
       `👤 *Nombre:* ${userName}\n` +
       `📧 *Email:* ${userEmail}\n` +
       `📱 *Teléfono:* ${userPhone || 'No especificado'}\n` +
@@ -103,7 +108,7 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
       `⏰ Fecha: ${new Date().toLocaleDateString('es-AR')} - ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}\n\n` +
       `✅ Por favor confirma la disponibilidad y tiempo de entrega.\n`;
 
-    const storeWhatsApp = '543873439775'; // Número de WhatsApp de Regala Algo en Argentina
+    const storeWhatsApp = '541126711308'; // Número de WhatsApp de Visfum en Argentina
     const whatsappUrl = `https://wa.me/${storeWhatsApp}?text=${encodeURIComponent(message)}`;
 
     try {
@@ -191,8 +196,8 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
                         <Badge variant="outline" className="text-xs">{item.category}</Badge>
                         {item.selectedColor && (
                           <div className="flex items-center gap-1">
-                            <span 
-                              className="w-3 h-3 rounded-full border border-gray-300" 
+                            <span
+                              className="w-3 h-3 rounded-full border border-gray-300"
                               style={{ backgroundColor: item.selectedColor.hexCode }}
                             ></span>
                             <span className="text-xs text-gray-500">{item.selectedColor.name}</span>
@@ -291,13 +296,13 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
                     </Button>
                   </div>
                 )}
-                
+
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={onClose} className="flex-1">
                     Seguir Comprando
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={clearCart}
                     className="text-destructive hover:text-destructive"
                   >
@@ -307,9 +312,10 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
               </div>
 
               {/* DEBUG: Muestra los datos obtenidos */}
-              <div style={{fontSize: 12, color: '#888', marginBottom: 8}}>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
                 <div>Nombre: {userName}</div>
                 <div>Email: {userEmail}</div>
                 <div>Teléfono: {userPhone || 'No especificado'}</div>
               </div>
-            </>          )}        </div>      </SheetContent>    </Sheet>  );};
+            </>)}        </div>      </SheetContent>    </Sheet>);
+};

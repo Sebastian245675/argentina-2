@@ -1,6 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
-import { collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '@/firebase';
+
+// Tipos y mocks simulados para evitar errores de compilación si no se usa Firebase
+type Unsubscribe = () => void;
+const collection = (...args: any[]) => ({}) as any;
+const query = (...args: any[]) => ({}) as any;
+const onSnapshot = (...args: any[]) => (() => { }) as any;
 
 export interface StockNotification {
   id: string;
@@ -52,6 +57,7 @@ const loadNotificationsFromStorage = (): StockNotification[] => {
 };
 
 export const useStockNotifications = () => {
+  const isSupabase = typeof (db as any)?.from === 'function';
   const [notifications, setNotifications] = useState<StockNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const previousStockRef = useRef<Map<string, number>>(new Map());
@@ -77,201 +83,22 @@ export const useStockNotifications = () => {
   }, [notifications]);
 
   useEffect(() => {
-    // OPTIMIZACIÓN: Usar debouncing y procesamiento eficiente para mejorar rendimiento
-    let processingTimeout: NodeJS.Timeout | null = null;
-    let batchChanges: Array<{productId: string, product: any}> = [];
-    
-    const processBatch = () => {
-      if (batchChanges.length === 0) return;
-      
-      const newNotifications: StockNotification[] = [];
-      const currentStocks = new Map<string, number>();
-      
-      // Procesar cambios en batch
-      batchChanges.forEach(({ productId, product }) => {
-        let stock = product.stock;
-        if (stock === undefined || stock === null) {
-          stock = product.quantity || product.cantidad || 0;
-        }
-        stock = Number(stock) || 0;
-        currentStocks.set(productId, stock);
-        
-        const previousStock = previousStockRef.current.get(productId);
-        
-        // Solo procesar si el stock es bajo/agotado o cambió significativamente
-        if (stock === 0 || stock < STOCK_LOW_THRESHOLD || 
-            (previousStock !== undefined && previousStock !== stock && 
-             (previousStock === 0 || previousStock < STOCK_LOW_THRESHOLD || stock === 0 || stock < STOCK_LOW_THRESHOLD))) {
-          
-          if (previousStock !== undefined && previousStock !== stock) {
-            if (stock === 0 && previousStock > 0) {
-              newNotifications.push({
-                id: generateNotificationId(productId, 'out_of_stock'),
-                productId,
-                productName: product.name || 'Producto sin nombre',
-                type: 'out_of_stock',
-                stock: 0,
-                timestamp: new Date(),
-                read: false,
-              });
-            } else if (stock > 0 && stock < STOCK_LOW_THRESHOLD && previousStock >= STOCK_LOW_THRESHOLD) {
-              newNotifications.push({
-                id: generateNotificationId(productId, 'low_stock'),
-                productId,
-                productName: product.name || 'Producto sin nombre',
-                type: 'low_stock',
-                stock,
-                timestamp: new Date(),
-                read: false,
-              });
-            }
-          }
-        }
-        
-        previousStockRef.current.set(productId, stock);
-      });
-      
-      batchChanges = [];
-      
-      // Actualizar notificaciones si hay nuevas
-      if (newNotifications.length > 0) {
-        setNotifications((prev) => {
-          const existingMap = new Map(prev.map(n => [n.id, n]));
-          const processedNew = newNotifications.map(newNotif => {
-            const existing = existingMap.get(newNotif.id);
-            if (existing) {
-              return {
-                ...existing,
-                stock: newNotif.stock,
-                timestamp: existing.read ? existing.timestamp : new Date(),
-              };
-            }
-            return newNotif;
-          });
-          
-          const newIds = new Set(processedNew.map(n => n.id));
-          const combined = [
-            ...processedNew,
-            ...prev.filter(n => !newIds.has(n.id))
-          ];
-          
-          return combined.slice(0, MAX_NOTIFICATIONS);
-        });
-      }
-    };
-    
-    const productsQuery = query(collection(db, 'products'));
-    const isInitialLoad = previousStockRef.current.size === 0;
-    
-    const unsubscribe = onSnapshot(
-      productsQuery,
-      (snapshot) => {
-        // En carga inicial, procesar todos los productos una vez
-        if (isInitialLoad) {
-          const newNotifications: StockNotification[] = [];
-          const currentStocks = new Map<string, number>();
+    if (isSupabase) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
 
-          snapshot.docs.forEach((doc) => {
-            const data = doc.data();
-            let stock = data.stock;
-            if (stock === undefined || stock === null) {
-              stock = data.quantity || data.cantidad || 0;
-            }
-            stock = Number(stock) || 0;
-            currentStocks.set(doc.id, stock);
-            
-            // Solo generar notificaciones para productos con stock bajo o agotado
-            if (stock === 0 || stock < STOCK_LOW_THRESHOLD) {
-              const productId = doc.id;
-              const productName = data.name || 'Producto sin nombre';
-              
-              if (stock === 0) {
-                newNotifications.push({
-                  id: generateNotificationId(productId, 'out_of_stock'),
-                  productId,
-                  productName,
-                  type: 'out_of_stock',
-                  stock: 0,
-                  timestamp: new Date(),
-                  read: false,
-                });
-              } else {
-                newNotifications.push({
-                  id: generateNotificationId(productId, 'low_stock'),
-                  productId,
-                  productName,
-                  type: 'low_stock',
-                  stock,
-                  timestamp: new Date(),
-                  read: false,
-                });
-              }
-            }
-          });
-          
-          previousStockRef.current = new Map(currentStocks);
-          
-          // Procesar notificaciones iniciales
-          if (newNotifications.length > 0) {
-            const stored = loadNotificationsFromStorage();
-            const existingMap = new Map(stored.map(n => [n.id, n]));
-            
-            const processedNew = newNotifications.map(newNotif => {
-              const existing = existingMap.get(newNotif.id);
-              if (existing) {
-                return {
-                  ...existing,
-                  stock: newNotif.stock,
-                  timestamp: existing.read ? existing.timestamp : new Date(),
-                };
-              }
-              return newNotif;
-            });
-            
-            const newIds = new Set(processedNew.map(n => n.id));
-            const combined = [
-              ...processedNew,
-              ...stored.filter(n => !newIds.has(n.id))
-            ];
-            
-            setNotifications(combined.slice(0, MAX_NOTIFICATIONS));
-          } else {
-            const stored = loadNotificationsFromStorage();
-            if (stored.length > 0) {
-              setNotifications(stored.slice(0, MAX_NOTIFICATIONS));
-            }
-          }
-          isInitialized.current = true;
-        } else {
-          // Después de la carga inicial, usar debouncing para procesar cambios
-          snapshot.docChanges().forEach((change) => {
-            batchChanges.push({
-              productId: change.doc.id,
-              product: change.doc.data()
-            });
-          });
-          
-          // Limpiar timeout anterior
-          if (processingTimeout) {
-            clearTimeout(processingTimeout);
-          }
-          
-          // Procesar cambios después de 500ms de inactividad (debouncing)
-          processingTimeout = setTimeout(processBatch, 500);
-        }
-      },
-      (error) => {
-        console.error('Error listening to products:', error);
-      }
-    );
+    // El código de Firebase ha sido desactivado ya que la librería fue removida
+    // Si se requiere notificaciones de stock en tiempo real con Supabase, 
+    // se debe implementar usando db.channel().
+
+    const unsubscribe = () => { };
 
     return () => {
       unsubscribe();
-      if (processingTimeout) {
-        clearTimeout(processingTimeout);
-      }
     };
-  }, []);
+  }, [isSupabase]);
 
   // Actualizar contador de no leídas
   useEffect(() => {

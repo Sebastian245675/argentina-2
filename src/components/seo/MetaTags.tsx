@@ -12,8 +12,8 @@ interface MetaTagsProps {
 }
 
 export const MetaTags: React.FC<MetaTagsProps> = ({
-  title = 'REGALA ALGO - Tu Tienda Online de Electrodomésticos y Regalería',
-  description = 'Regala Algo es tu tienda online confiable para electrodomésticos, regalería, productos para el hogar, bebidas, snacks y más. Envíos rápidos, domicilios gratis y los mejores precios.',
+  title = 'VISFUM - Tu Tienda Online de Electrodomésticos y Regalería',
+  description = 'Visfum es tu tienda online confiable para electrodomésticos, regalería, productos para el hogar, bebidas, snacks y más. Envíos rápidos, domicilios gratis y los mejores precios.',
   keywords = 'tienda online, electrodomésticos, regalería, productos hogar, bebidas, snacks, domicilios gratis, compras online, regalos, Argentina',
   image,
   url,
@@ -23,7 +23,7 @@ export const MetaTags: React.FC<MetaTagsProps> = ({
   useEffect(() => {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://regalaalgo.com';
     const currentUrl = url || (typeof window !== 'undefined' ? window.location.href : baseUrl);
-    const ogImage = image || `${baseUrl}/logo-nuevo.png`;
+    const ogImage = image || `${baseUrl}/logo%20vifum.png`;
 
     // Actualizar título
     document.title = title;
@@ -61,7 +61,7 @@ export const MetaTags: React.FC<MetaTagsProps> = ({
     setMetaTag('og:image', ogImage, true);
     setMetaTag('og:image:width', '1200', true);
     setMetaTag('og:image:height', '630', true);
-    setMetaTag('og:site_name', 'REGALA ALGO', true);
+    setMetaTag('og:site_name', 'VISFUM', true);
     setMetaTag('og:locale', 'es_AR', true);
 
     // Twitter Card
@@ -86,7 +86,7 @@ export const MetaTags: React.FC<MetaTagsProps> = ({
   return (
     <>
       <StoreStructuredData 
-        name="REGALA ALGO"
+        name="VISFUM"
         description={description}
         url={url || (typeof window !== 'undefined' ? window.location.origin : 'https://regalaalgo.com')}
       />

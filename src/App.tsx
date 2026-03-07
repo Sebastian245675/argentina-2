@@ -5,10 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
-import { Suspense, lazy, useState, useEffect } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { CacheProvider } from "@/contexts/CacheContext";
-import SimpleSplashScreen from "@/components/ui/SimpleSplashScreen";
 import { SimulationNotice } from "@/components/ui/SimulationNotice";
+import { WebsiteVisitTracker } from "@/components/analytics/WebsiteVisitTracker";
 
 // Lazy loading de las páginas para mejorar el rendimiento
 const AdvancedIndex = lazy(() => import("./pages/AdvancedIndex"));
@@ -24,24 +24,17 @@ const ImageUrlUpdaterPage = lazy(() => import("./pages/ImageUrlUpdaterPage"));
 const AdminImageOrientation = lazy(() => import("./pages/AdminImageOrientation"));
 const Testimonios = lazy(() => import("./pages/Testimonios"));
 const Envios = lazy(() => import("./pages/Envios"));
+const FAQPage = lazy(() => import("./pages/FAQPage"));
+const CategoryViewPage = lazy(() => import("./pages/CategoryViewPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage").then(module => ({ default: module.AuthPage })));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const CartPage = lazy(() => import("./pages/CartPage").then(m => ({ default: m.CartPage })));
 
 const queryClient = new QueryClient();
 
 const App = () => {
-  const [showSplash, setShowSplash] = useState(true);
-
   useEffect(() => {
-    // Este efecto se ejecutará cuando el componente SplashScreen complete su animación
-    const handleSplashComplete = () => {
-      setShowSplash(false);
-    };
-
-    // Tiempo reducido para mostrar el splash
-    const splashTimer = setTimeout(() => {
-      handleSplashComplete();
-    }, 2500); // Tiempo reducido a la mitad
-
     // Prevenir traducción automática - soluciona problemas de pantalla blanca
     const preventTranslation = () => {
       // Meta tag para Google Translate
@@ -75,10 +68,6 @@ const App = () => {
     };
     
     preventTranslation();
-
-    return () => {
-      clearTimeout(splashTimer);
-    };
   }, []);
 
   return (
@@ -88,24 +77,27 @@ const App = () => {
       <AuthProvider>
         <CartProvider>
           <TooltipProvider>
-            {showSplash && <SimpleSplashScreen />}
             <Toaster />
             <Sonner />
             <SimulationNotice />
             <BrowserRouter>
-              <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-gradient-to-br from-blue-950 to-indigo-950">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-400"></div>
-              </div>}>
+              <WebsiteVisitTracker />
+              <Suspense fallback={<div className="min-h-screen bg-white"></div>}>
                 <Routes>
                   <Route path="/" element={<AdvancedIndex />} />
+                  <Route path="/categoria/:categorySlug" element={<CategoryViewPage />} />
                   <Route path="/auth" element={<AuthPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<RegisterPage />} />
+                  <Route path="/cart" element={<CartPage />} />
                   <Route path="/admin" element={<AdminPanel />} />
                   <Route path="/perfil" element={<UserProfile />} />
-                  <Route path="/producto/:productId" element={<ProductDetailPage />} />
+                  <Route path="/producto/:slug" element={<ProductDetailPage />} />
                   <Route path="/sobre-nosotros" element={<AboutUs />} />
                   <Route path="/envios" element={<Envios />} />
                   <Route path="/testimonios" element={<Testimonios />} />
                   <Route path="/retiros" element={<Retiros />} />
+                  <Route path="/preguntas-frecuentes" element={<FAQPage />} />
                   <Route path="/shared/employees" element={<SharedEmployeeManager />} />
                   <Route path="/admin/image-downloader" element={<ImageDownloaderPage />} />
                   <Route path="/admin/update-image-urls" element={<ImageUrlUpdaterPage />} />

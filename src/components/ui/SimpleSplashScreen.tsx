@@ -48,7 +48,7 @@ const SimpleSplashScreen = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5 }}
         >
-          <img src="/logo-nuevo.png" alt="Regala Algo" className="w-full h-full object-contain" />
+          <img src="/logo%20vifum.png" alt="Visfum" className="w-full h-full object-contain" />
         </motion.div>
         
         {/* Texto */}
@@ -58,7 +58,7 @@ const SimpleSplashScreen = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <h1 className="text-3xl font-bold text-white mb-2">REGALA ALGO</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">VISFUM</h1>
           <p className="text-blue-200">Cargando experiencia...</p>
         </motion.div>
         
@@ -105,7 +105,7 @@ const SimpleSplashScreen = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <h1 className="text-4xl font-bold text-white mb-2">REGALA ALGO</h1>
+            <h1 className="text-4xl font-bold text-white mb-2">VISFUM</h1>
             <p className="text-blue-200 flex items-center justify-center">
               Sorprende con amor <Sparkles className="ml-2 w-4 h-4 text-yellow-300" />
             </p>

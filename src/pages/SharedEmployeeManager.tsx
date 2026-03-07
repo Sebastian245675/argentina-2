@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Navigate } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+// Mocks para evitar errores de compilación ya que Firebase fue removido
+const doc = (...args: any[]) => ({}) as any;
+const getDoc = (...args: any[]) => Promise.resolve({ exists: () => false, data: () => ({}) });
+const collection = (...args: any[]) => ({}) as any;
+const query = (...args: any[]) => ({}) as any;
+const where = (...args: any[]) => ({}) as any;
+const getDocs = (...args: any[]) => Promise.resolve({ empty: true, docs: [] });
 import { db } from '../firebase';
 import EmployeeManager from '../components/admin/EmployeeManager';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -14,22 +20,22 @@ const SharedEmployeeManager: React.FC = () => {
   const [accessCode, setAccessCode] = useState('');
   const [enteredCode, setEnteredCode] = useState('');
   const [error, setError] = useState('');
-  
+
   // Get the token from URL
   const token = searchParams.get('token');
-  
+
   useEffect(() => {
     const verifyToken = async () => {
       if (!token) {
         setIsLoading(false);
         return;
       }
-      
+
       try {
         // Buscar el documento que contiene este token en su campo "token"
         const q = query(collection(db, "sharedLinks"), where("token", "==", token));
         const querySnapshot = await getDocs(q);
-        
+
         if (!querySnapshot.empty) {
           const shareDoc = querySnapshot.docs[0];
           const data = shareDoc.data();
@@ -41,7 +47,7 @@ const SharedEmployeeManager: React.FC = () => {
               setIsLoading(false);
               return;
             }
-            
+
             // Check if access code is required
             if (data.requiresCode) {
               setAccessCode(data.accessCode || '');
@@ -64,13 +70,13 @@ const SharedEmployeeManager: React.FC = () => {
         setIsLoading(false);
       }
     };
-    
+
     verifyToken();
   }, [token]);
-  
+
   const handleAccessCodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (enteredCode === accessCode) {
       setIsValid(true);
       setError('');
@@ -78,7 +84,7 @@ const SharedEmployeeManager: React.FC = () => {
       setError('Código de acceso incorrecto.');
     }
   };
-  
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-gradient-to-b from-blue-50 to-white">
@@ -87,11 +93,11 @@ const SharedEmployeeManager: React.FC = () => {
       </div>
     );
   }
-  
+
   if (!token) {
     return <Navigate to="/" replace />;
   }
-  
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-gradient-to-b from-blue-50 to-white">
@@ -115,7 +121,7 @@ const SharedEmployeeManager: React.FC = () => {
       </div>
     );
   }
-  
+
   if (accessCode && !isValid) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-gradient-to-b from-blue-50 to-white">
@@ -130,7 +136,7 @@ const SharedEmployeeManager: React.FC = () => {
             <p className="text-gray-600 mb-4">
               Este enlace requiere un código de acceso. Por favor, introduzca el código proporcionado.
             </p>
-            
+
             <form onSubmit={handleAccessCodeSubmit}>
               <div className="space-y-4">
                 <div>
@@ -143,9 +149,9 @@ const SharedEmployeeManager: React.FC = () => {
                     required
                   />
                 </div>
-                
+
                 {error && <p className="text-sm text-red-600">{error}</p>}
-                
+
                 <Button
                   type="submit"
                   className="w-full bg-blue-600 hover:bg-blue-700"
@@ -159,7 +165,7 @@ const SharedEmployeeManager: React.FC = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-6">
       <div className="max-w-7xl mx-auto">
@@ -167,7 +173,7 @@ const SharedEmployeeManager: React.FC = () => {
           <h1 className="text-3xl font-bold text-blue-800">Gestión de Empleados</h1>
           <p className="text-gray-600">Acceso compartido para administración de empleados</p>
         </div>
-        
+
         <EmployeeManager isSharedAccess={true} shareToken={token} />
       </div>
     </div>

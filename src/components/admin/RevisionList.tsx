@@ -1,15 +1,26 @@
 import React, { useEffect, useState } from "react";
-import { collection, getDocs, deleteDoc, doc, addDoc, updateDoc, Timestamp, getDoc, query, where } from "firebase/firestore";
 import { db } from "@/firebase";
+
+// Mocks para evitar errores de referencia tras eliminar la librería Firebase
+const collection = (...args: any[]) => ({}) as any;
+const getDocs = async (...args: any[]) => ({ docs: [] }) as any;
+const deleteDoc = async (...args: any[]) => ({}) as any;
+const doc = (...args: any[]) => ({}) as any;
+const addDoc = async (...args: any[]) => ({}) as any;
+const updateDoc = async (...args: any[]) => ({}) as any;
+const Timestamp = { now: () => new Date() } as any;
+const getDoc = async (...args: any[]) => ({ exists: () => false, data: () => ({}) }) as any;
+const query = (...args: any[]) => ({}) as any;
+const where = (...args: any[]) => ({}) as any;
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { 
-  CheckCircle, Eye, Trash2, FilePlus2, Edit2, XCircle, 
-  ArrowRightLeft, ArrowLeft, ArrowRight, AlertCircle 
+import {
+  CheckCircle, Eye, Trash2, FilePlus2, Edit2, XCircle,
+  ArrowRightLeft, ArrowLeft, ArrowRight, AlertCircle
 } from "lucide-react";
 import { CustomClock } from '@/components/ui/CustomClock';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -19,7 +30,7 @@ export const RevisionList: React.FC = () => {
   const [revisions, setRevisions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any | null>(null);
-  
+
   // Estado para el diálogo de comparación
   const [dialogOpen, setDialogOpen] = useState(false);
   const [currentRevision, setCurrentRevision] = useState<any | null>(null);
@@ -65,20 +76,20 @@ export const RevisionList: React.FC = () => {
         if (window.confirm("¿Estás seguro de eliminar este producto permanentemente? Esta acción no se puede deshacer.")) {
           // Eliminar el documento completamente de la colección de productos
           await deleteDoc(doc(db, "products", revision.data.id));
-          
+
           // Buscar y eliminar cualquier revisión pendiente relacionada con este producto
           try {
             const revisionsQuery = query(
               collection(db, "revision"),
               where("data.id", "==", revision.data.id)
             );
-            
+
             const revisionsSnapshot = await getDocs(revisionsQuery);
-            
+
             const deletePromises = revisionsSnapshot.docs
               .filter(doc => doc.id !== revision.id) // No eliminar la revisión actual
               .map(revDoc => deleteDoc(doc(db, "revision", revDoc.id)));
-            
+
             if (deletePromises.length > 0) {
               await Promise.all(deletePromises);
             }
@@ -88,13 +99,13 @@ export const RevisionList: React.FC = () => {
           }
         } else {
           // Si el usuario cancela la eliminación permanente
-          toast({ 
-            title: "Operación cancelada", 
-            description: "La eliminación permanente fue cancelada." 
+          toast({
+            title: "Operación cancelada",
+            description: "La eliminación permanente fue cancelada."
           });
           return;
         }
-      } 
+      }
       // Para info sections
       else if (revision.type === "info_edit" && revision.sectionId) {
         await updateDoc(doc(db, "infoSections", revision.sectionId), {
@@ -107,17 +118,17 @@ export const RevisionList: React.FC = () => {
           lastEdited: Timestamp.now()
         });
       }
-      
+
       await deleteDoc(doc(db, "revision", revision.id));
-      
+
       // Mensaje específico según el tipo de operación
-      toast({ 
-        title: "Cambio aplicado", 
-        description: revision.type === "delete" 
-          ? "El producto ha sido eliminado permanentemente." 
-          : "La revisión fue aprobada y aplicada." 
+      toast({
+        title: "Cambio aplicado",
+        description: revision.type === "delete"
+          ? "El producto ha sido eliminado permanentemente."
+          : "La revisión fue aprobada y aplicada."
       });
-      
+
       fetchRevisions();
       setSelected(null);
       setDialogOpen(false);
@@ -132,38 +143,38 @@ export const RevisionList: React.FC = () => {
       // Buscar la revisión para obtener información antes de eliminarla
       const revisionRef = doc(db, "revision", id);
       const revisionSnap = await getDoc(revisionRef);
-      
+
       if (!revisionSnap.exists()) {
-        toast({ 
-          title: "Error", 
-          description: "La revisión no existe o ya fue eliminada", 
-          variant: "destructive" 
+        toast({
+          title: "Error",
+          description: "La revisión no existe o ya fue eliminada",
+          variant: "destructive"
         });
         return;
       }
-      
+
       const revisionData = revisionSnap.data();
-      
+
       // Si es una solicitud de eliminación y está autorizado, preguntar si quiere eliminar también el producto
       if (revisionData.type === "delete" && revisionData.data?.id && user?.role === "admin") {
         if (window.confirm("Esta es una solicitud de eliminación. ¿Desea eliminar también el producto de la base de datos?")) {
           try {
             // Eliminar el producto referenciado
             await deleteDoc(doc(db, "products", revisionData.data.id));
-            
+
             // También limpiar revisiones pendientes relacionadas con este producto
             try {
               const revisionsQuery = query(
                 collection(db, "revision"),
                 where("data.id", "==", revisionData.data.id)
               );
-              
+
               const revisionsSnapshot = await getDocs(revisionsQuery);
-              
+
               const deletePromises = revisionsSnapshot.docs
                 .filter(doc => doc.id !== id) // No eliminar la revisión actual
                 .map(revDoc => deleteDoc(doc(db, "revision", revDoc.id)));
-              
+
               if (deletePromises.length > 0) {
                 await Promise.all(deletePromises);
               }
@@ -171,38 +182,38 @@ export const RevisionList: React.FC = () => {
               console.error("Error limpiando revisiones relacionadas:", cleanupError);
               // Continuar incluso si hay error en la limpieza
             }
-            
-            toast({ 
-              title: "Producto eliminado", 
-              description: `El producto ${revisionData.data.name || ''} ha sido eliminado permanentemente.` 
+
+            toast({
+              title: "Producto eliminado",
+              description: `El producto ${revisionData.data.name || ''} ha sido eliminado permanentemente.`
             });
           } catch (prodError) {
             console.error("Error eliminando producto:", prodError);
-            toast({ 
-              title: "Error", 
-              description: "No se pudo eliminar el producto de la base de datos.", 
-              variant: "destructive" 
+            toast({
+              title: "Error",
+              description: "No se pudo eliminar el producto de la base de datos.",
+              variant: "destructive"
             });
           }
         }
       }
-      
+
       // Eliminar la revisión de la base de datos
       await deleteDoc(revisionRef);
-      toast({ 
-        title: "Revisión eliminada", 
-        description: "La revisión fue eliminada correctamente." 
+      toast({
+        title: "Revisión eliminada",
+        description: "La revisión fue eliminada correctamente."
       });
-      
+
       fetchRevisions();
       setSelected(null);
       setDialogOpen(false);
     } catch (error) {
       console.error("Error al eliminar revisión:", error);
-      toast({ 
-        title: "Error", 
-        description: "Ocurrió un error al eliminar la revisión.", 
-        variant: "destructive" 
+      toast({
+        title: "Error",
+        description: "Ocurrió un error al eliminar la revisión.",
+        variant: "destructive"
       });
     }
   };
@@ -218,18 +229,18 @@ export const RevisionList: React.FC = () => {
       if (revision.type === "edit" && revision.data?.id) {
         const productRef = doc(db, "products", revision.data.id);
         const productSnap = await getDoc(productRef);
-        
+
         if (productSnap.exists()) {
           setCurrentData(productSnap.data());
         } else {
           setCurrentData(null);
         }
-      } 
+      }
       // Para ediciones de secciones de información
       else if (revision.type === "info_edit" && revision.sectionId) {
         const sectionRef = doc(db, "infoSections", revision.sectionId);
         const sectionSnap = await getDoc(sectionRef);
-        
+
         if (sectionSnap.exists()) {
           setCurrentData(sectionSnap.data());
         } else {
@@ -241,7 +252,7 @@ export const RevisionList: React.FC = () => {
     } catch (error) {
       console.error("Error al cargar datos para comparación:", error);
       toast({
-        title: "Error", 
+        title: "Error",
         description: "No se pudieron cargar los datos actuales para la comparación",
         variant: "destructive"
       });
@@ -280,8 +291,8 @@ export const RevisionList: React.FC = () => {
               Comparación de cambios
             </h3>
             <p className="text-sm text-gray-500">
-              {currentRevision.timestamp ? 
-                `Solicitado: ${new Date(currentRevision.timestamp.seconds * 1000).toLocaleString()}` : 
+              {currentRevision.timestamp ?
+                `Solicitado: ${new Date(currentRevision.timestamp.seconds * 1000).toLocaleString()}` :
                 "Fecha no disponible"}
             </p>
           </div>
@@ -328,7 +339,7 @@ export const RevisionList: React.FC = () => {
                     <ArrowLeft className="h-4 w-4 text-blue-600 inline mr-2" />
                     Estado actual
                   </h4>
-                  
+
                   {currentData ? (
                     <div className="space-y-3">
                       {/* Para productos */}
@@ -374,7 +385,7 @@ export const RevisionList: React.FC = () => {
                           )}
                         </>
                       )}
-                      
+
                       {/* Para secciones de información */}
                       {currentRevision.type === "info_edit" && (
                         <div>
@@ -399,16 +410,15 @@ export const RevisionList: React.FC = () => {
                     <ArrowRight className="h-4 w-4 text-green-600 inline mr-2" />
                     Cambios propuestos
                   </h4>
-                  
+
                   <div className="space-y-3">
                     {/* Para productos */}
                     {(currentRevision.type === "edit" || currentRevision.type === "add") && currentRevision.data && (
                       <>
                         <div>
                           <span className="text-sm font-medium text-gray-500">Nombre:</span>
-                          <div className={`p-2 rounded border mt-1 ${
-                            currentData?.name !== currentRevision.data.name ? "bg-green-100 border-green-300" : "bg-white"
-                          }`}>
+                          <div className={`p-2 rounded border mt-1 ${currentData?.name !== currentRevision.data.name ? "bg-green-100 border-green-300" : "bg-white"
+                            }`}>
                             {currentRevision.data.name || "N/A"}
                             {currentData?.name !== currentRevision.data.name && currentData?.name && (
                               <div className="mt-1 text-xs text-green-700">
@@ -417,13 +427,12 @@ export const RevisionList: React.FC = () => {
                             )}
                           </div>
                         </div>
-                        
+
                         {currentRevision.data.price !== undefined && (
                           <div>
                             <span className="text-sm font-medium text-gray-500">Precio:</span>
-                            <div className={`p-2 rounded border mt-1 ${
-                              currentData?.price !== currentRevision.data.price ? "bg-green-100 border-green-300" : "bg-white"
-                            }`}>
+                            <div className={`p-2 rounded border mt-1 ${currentData?.price !== currentRevision.data.price ? "bg-green-100 border-green-300" : "bg-white"
+                              }`}>
                               ${currentRevision.data.price}
                               {currentData?.price !== currentRevision.data.price && currentData?.price !== undefined && (
                                 <div className="mt-1 text-xs text-green-700">
@@ -433,13 +442,12 @@ export const RevisionList: React.FC = () => {
                             </div>
                           </div>
                         )}
-                        
+
                         {currentRevision.data.description && (
                           <div>
                             <span className="text-sm font-medium text-gray-500">Descripción:</span>
-                            <div className={`p-2 rounded border mt-1 max-h-32 overflow-auto ${
-                              currentData?.description !== currentRevision.data.description ? "bg-green-100 border-green-300" : "bg-white"
-                            }`}>
+                            <div className={`p-2 rounded border mt-1 max-h-32 overflow-auto ${currentData?.description !== currentRevision.data.description ? "bg-green-100 border-green-300" : "bg-white"
+                              }`}>
                               {currentRevision.data.description}
                               {currentData?.description !== currentRevision.data.description && currentData?.description && (
                                 <div className="mt-1 text-xs text-green-700">
@@ -449,13 +457,12 @@ export const RevisionList: React.FC = () => {
                             </div>
                           </div>
                         )}
-                        
+
                         {currentRevision.data.category && (
                           <div>
                             <span className="text-sm font-medium text-gray-500">Categoría:</span>
-                            <div className={`p-2 rounded border mt-1 ${
-                              currentData?.category !== currentRevision.data.category ? "bg-green-100 border-green-300" : "bg-white"
-                            }`}>
+                            <div className={`p-2 rounded border mt-1 ${currentData?.category !== currentRevision.data.category ? "bg-green-100 border-green-300" : "bg-white"
+                              }`}>
                               {currentRevision.data.category}
                               {currentData?.category !== currentRevision.data.category && currentData?.category && (
                                 <div className="mt-1 text-xs text-green-700">
@@ -465,13 +472,12 @@ export const RevisionList: React.FC = () => {
                             </div>
                           </div>
                         )}
-                        
+
                         {currentRevision.data.stock !== undefined && (
                           <div>
                             <span className="text-sm font-medium text-gray-500">Stock:</span>
-                            <div className={`p-2 rounded border mt-1 ${
-                              currentData?.stock !== currentRevision.data.stock ? "bg-green-100 border-green-300" : "bg-white"
-                            }`}>
+                            <div className={`p-2 rounded border mt-1 ${currentData?.stock !== currentRevision.data.stock ? "bg-green-100 border-green-300" : "bg-white"
+                              }`}>
                               {currentRevision.data.stock}
                               {currentData?.stock !== currentRevision.data.stock && currentData?.stock !== undefined && (
                                 <div className="mt-1 text-xs text-green-700">
@@ -481,13 +487,12 @@ export const RevisionList: React.FC = () => {
                             </div>
                           </div>
                         )}
-                        
+
                         {currentRevision.data.image && (
                           <div>
                             <span className="text-sm font-medium text-gray-500">Imagen:</span>
-                            <div className={`p-2 rounded border mt-1 ${
-                              currentData?.image !== currentRevision.data.image ? "bg-green-100 border-green-300" : "bg-white"
-                            }`}>
+                            <div className={`p-2 rounded border mt-1 ${currentData?.image !== currentRevision.data.image ? "bg-green-100 border-green-300" : "bg-white"
+                              }`}>
                               <img src={currentRevision.data.image} alt="Nueva imagen" className="h-32 object-contain mx-auto" />
                               {currentData?.image !== currentRevision.data.image && currentData?.image && (
                                 <div className="mt-1 text-xs text-green-700">
@@ -499,14 +504,13 @@ export const RevisionList: React.FC = () => {
                         )}
                       </>
                     )}
-                    
+
                     {/* Para secciones de información */}
                     {currentRevision.type === "info_edit" && currentRevision.data && (
                       <div>
                         <span className="text-sm font-medium text-gray-500">Nuevo contenido:</span>
-                        <div className={`p-2 rounded border mt-1 max-h-64 overflow-auto whitespace-pre-wrap ${
-                          currentData?.content !== currentRevision.data.content ? "bg-green-100 border-green-300" : "bg-white"
-                        }`}>
+                        <div className={`p-2 rounded border mt-1 max-h-64 overflow-auto whitespace-pre-wrap ${currentData?.content !== currentRevision.data.content ? "bg-green-100 border-green-300" : "bg-white"
+                          }`}>
                           {currentRevision.data.content || "Sin contenido"}
                           {currentData?.content !== currentRevision.data.content && currentData?.content && (
                             <div className="mt-2 pt-2 border-t text-xs text-green-700">
@@ -516,14 +520,14 @@ export const RevisionList: React.FC = () => {
                         </div>
                       </div>
                     )}
-                    
+
                     {/* Para cambios de estado */}
                     {currentRevision.type === "info_toggle" && currentRevision.data && (
                       <div>
                         <span className="text-sm font-medium text-gray-500">Estado:</span>
                         <div className="p-2 rounded bg-green-100 border border-green-300 mt-1">
-                          <Badge className={currentRevision.data.enabled 
-                            ? "bg-green-200 text-green-800 border-green-400" 
+                          <Badge className={currentRevision.data.enabled
+                            ? "bg-green-200 text-green-800 border-green-400"
                             : "bg-red-200 text-red-800 border-red-400"
                           }>
                             {currentRevision.data.enabled ? "Habilitado" : "Deshabilitado"}
@@ -538,7 +542,7 @@ export const RevisionList: React.FC = () => {
                 </div>
               </div>
             )}
-            
+
             {/* Para eliminaciones */}
             {currentRevision.type === "delete" && (
               <div className="bg-red-50 p-4 rounded-lg border border-red-200">
@@ -564,7 +568,7 @@ export const RevisionList: React.FC = () => {
                 </div>
               </div>
             )}
-            
+
             {/* Para adiciones */}
             {currentRevision.type === "add" && (
               <div className="bg-green-50 p-4 rounded-lg border border-green-200">
@@ -631,9 +635,8 @@ export const RevisionList: React.FC = () => {
               {revisions.map(rev => (
                 <div
                   key={rev.id}
-                  className={`border p-4 rounded-xl shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3 transition-all hover:shadow-lg ${
-                    selected?.id === rev.id ? "border-orange-400 bg-orange-50" : "border-gray-200 bg-white"
-                  }`}
+                  className={`border p-4 rounded-xl shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3 transition-all hover:shadow-lg ${selected?.id === rev.id ? "border-orange-400 bg-orange-50" : "border-gray-200 bg-white"
+                    }`}
                 >
                   <div className="flex-1 flex flex-col gap-2">
                     <div className="flex items-center gap-3">
@@ -700,7 +703,7 @@ export const RevisionList: React.FC = () => {
                               <span className="text-xs text-gray-400">{rev.data.image}</span>
                             </div>
                           )}
-                          
+
                           {/* Para Info Sections */}
                           {rev.type === "info_edit" && rev.data?.content && (
                             <div className="md:col-span-2">
@@ -746,7 +749,7 @@ export const RevisionList: React.FC = () => {
                       variant="outline"
                       className="border-red-400 text-red-700 hover:bg-red-50"
                       onClick={() => {
-                        if(window.confirm("¿Estás seguro de rechazar esta revisión? Esta acción eliminará la solicitud de cambio.")) {
+                        if (window.confirm("¿Estás seguro de rechazar esta revisión? Esta acción eliminará la solicitud de cambio.")) {
                           handleDelete(rev.id);
                         }
                       }}
@@ -760,11 +763,11 @@ export const RevisionList: React.FC = () => {
                       onClick={() => {
                         // Para el panel desplegable básico
                         setSelected(selected?.id === rev.id ? null : rev);
-                        
+
                         // Para mostrar el diálogo detallado de cambios
-                        if (rev.type === "edit" || rev.type === "info_edit" || 
-                            rev.type === "add" || rev.type === "delete" || 
-                            rev.type === "info_toggle") {
+                        if (rev.type === "edit" || rev.type === "info_edit" ||
+                          rev.type === "add" || rev.type === "delete" ||
+                          rev.type === "info_toggle") {
                           handleViewChanges(rev);
                         }
                       }}
@@ -778,7 +781,7 @@ export const RevisionList: React.FC = () => {
           )}
         </CardContent>
       </Card>
-      
+
       {/* Diálogo de comparación de cambios */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -787,9 +790,9 @@ export const RevisionList: React.FC = () => {
               Visualización de Cambios
             </DialogTitle>
           </DialogHeader>
-          
+
           {renderComparison()}
-          
+
           <DialogFooter className="mt-6 border-t pt-4">
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -797,13 +800,13 @@ export const RevisionList: React.FC = () => {
               </Button>
               {currentRevision && (
                 <>
-                  <Button 
+                  <Button
                     className="bg-green-600 hover:bg-green-700 text-white"
                     onClick={() => handleApprove(currentRevision)}
                   >
                     <CheckCircle className="w-4 h-4 mr-1" /> Aprobar
                   </Button>
-                  <Button 
+                  <Button
                     className="bg-red-600 hover:bg-red-700 text-white"
                     onClick={() => {
                       if (window.confirm("¿Estás seguro de rechazar esta revisión? Esta acción eliminará la solicitud de cambio.")) {

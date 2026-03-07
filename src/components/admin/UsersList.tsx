@@ -4,20 +4,22 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
-import { 
+import {
   Search, Eye, Edit, Shield, Mail, Send, Clock,
   Key, User, X, Save, RefreshCw, UserCog, Users, CheckCheck, Filter
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import { collection, getDocs } from "firebase/firestore";
+// Mocks para evitar errores de compilación ya que Firebase fue removido
+const collection = (...args: any[]) => ({}) as any;
+const getDocs = (...args: any[]) => ({ docs: [] }) as any;
 import { db } from "@/firebase";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -67,7 +69,7 @@ export const UsersList: React.FC = () => {
       setUsers(usersData);
       setLoading(false);
     };
-    
+
     const fetchSubscribers = async () => {
       setLoadingSubscribers(true);
       try {
@@ -83,7 +85,7 @@ export const UsersList: React.FC = () => {
         setLoadingSubscribers(false);
       }
     };
-    
+
     fetchUsers();
     fetchSubscribers();
   }, []);
@@ -93,7 +95,7 @@ export const UsersList: React.FC = () => {
     // Primero aplicar filtro de estado si está activo
     if (filter === "admin" && !user.isAdmin) return false;
     if (filter === "normal" && user.isAdmin) return false;
-    
+
     // Luego aplicar término de búsqueda
     return (
       user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -102,7 +104,7 @@ export const UsersList: React.FC = () => {
       user.conjunto?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
-  
+
   // Función para editar usuario
   const handleEditUser = (user: any) => {
     setSelectedUser(user);
@@ -115,20 +117,20 @@ export const UsersList: React.FC = () => {
     });
     setEditDialogOpen(true);
   };
-  
+
   // Función para cambiar contraseña
   const handleChangePassword = (user: any) => {
     setSelectedUser(user);
     setNewPassword("");
     setPasswordDialogOpen(true);
   };
-  
+
   // Función para ver detalles del usuario
   const handleViewUser = (user: any) => {
     setSelectedUser(user);
     setViewDialogOpen(true);
   };
-  
+
   // Función para guardar cambios del usuario
   const saveUserChanges = async () => {
     try {
@@ -139,11 +141,11 @@ export const UsersList: React.FC = () => {
         description: `Los datos de ${editForm.name} han sido actualizados`,
       });
       setEditDialogOpen(false);
-      
+
       // Actualizar usuario en el estado local
-      setUsers(users.map(user => 
-        user.id === selectedUser.id 
-          ? { ...user, ...editForm } 
+      setUsers(users.map(user =>
+        user.id === selectedUser.id
+          ? { ...user, ...editForm }
           : user
       ));
     } catch (error) {
@@ -154,7 +156,7 @@ export const UsersList: React.FC = () => {
       });
     }
   };
-  
+
   // Función para cambiar contraseña
   const saveNewPassword = async () => {
     try {
@@ -173,7 +175,7 @@ export const UsersList: React.FC = () => {
       });
     }
   };
-  
+
   // Función para enviar correo masivo
   const sendMassEmail = async () => {
     try {
@@ -183,7 +185,7 @@ export const UsersList: React.FC = () => {
         title: "Correo enviado",
         description: `El correo ha sido enviado a ${subscribers.length} suscriptores`,
       });
-      
+
       // Resetear el formulario
       setEmailContent({
         subject: "",
@@ -200,29 +202,29 @@ export const UsersList: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <Tabs 
-        defaultValue="usuarios" 
+      <Tabs
+        defaultValue="usuarios"
         className="w-full"
         value={activeTab}
         onValueChange={setActiveTab}
       >
         <TabsList className="grid w-full grid-cols-2 bg-sky-50">
-          <TabsTrigger 
-            value="usuarios" 
+          <TabsTrigger
+            value="usuarios"
             className="data-[state=active]:bg-gradient-to-r from-sky-500 to-blue-600 data-[state=active]:text-white"
           >
             <Users className="h-4 w-4 mr-2" />
             Gestión de Usuarios
           </TabsTrigger>
-          <TabsTrigger 
-            value="envio-masivo" 
+          <TabsTrigger
+            value="envio-masivo"
             className="data-[state=active]:bg-gradient-to-r from-sky-500 to-blue-600 data-[state=active]:text-white"
           >
             <Mail className="h-4 w-4 mr-2" />
             Envío Masivo
           </TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="usuarios" className="mt-6">
           <Card className="border-sky-100 shadow-md">
             <CardHeader className="bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100">
@@ -233,7 +235,7 @@ export const UsersList: React.FC = () => {
               <CardDescription className="text-sky-600">
                 Administra los usuarios registrados en la plataforma
               </CardDescription>
-              
+
               <div className="flex flex-col sm:flex-row gap-4 mt-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sky-400 h-4 w-4" />
@@ -254,21 +256,21 @@ export const UsersList: React.FC = () => {
                   <DropdownMenuContent className="bg-white">
                     <DropdownMenuLabel>Tipo de usuario</DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       className={filter === "all" ? "bg-sky-50 text-sky-700" : ""}
                       onClick={() => setFilter("all")}
                     >
                       <Users className="h-4 w-4 mr-2" />
                       Todos
                     </DropdownMenuItem>
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       className={filter === "admin" ? "bg-sky-50 text-sky-700" : ""}
                       onClick={() => setFilter("admin")}
                     >
                       <Shield className="h-4 w-4 mr-2" />
                       Administradores
                     </DropdownMenuItem>
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       className={filter === "normal" ? "bg-sky-50 text-sky-700" : ""}
                       onClick={() => setFilter("normal")}
                     >
@@ -286,96 +288,96 @@ export const UsersList: React.FC = () => {
                   <span>Cargando usuarios...</span>
                 </div>
               ) : (
-          <div className="rounded-lg border border-sky-100 overflow-hidden">
-            <Table>
-              <TableHeader className="bg-sky-50">
-                <TableRow className="hover:bg-sky-100/70">
-                  <TableHead className="text-sky-700">Usuario</TableHead>
-                  <TableHead className="text-sky-700">Departamento</TableHead>
-                  <TableHead className="text-sky-700">Contacto</TableHead>
-                  <TableHead className="text-sky-700">Estado</TableHead>
-                  <TableHead className="text-sky-700">Registro</TableHead>
-                  <TableHead className="text-right text-sky-700">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id} className="hover:bg-sky-50/50">
-                    <TableCell>
-                      <div>
-                        <div className="font-medium flex items-center gap-2">
-                          {user.name}
-                          {user.isAdmin && (
-                            <Badge className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs hover:from-orange-600 hover:to-red-700">
-                              Admin
+                <div className="rounded-lg border border-sky-100 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-sky-50">
+                      <TableRow className="hover:bg-sky-100/70">
+                        <TableHead className="text-sky-700">Usuario</TableHead>
+                        <TableHead className="text-sky-700">Departamento</TableHead>
+                        <TableHead className="text-sky-700">Contacto</TableHead>
+                        <TableHead className="text-sky-700">Estado</TableHead>
+                        <TableHead className="text-sky-700">Registro</TableHead>
+                        <TableHead className="text-right text-sky-700">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.map((user) => (
+                        <TableRow key={user.id} className="hover:bg-sky-50/50">
+                          <TableCell>
+                            <div>
+                              <div className="font-medium flex items-center gap-2">
+                                {user.name}
+                                {user.isAdmin && (
+                                  <Badge className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs hover:from-orange-600 hover:to-red-700">
+                                    Admin
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-sm text-sky-700/70">{user.email}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium text-sky-800">{user.departmentNumber || user.conjunto}</div>
+                              <div className="text-sm text-sky-600/70">{user.address}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm text-sky-700">{user.phone}</div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
+                              Activo
                             </Badge>
-                          )}
-                        </div>
-                        <div className="text-sm text-sky-700/70">{user.email}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium text-sky-800">{user.departmentNumber || user.conjunto}</div>
-                        <div className="text-sm text-sky-600/70">{user.address}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm text-sky-700">{user.phone}</div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
-                        Activo
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="text-sm">
-                          {user.registeredAt
-                            ? new Date(user.registeredAt).toLocaleDateString('es-AR')
-                            : ''}
-                        </div>
-                        <div className="text-xs text-sky-600/70">
-                          {user.lastActive
-                            ? `Último acceso: ${new Date(user.lastActive).toLocaleDateString('es-AR')}`
-                            : ''}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="text-sky-600 border-sky-200 hover:bg-sky-50 hover:border-sky-300"
-                          onClick={() => handleViewUser(user)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300"
-                          onClick={() => handleEditUser(user)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="text-amber-600 border-amber-200 hover:bg-amber-50 hover:border-amber-300"
-                          onClick={() => handleChangePassword(user)}
-                        >
-                          <Key className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="text-sm">
+                                {user.registeredAt
+                                  ? new Date(user.registeredAt).toLocaleDateString('es-AR')
+                                  : ''}
+                              </div>
+                              <div className="text-xs text-sky-600/70">
+                                {user.lastActive
+                                  ? `Último acceso: ${new Date(user.lastActive).toLocaleDateString('es-AR')}`
+                                  : ''}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-sky-600 border-sky-200 hover:bg-sky-50 hover:border-sky-300"
+                                onClick={() => handleViewUser(user)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300"
+                                onClick={() => handleEditUser(user)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-amber-600 border-amber-200 hover:bg-amber-50 hover:border-amber-300"
+                                onClick={() => handleChangePassword(user)}
+                              >
+                                <Key className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
 
               {filteredUsers.length === 0 && !loading && (
                 <div className="text-center py-12 bg-sky-50/30">
@@ -387,7 +389,7 @@ export const UsersList: React.FC = () => {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="envio-masivo" className="mt-6">
           <Card className="border-sky-100 shadow-md">
             <CardHeader className="bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100">
@@ -409,15 +411,15 @@ export const UsersList: React.FC = () => {
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="email-subject" className="text-sky-700">Asunto del correo</Label>
-                    <Input 
+                    <Input
                       id="email-subject"
                       placeholder="Ej: Novedades de la tienda"
                       className="border-sky-200 focus-visible:ring-sky-300"
                       value={emailContent.subject}
-                      onChange={(e) => setEmailContent({...emailContent, subject: e.target.value})}
+                      onChange={(e) => setEmailContent({ ...emailContent, subject: e.target.value })}
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="email-body" className="text-sky-700">Contenido del correo</Label>
                     <Textarea
@@ -425,10 +427,10 @@ export const UsersList: React.FC = () => {
                       placeholder="Escribe el contenido del correo aquí..."
                       className="min-h-[200px] border-sky-200 focus-visible:ring-sky-300"
                       value={emailContent.body}
-                      onChange={(e) => setEmailContent({...emailContent, body: e.target.value})}
+                      onChange={(e) => setEmailContent({ ...emailContent, body: e.target.value })}
                     />
                   </div>
-                  
+
                   <div className="p-4 border border-blue-100 rounded-lg bg-blue-50 text-blue-700 text-sm">
                     <p className="flex items-center font-medium mb-2">
                       <CheckCheck className="h-4 w-4 mr-2" />
@@ -445,8 +447,8 @@ export const UsersList: React.FC = () => {
                       </ul>
                     </div>
                   </div>
-                  
-                  <Button 
+
+                  <Button
                     className="w-full bg-gradient-to-r from-sky-500 to-blue-600 text-white hover:from-sky-600 hover:to-blue-700"
                     disabled={!emailContent.subject || !emailContent.body}
                     onClick={sendMassEmail}
@@ -460,7 +462,7 @@ export const UsersList: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
-      
+
       {/* Diálogo de edición de usuario */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px] bg-white">
@@ -479,7 +481,7 @@ export const UsersList: React.FC = () => {
               <Input
                 id="name"
                 value={editForm.name}
-                onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                 className="border-sky-200 focus-visible:ring-sky-300"
               />
             </div>
@@ -488,7 +490,7 @@ export const UsersList: React.FC = () => {
               <Input
                 id="email"
                 value={editForm.email}
-                onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                 className="border-sky-200 focus-visible:ring-sky-300"
               />
             </div>
@@ -497,7 +499,7 @@ export const UsersList: React.FC = () => {
               <Input
                 id="phone"
                 value={editForm.phone}
-                onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
+                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                 className="border-sky-200 focus-visible:ring-sky-300"
               />
             </div>
@@ -506,7 +508,7 @@ export const UsersList: React.FC = () => {
               <Input
                 id="deptNumber"
                 value={editForm.departmentNumber}
-                onChange={(e) => setEditForm({...editForm, departmentNumber: e.target.value})}
+                onChange={(e) => setEditForm({ ...editForm, departmentNumber: e.target.value })}
                 className="border-sky-200 focus-visible:ring-sky-300"
               />
             </div>
@@ -515,20 +517,20 @@ export const UsersList: React.FC = () => {
               <Input
                 id="address"
                 value={editForm.address}
-                onChange={(e) => setEditForm({...editForm, address: e.target.value})}
+                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
                 className="border-sky-200 focus-visible:ring-sky-300"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setEditDialogOpen(false)}
               className="border-sky-200 text-sky-700"
             >
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={saveUserChanges}
               className="bg-gradient-to-r from-sky-500 to-blue-600 text-white hover:from-sky-600 hover:to-blue-700"
             >
@@ -538,7 +540,7 @@ export const UsersList: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Diálogo de cambio de contraseña */}
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
         <DialogContent className="sm:max-w-[425px] bg-white">
@@ -564,14 +566,14 @@ export const UsersList: React.FC = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setPasswordDialogOpen(false)}
               className="border-sky-200 text-sky-700"
             >
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={saveNewPassword}
               className="bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700"
             >
@@ -581,7 +583,7 @@ export const UsersList: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Diálogo para ver detalles del usuario */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
         <DialogContent className="sm:max-w-[500px] bg-white">
@@ -606,7 +608,7 @@ export const UsersList: React.FC = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <p className="text-sm text-sky-500">Departamento</p>
@@ -629,7 +631,7 @@ export const UsersList: React.FC = () => {
                   </p>
                 </div>
               </div>
-              
+
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mt-4">
                 <h4 className="font-medium text-blue-700 mb-2">Historial de actividad</h4>
                 <div className="space-y-2 text-sm">
@@ -646,7 +648,7 @@ export const UsersList: React.FC = () => {
             </div>
           )}
           <DialogFooter>
-            <Button 
+            <Button
               onClick={() => setViewDialogOpen(false)}
               className="bg-sky-100 text-sky-700 hover:bg-sky-200"
             >

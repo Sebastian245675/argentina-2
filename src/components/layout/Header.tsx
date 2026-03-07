@@ -33,7 +33,7 @@ export const Header: React.FC = () => {
             {/* Logo */}
             <div className="flex items-center space-x-3">
               <div className="relative">
-                <img src="/logo-nuevo.png" alt="Regala Algo" className="h-14 w-auto" />
+                <img src="/logo%20vifum.png" alt="Visfum" className="h-14 w-auto" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground hidden sm:block">Tu tienda del conjunto</p>

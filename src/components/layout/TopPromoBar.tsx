@@ -1,56 +1,13 @@
-import React, { useEffect, useRef, useState } from "react";
-
-const promos = [
-
-  "� Síguenos en Instagram @regala.algo para novedades y sorteos!",
-  "🚚 Envío en pedidos superiores a $70.000",
-  
-];
+import React, { useState } from "react";
 
 export const TopPromoBar: React.FC<{ setPromoVisible?: (v: boolean) => void }> = ({ setPromoVisible }) => {
-  const [index, setIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
-  const lastScroll = useRef(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setIndex((i) => (i + 1) % promos.length);
-    }, 3500);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const onScroll = () => {
-      if (window.scrollY > 40 && window.scrollY > lastScroll.current) {
-        setVisible(false);
-      } else {
-        setVisible(true);
-      }
-      lastScroll.current = window.scrollY;
-    };
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    if (setPromoVisible) {
-      setPromoVisible(visible);
-    }
-  }, [visible, setPromoVisible]);
-
   return (
-    <div
-      className={`fixed top-0 left-0 w-full z-[100] transition-transform duration-300 ${
-        visible ? "translate-y-0" : "-translate-y-full"
-      } bg-gradient-to-r from-blue-600 via-blue-500 to-red-500 border-b border-blue-900 text-white text-base font-semibold tracking-wide h-14 flex items-center justify-center shadow-md`}
-      style={{ fontFamily: "'Montserrat', 'Inter', Arial, sans-serif", letterSpacing: "0.05em" }}
-    >
-      <div className="w-full max-w-6xl mx-auto overflow-hidden">
-        <div className="whitespace-nowrap animate-marquee text-lg font-bold">
-          {promos[index] === "— ELECTRODOMÉSTICOS — REGALERÍA —" ? 
-            <span className="text-white font-black uppercase">{promos[index]}</span> : 
-            promos[index]}
-        </div>
+    <div className="bg-white text-black text-[11px] md:text-xs font-semibold tracking-wide py-2.5 text-center w-full z-[60] relative border-b border-gray-200">
+      <div className="max-w-[1800px] mx-auto px-4 hidden md:block">
+        6 CUOTAS SIN INTERES | 25% OFF TRANSFERENCIA | 30% OFF EFECTIVO | ENVIO GRATIS SUPERANDO $150.000
+      </div>
+      <div className="md:hidden px-2">
+        30% OFF EFECTIVO | 6 CUOTAS SIN INTERES
       </div>
     </div>
   );
