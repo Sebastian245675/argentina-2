@@ -3,6 +3,7 @@ import { db } from '@/firebase';
 import { AdvancedHeader } from '@/components/layout/AdvancedHeader';
 import { TopPromoBar } from '@/components/layout/TopPromoBar';
 import { Footer } from '@/components/layout/Footer';
+import { FloatingActionButtons } from '@/components/layout/FloatingActionButtons';
 import { useCategories } from '@/hooks/use-categories';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -658,7 +659,7 @@ const ProductDetailPage = () => {
 
   // Calcular promedio de calificación
   const calculateAverageRating = () => {
-    if (reviews.length === 0) return 0;
+    if (reviews.length === 0) return "0";
     const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
     return (sum / reviews.length).toFixed(1);
   };
@@ -798,6 +799,7 @@ const ProductDetailPage = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
+      <FloatingActionButtons />
       {/* TopPromoBar eliminada de esta vista */}
       <AdvancedHeader
         selectedCategory={product?.category || ""}
@@ -1205,7 +1207,7 @@ const ProductDetailPage = () => {
               <span className="text-lg font-semibold text-black">{calculateAverageRating()}</span>
               <div className="flex text-amber-500">
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <Star key={i} className={`h-5 w-5 ${i <= Math.round(parseFloat(calculateAverageRating())) ? 'fill-current' : ''}`} />
+                  <Star key={i} className={`h-5 w-5 ${i <= Math.round(Number(calculateAverageRating())) ? 'fill-current' : ''}`} />
                 ))}
               </div>
               <span className="text-sm text-neutral-500">{reviews.length} {reviews.length === 1 ? 'reseña' : 'reseñas'}</span>

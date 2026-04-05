@@ -34,7 +34,7 @@ interface ProductSchemaProps {
 
 export const StoreStructuredData: React.FC<StoreSchemaProps> = ({
   name = 'VISFUM',
-  description = 'Tu tienda online confiable para electrodomésticos, regalería, productos para el hogar, bebidas, snacks y más.',
+  description = 'Tu tienda online confiable para perfumería, regalería, productos para el hogar, bebidas, snacks y más.',
   url = typeof window !== 'undefined' ? window.location.origin : 'https://regalaalgo.com',
   logo = typeof window !== 'undefined' ? `${window.location.origin}/logo%20vifum.png` : 'https://regalaalgo.com/logo%20vifum.png',
   address = {
@@ -114,7 +114,7 @@ export const ProductStructuredData: React.FC<ProductSchemaProps> = ({
   currency = 'ARS',
   availability = 'https://schema.org/InStock',
   sku,
-        brand = 'VISFUM',
+  brand = 'VISFUM',
   category,
   url = typeof window !== 'undefined' ? window.location.href : ''
 }) => {
@@ -126,7 +126,7 @@ export const ProductStructuredData: React.FC<ProductSchemaProps> = ({
     }
 
     const images = Array.isArray(image) ? image : [image];
-    
+
     const schema = {
       '@context': 'https://schema.org',
       '@type': 'Product',

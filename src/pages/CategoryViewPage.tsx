@@ -5,6 +5,7 @@ import { AdvancedHeader } from "@/components/layout/AdvancedHeader";
 import { CategoryBanner } from "@/components/layout/CategoryBanner";
 import { CategoryBreadcrumbs } from "@/components/layout/CategoryBreadcrumbs";
 import { Footer } from "@/components/layout/Footer";
+import { FloatingActionButtons } from "@/components/layout/FloatingActionButtons";
 import { ProductsSection } from "@/components/products/ProductsSection";
 import { useCategories } from "@/hooks/use-categories";
 
@@ -45,29 +46,7 @@ const CategoryViewPage = () => {
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 overflow-x-hidden font-sans">
-      <a
-        href={whatsappUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 z-50 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-lg p-4 flex items-center justify-center transition-all hover:scale-110"
-        title="Contactar por WhatsApp"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="32"
-          height="32"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="w-8 h-8"
-        >
-          <path d="M21.67 20.29l-1.2-4.28A8.94 8.94 0 0 0 12 3a9 9 0 0 0-9 9c0 2.39.93 4.58 2.62 6.29l-1.2 4.28a1 1 0 0 0 1.28 1.28l4.28-1.2A8.94 8.94 0 0 0 21 21a1 1 0 0 0 .67-1.71z" />
-          <path d="M16.24 11.06a4 4 0 0 1-4.24 4.24" />
-        </svg>
-      </a>
+      <FloatingActionButtons />
 
       <div className="w-full">
         <TopPromoBar setPromoVisible={setPromoVisible} />

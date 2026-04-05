@@ -73,15 +73,20 @@ export const HeroBanner: React.FC = () => {
       </div>
 
       {/* Barra promocional inferior */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gray-900/90 text-white py-2.5 md:py-3 px-4 md:px-6 flex flex-wrap items-center justify-center gap-3 md:gap-6 text-xs md:text-sm font-medium z-20">
-        <span className="flex items-center gap-1.5">
+      <div
+        className="absolute bottom-0 left-0 right-0 bg-gray-900/90 text-white py-2.5 md:py-3 px-4 md:px-6 flex flex-nowrap items-center md:justify-center gap-4 md:gap-6 text-[10px] md:text-sm font-medium z-20 overflow-x-auto touch-pan-x"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        <span className="flex items-center gap-1.5 shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          ACUMULABLE CON
+          PROMOS
         </span>
-        <span className="hidden sm:inline text-white/40">|</span>
-        <span>6 CUOTAS SIN INTERÉS</span>
-        <span className="hidden sm:inline text-white/40">|</span>
-        <span>25% OFF TRANSFERENCIA</span>
+        <span className="text-white/40 shrink-0">|</span>
+        <span className="shrink-0">3 DECANTS x $25.000</span>
+        <span className="text-white/40 shrink-0">|</span>
+        <span className="shrink-0">30% OFF EFECTIVO / 25% OFF TRANSF.</span>
+        <span className="text-white/40 shrink-0">|</span>
+        <span className="shrink-0">3 CUOTAS (CON COSTO DE SERVICIO)</span>
       </div>
 
       {/* Flechas */}

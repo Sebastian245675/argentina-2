@@ -167,8 +167,20 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                   >
                     <span className="text-green-500 text-xl">📱</span>
                     <div className="text-left">
-                      <div className="text-sm font-bold text-gray-900">WhatsApp</div>
-                      <div className="text-[11px] text-gray-700 font-medium">11 2671-1308</div>
+                      <div className="text-sm font-bold text-gray-900">WhatsApp (Opción 1)</div>
+                      <div className="text-[11px] text-gray-700 font-medium">+54 9 11 2671-1308</div>
+                    </div>
+                  </a>
+                  <a
+                    href="https://wa.me/5493872228571"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
+                  >
+                    <span className="text-green-500 text-xl">📱</span>
+                    <div className="text-left">
+                      <div className="text-sm font-bold text-gray-900">WhatsApp (Opción 2)</div>
+                      <div className="text-[11px] text-gray-700 font-medium">+54 9 387 222-8571</div>
                     </div>
                   </a>
                   <a
@@ -269,9 +281,9 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
         </div>
       </header>
 
-      {/* Navigation Bar - Blue & Clean */}
+      {/* Navigation Bar - Desktop only */}
       <nav
-        className={`relative ${isMenuOpen ? 'block' : 'hidden'} md:block bg-[hsl(214,100%,38%)] border-t border-white/20 border-b border-[hsl(214,80%,28%)] z-50`}
+        className="relative hidden md:block bg-[hsl(214,100%,38%)] border-t border-white/20 border-b border-[hsl(214,80%,28%)] z-50"
         onMouseLeave={() => {
           categoryDropdownTimer.current = setTimeout(() => setOpenCategoryDropdown(null), 100);
         }}
@@ -310,7 +322,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                       }
                     }}
                   >
-                    {category}
+                    {category === "Electrodomésticos" ? "Perfumería" : category}
                     {hasDropdown && <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} />}
                   </button>
                 </li>
@@ -388,7 +400,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                     className="text-[11px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white transition-all underline underline-offset-8"
                     onClick={() => goToCategory(openCategoryDropdown)}
                   >
-                    Explorar todo {openCategoryDropdown}
+                    Explorar todo {openCategoryDropdown === "Electrodomésticos" ? "Perfumería" : openCategoryDropdown}
                   </button>
                 </div>
               </div>
@@ -397,23 +409,114 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
         })()}
       </nav>
 
-      {/* Mobile Search */}
+      {/* Mobile Sidebar Overlay */}
       {isMenuOpen && (
-        <div className="md:hidden bg-white p-4 border-b border-gray-200">
+        <div
+          className="fixed inset-0 bg-black/60 z-[100] md:hidden transition-opacity duration-300 backdrop-blur-sm"
+          onClick={() => setIsMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Mobile Sidebar */}
+      <div
+        className={`fixed top-0 left-0 h-full w-[280px] bg-[hsl(214,100%,38%)] z-[101] md:hidden transform transition-transform duration-300 ease-in-out shadow-2xl flex flex-col ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
+        {/* Sidebar Header */}
+        <div className="p-5 border-b border-white/10 flex justify-between items-center bg-[hsl(214,100%,30%)]">
+          <img src="/logo%20vifum.png" alt="VISFUM" className="h-8 w-auto object-contain" />
+          <button
+            onClick={() => setIsMenuOpen(false)}
+            className="text-white p-2 hover:bg-white/10 rounded-full transition-colors"
+            aria-label="Cerrar menú"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Sidebar Search */}
+        <div className="p-4 bg-[hsl(214,100%,35%)]">
           <form className="relative" onSubmit={handleSearchSubmit}>
             <input
               type="text"
               placeholder="¿Qué estás buscando?"
               value={localSearchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full py-2 px-4 pr-10 text-sm text-gray-800 bg-gray-50 border border-gray-300 focus:outline-none focus:border-black"
+              className="w-full py-2.5 px-4 pr-10 text-sm text-white bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-white/40 placeholder:text-white/40"
             />
-            <button type="submit" className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-              <Search className="w-5 h-5" />
+            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2">
+              <Search className="w-4 h-4 text-white/60" />
             </button>
           </form>
         </div>
-      )}
+
+        {/* Sidebar Content */}
+        <div className="flex-1 overflow-y-auto py-4 custom-scrollbar">
+          <p className="px-6 py-2 text-[10px] font-black text-white/40 uppercase tracking-widest">Categorías</p>
+          <ul className="mt-2">
+            {mainCategoriesForNav.map((category) => {
+              const subs = getSubsForMain(category);
+              const hasSubs = subs.length > 0;
+              const isOpen = openCategoryDropdown === category;
+
+              return (
+                <li key={category} className="border-b border-white/5 last:border-0">
+                  <div className="flex items-center justify-between px-6 py-4">
+                    <button
+                      onClick={() => goToCategory(category)}
+                      className="flex-1 text-left text-white text-sm font-medium hover:text-orange-300 transition-colors uppercase tracking-tight"
+                    >
+                      {category === "Electrodomésticos" ? "Perfumería" : category}
+                    </button>
+                    {hasSubs && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenCategoryDropdown(isOpen ? null : category);
+                        }}
+                        className="p-2 hover:bg-white/10 rounded transition-colors"
+                      >
+                        <ChevronDown className={`w-4 h-4 text-white/60 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Subcategories (Accordion) */}
+                  {hasSubs && isOpen && (
+                    <div className="bg-black/10 py-1 flex flex-col">
+                      {subs.map(sub => (
+                        <button
+                          key={sub.id || sub.name}
+                          onClick={() => goToCategory(sub.name)}
+                          className="px-10 py-3 text-white/80 text-[13px] font-medium text-left hover:bg-white/5 hover:text-white transition-all flex items-center gap-2"
+                        >
+                          <span className="w-1 h-1 bg-white/30 rounded-full"></span>
+                          {sub.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="mt-4 px-6 pt-4 border-t border-white/10">
+            <button
+              onClick={() => { navigate('/preguntas-frecuentes'); setIsMenuOpen(false); }}
+              className="flex items-center gap-3 text-white/80 hover:text-white text-sm font-medium transition-colors py-3"
+            >
+              <HelpCircle className="w-5 h-5 opacity-60" />
+              Preguntas Frecuentes
+            </button>
+          </div>
+        </div>
+
+        {/* Sidebar Footer */}
+        <div className="p-6 bg-black/20 text-center">
+          <p className="text-[10px] text-white/20 uppercase font-bold tracking-[0.4em]">VISFUM SHOP</p>
+        </div>
+      </div>
     </div>
   );
 };

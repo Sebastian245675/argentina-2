@@ -945,9 +945,16 @@ export const OrdersList: React.FC<OrdersListProps> = ({ orders: initialOrders })
     }
   };
 
-  const getStatusBadge = (status: string, isPhysical: boolean) => {
+  const getStatusBadge = (status: string, isPhysical: boolean, paymentMethod?: string) => {
     if (isPhysical) {
       return <Badge className="bg-[hsl(214,100%,38%)]/10 text-[hsl(214,100%,38%)] border-[hsl(214,100%,38%)]/20 font-medium rounded-lg">Venta Física</Badge>;
+    }
+
+    if (paymentMethod === 'pasarela') {
+      return <Badge className="bg-blue-50 text-blue-700 border-blue-200 font-medium rounded-lg flex items-center gap-1">
+        <CreditCard className="h-3 w-3" />
+        Pagado con pasarela
+      </Badge>;
     }
 
     switch (status) {
@@ -1196,8 +1203,9 @@ export const OrdersList: React.FC<OrdersListProps> = ({ orders: initialOrders })
                         <div className="font-medium text-xs md:text-sm flex items-center gap-1 line-clamp-1">
                           {order.userPhone || 'No especificado'}
                         </div>
-                        <div className="text-[10px] md:text-xs text-slate-500 mt-1 line-clamp-1">
-                          {order.userEmail}
+                        <div className="text-[10px] md:text-xs text-[hsl(214,100%,38%)] font-semibold mt-1 flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          <span className="line-clamp-1">{order.userEmail}</span>
                         </div>
                       </div>
                     </TableCell>
@@ -1262,16 +1270,21 @@ export const OrdersList: React.FC<OrdersListProps> = ({ orders: initialOrders })
                     <TableCell className="py-2 md:py-4">
                       <div className="flex items-center gap-1 md:gap-2">
                         {getStatusIcon(order.status || 'pending', !!order.physicalSale)}
-                        {getStatusBadge(order.status || 'pending', !!order.physicalSale)}
+                        {getStatusBadge(order.status || 'pending', !!order.physicalSale, order.paymentMethod || order.payment_method)}
                       </div>
                       {order.orderNotes && (
                         <div className="text-[10px] md:text-xs text-slate-500 mt-1 italic truncate max-w-[80px] md:max-w-[120px] hidden sm:block" title={order.orderNotes}>
                           "{order.orderNotes}"
                         </div>
                       )}
-                      {order.paymentMethod && (
+                      {(order.paymentMethod || order.payment_method) && (
                         <div className="text-[10px] md:text-xs text-slate-500 mt-1 truncate max-w-[80px] md:max-w-[120px]">
-                          Pago: {order.paymentMethod === 'efectivo' ? 'Efectivo' : order.paymentMethod === 'tarjeta' ? 'Tarjeta' : 'Transferencia'}
+                          Pago: {
+                            (order.paymentMethod === 'pasarela' || order.payment_method === 'pasarela') ? 'Pasarela (MP)' :
+                              order.paymentMethod === 'efectivo' ? 'Efectivo' :
+                                order.paymentMethod === 'tarjeta' ? 'Tarjeta' :
+                                  'Transferencia'
+                          }
                         </div>
                       )}
                     </TableCell>

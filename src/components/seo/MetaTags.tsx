@@ -12,9 +12,9 @@ interface MetaTagsProps {
 }
 
 export const MetaTags: React.FC<MetaTagsProps> = ({
-  title = 'VISFUM - Tu Tienda Online de Electrodomésticos y Regalería',
-  description = 'Visfum es tu tienda online confiable para electrodomésticos, regalería, productos para el hogar, bebidas, snacks y más. Envíos rápidos, domicilios gratis y los mejores precios.',
-  keywords = 'tienda online, electrodomésticos, regalería, productos hogar, bebidas, snacks, domicilios gratis, compras online, regalos, Argentina',
+  title = 'VISFUM - Tu Tienda Online de Perfumería y Regalería',
+  description = 'Visfum es tu tienda online confiable para perfumería, regalería, productos para el hogar, bebidas, snacks y más. Envíos rápidos, domicilios gratis y los mejores precios.',
+  keywords = 'tienda online, perfumería, perfumes importados, regalería, productos hogar, bebidas, snacks, domicilios gratis, compras online, regalos, Argentina',
   image,
   url,
   type = 'website',
@@ -32,7 +32,7 @@ export const MetaTags: React.FC<MetaTagsProps> = ({
     const setMetaTag = (name: string, content: string, isProperty = false) => {
       const selector = isProperty ? `meta[property="${name}"]` : `meta[name="${name}"]`;
       let meta = document.querySelector(selector) as HTMLMetaElement;
-      
+
       if (!meta) {
         meta = document.createElement('meta');
         if (isProperty) {
@@ -42,7 +42,7 @@ export const MetaTags: React.FC<MetaTagsProps> = ({
         }
         document.head.appendChild(meta);
       }
-      
+
       meta.setAttribute('content', content);
     };
 
@@ -85,7 +85,7 @@ export const MetaTags: React.FC<MetaTagsProps> = ({
 
   return (
     <>
-      <StoreStructuredData 
+      <StoreStructuredData
         name="VISFUM"
         description={description}
         url={url || (typeof window !== 'undefined' ? window.location.origin : 'https://regalaalgo.com')}

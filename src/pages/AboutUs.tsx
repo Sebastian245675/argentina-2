@@ -82,7 +82,7 @@ const AboutUs = () => {
                   </div>
                   <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 md:p-8 shadow-md border border-purple-100">
                     <p className="text-lg md:text-xl text-gray-700 font-normal leading-relaxed">
-                      Ofrecemos una amplia variedad de productos: desde peluches, mates parlantes, bicicletas, electrodomésticos, hasta artículos únicos y originales para sorprender o darte un gusto.
+                      Ofrecemos una amplia variedad de productos: desde peluches, mates parlantes, bicicletas, perfumería, hasta artículos únicos y originales para sorprender o darte un gusto.
                     </p>
                   </div>
                 </div>

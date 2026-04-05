@@ -30,6 +30,7 @@ const AuthPage = lazy(() => import("./pages/AuthPage").then(module => ({ default
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const CartPage = lazy(() => import("./pages/CartPage").then(m => ({ default: m.CartPage })));
+const OrderSuccess = lazy(() => import("./pages/OrderSuccess").then(m => ({ default: m.OrderSuccess })));
 
 const queryClient = new QueryClient();
 
@@ -45,11 +46,11 @@ const App = () => {
         meta.content = 'notranslate';
         document.head.appendChild(meta);
       }
-      
+
       // Añadir clases notranslate a elementos críticos
       document.documentElement.classList.add('notranslate');
       document.body.classList.add('notranslate');
-      
+
       // Añadir estilos para prevenir problemas
       const styleEl = document.getElementById('notranslate-styles');
       if (!styleEl) {
@@ -66,52 +67,53 @@ const App = () => {
         document.head.appendChild(style);
       }
     };
-    
+
     preventTranslation();
   }, []);
 
   return (
-  <QueryClientProvider client={queryClient}>
-    {/* Agregamos CacheProvider para mejorar el rendimiento */}
-    <CacheProvider config={{ maxAge: 24 * 60 * 60 * 1000 }}> {/* 24 horas */}
-      <AuthProvider>
-        <CartProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <SimulationNotice />
-            <BrowserRouter>
-              <WebsiteVisitTracker />
-              <Suspense fallback={<div className="min-h-screen bg-white"></div>}>
-                <Routes>
-                  <Route path="/" element={<AdvancedIndex />} />
-                  <Route path="/categoria/:categorySlug" element={<CategoryViewPage />} />
-                  <Route path="/auth" element={<AuthPage />} />
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/register" element={<RegisterPage />} />
-                  <Route path="/cart" element={<CartPage />} />
-                  <Route path="/admin" element={<AdminPanel />} />
-                  <Route path="/perfil" element={<UserProfile />} />
-                  <Route path="/producto/:slug" element={<ProductDetailPage />} />
-                  <Route path="/sobre-nosotros" element={<AboutUs />} />
-                  <Route path="/envios" element={<Envios />} />
-                  <Route path="/testimonios" element={<Testimonios />} />
-                  <Route path="/retiros" element={<Retiros />} />
-                  <Route path="/preguntas-frecuentes" element={<FAQPage />} />
-                  <Route path="/shared/employees" element={<SharedEmployeeManager />} />
-                  <Route path="/admin/image-downloader" element={<ImageDownloaderPage />} />
-                  <Route path="/admin/update-image-urls" element={<ImageUrlUpdaterPage />} />
-                  <Route path="/admin/rotate-image" element={<AdminImageOrientation />} />
-                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </BrowserRouter>
-          </TooltipProvider>
-        </CartProvider>
-      </AuthProvider>
-    </CacheProvider>
-  </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      {/* Agregamos CacheProvider para mejorar el rendimiento */}
+      <CacheProvider config={{ maxAge: 24 * 60 * 60 * 1000 }}> {/* 24 horas */}
+        <AuthProvider>
+          <CartProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <SimulationNotice />
+              <BrowserRouter>
+                <WebsiteVisitTracker />
+                <Suspense fallback={<div className="min-h-screen bg-white"></div>}>
+                  <Routes>
+                    <Route path="/" element={<AdvancedIndex />} />
+                    <Route path="/categoria/:categorySlug" element={<CategoryViewPage />} />
+                    <Route path="/auth" element={<AuthPage />} />
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
+                    <Route path="/cart" element={<CartPage />} />
+                    <Route path="/order-success" element={<OrderSuccess />} />
+                    <Route path="/admin" element={<AdminPanel />} />
+                    <Route path="/perfil" element={<UserProfile />} />
+                    <Route path="/producto/:slug" element={<ProductDetailPage />} />
+                    <Route path="/sobre-nosotros" element={<AboutUs />} />
+                    <Route path="/envios" element={<Envios />} />
+                    <Route path="/testimonios" element={<Testimonios />} />
+                    <Route path="/retiros" element={<Retiros />} />
+                    <Route path="/preguntas-frecuentes" element={<FAQPage />} />
+                    <Route path="/shared/employees" element={<SharedEmployeeManager />} />
+                    <Route path="/admin/image-downloader" element={<ImageDownloaderPage />} />
+                    <Route path="/admin/update-image-urls" element={<ImageUrlUpdaterPage />} />
+                    <Route path="/admin/rotate-image" element={<AdminImageOrientation />} />
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
+              </BrowserRouter>
+            </TooltipProvider>
+          </CartProvider>
+        </AuthProvider>
+      </CacheProvider>
+    </QueryClientProvider>
   );
 };
 
