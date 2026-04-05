@@ -603,7 +603,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
           )}
 
           {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-8 gap-y-12">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="flex flex-col h-full">
                   <div className="bg-gray-100 animate-pulse aspect-[3/4] w-full mb-3" />
@@ -614,7 +614,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
             </div>
           ) : (
             <div className="flex flex-col gap-10">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-10">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-8 gap-y-12">
                 {paginatedProducts.length > 0 ? (
                   paginatedProducts.map((product) => (
                     <div key={product.id} className="w-full">
