@@ -1,15 +1,6 @@
 -- =============================================================
--- FIX DEFINITIVO: Arreglar políticas RLS de la tabla "orders"
+-- FIX DEFINITIVO: Tabla "orders" + políticas RLS
 -- =============================================================
--- PROBLEMA ENCONTRADO:
--- 1. La tabla orders NO tiene las columnas: payment_method, 
---    payment_id, external_reference, confirmed_at, etc.
---    → Ya arreglado en el código (OrderSuccess.tsx)
---
--- 2. La tabla orders tiene RLS activado pero NO permite INSERT
---    desde usuarios autenticados ni anónimos.
---    → Este script lo arregla.
---
 -- INSTRUCCIONES:
 -- 1. Ve a tu panel de Supabase: https://supabase.com/dashboard
 -- 2. Entra a tu proyecto (vqkshcozrnqfbxreuczj)
@@ -17,7 +8,50 @@
 -- 4. Pega TODO este código y dale a "Run"
 -- =============================================================
 
--- Limpiar políticas existentes de orders
+-- =======================================
+-- PASO 1: Asegurar que existan las columnas necesarias
+-- =======================================
+DO $$
+BEGIN
+  -- user_name
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='orders' AND column_name='user_name') THEN
+    ALTER TABLE orders ADD COLUMN user_name text;
+  END IF;
+  -- user_email
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='orders' AND column_name='user_email') THEN
+    ALTER TABLE orders ADD COLUMN user_email text;
+  END IF;
+  -- user_phone
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='orders' AND column_name='user_phone') THEN
+    ALTER TABLE orders ADD COLUMN user_phone text;
+  END IF;
+  -- delivery_fee
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='orders' AND column_name='delivery_fee') THEN
+    ALTER TABLE orders ADD COLUMN delivery_fee numeric DEFAULT 0;
+  END IF;
+  -- order_type  (online | physical)
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='orders' AND column_name='order_type') THEN
+    ALTER TABLE orders ADD COLUMN order_type text DEFAULT 'online';
+  END IF;
+  -- order_notes
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='orders' AND column_name='order_notes') THEN
+    ALTER TABLE orders ADD COLUMN order_notes text;
+  END IF;
+  -- confirmed_at
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='orders' AND column_name='confirmed_at') THEN
+    ALTER TABLE orders ADD COLUMN confirmed_at timestamptz;
+  END IF;
+END
+$$;
+
+-- =======================================
+-- PASO 2: Asegurar default en created_at
+-- =======================================
+ALTER TABLE orders ALTER COLUMN created_at SET DEFAULT now();
+
+-- =======================================
+-- PASO 3: Limpiar políticas RLS existentes
+-- =======================================
 DROP POLICY IF EXISTS "Users can insert own orders" ON orders;
 DROP POLICY IF EXISTS "Authenticated users can insert orders" ON orders;
 DROP POLICY IF EXISTS "Anyone can insert orders" ON orders;
@@ -27,19 +61,27 @@ DROP POLICY IF EXISTS "Users can read own orders" ON orders;
 DROP POLICY IF EXISTS "Admin can manage orders" ON orders;
 DROP POLICY IF EXISTS "Admin can update orders" ON orders;
 DROP POLICY IF EXISTS "Admin can delete orders" ON orders;
+DROP POLICY IF EXISTS "Public can read orders" ON orders;
 DROP POLICY IF EXISTS "orders_insert_all" ON orders;
 DROP POLICY IF EXISTS "orders_select_all" ON orders;
 DROP POLICY IF EXISTS "orders_update_all" ON orders;
 DROP POLICY IF EXISTS "orders_delete_all" ON orders;
 
--- 1. CUALQUIER PERSONA puede crear un pedido (usuarios logueados + invitados)
-CREATE POLICY "Anyone can insert orders"
+-- Activar RLS
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+
+-- =======================================
+-- PASO 4: Crear políticas nuevas
+-- =======================================
+
+-- 1. CUALQUIER usuario autenticado puede INSERTAR pedidos
+CREATE POLICY "Authenticated users can insert orders"
   ON orders
   FOR INSERT
-  TO public
+  TO authenticated
   WITH CHECK (true);
 
--- 2. Los administradores y sub-admins pueden VER todos los pedidos
+-- 2. Los administradores y sub-admins pueden VER TODOS los pedidos
 CREATE POLICY "Admin can read all orders"
   ON orders
   FOR SELECT
@@ -59,7 +101,7 @@ CREATE POLICY "Users can read own orders"
   TO authenticated
   USING (user_id = auth.uid());
 
--- 4. Los administradores pueden ACTUALIZAR pedidos (confirmar, etc.)
+-- 4. Los administradores pueden ACTUALIZAR pedidos (confirmar, cambiar estado)
 CREATE POLICY "Admin can update orders"
   ON orders
   FOR UPDATE
@@ -85,10 +127,14 @@ CREATE POLICY "Admin can delete orders"
     )
   );
 
--- También permitir lectura anónima para que el insert + select funcione
--- (necesario para que el .select() después del insert funcione)
-CREATE POLICY "Public can read orders"
-  ON orders
-  FOR SELECT
-  TO anon
-  USING (false);  -- Los anónimos NO pueden leer pedidos, solo insertarlos
+-- =======================================
+-- PASO 5: Verificar que la FK user_id no bloquee inserts
+-- =======================================
+-- Si la tabla orders tiene FK a users(id) y falla por ello,
+-- descomentar la siguiente línea:
+-- ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_user_id_fkey;
+
+-- =======================================
+-- LISTO - Verifica ejecutando:
+-- =======================================
+-- SELECT * FROM orders ORDER BY created_at DESC LIMIT 5;

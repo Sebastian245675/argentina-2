@@ -40,6 +40,7 @@ export const OrderSuccess = () => {
                     user_id: user.id,
                     user_name: user.name || 'Usuario',
                     user_email: user.email,
+                    user_phone: null as string | null,
                     items: items.map((i: any) => ({
                         id: i.id,
                         name: i.name,
@@ -48,15 +49,18 @@ export const OrderSuccess = () => {
                         image: i.image
                     })),
                     total: getTotal(),
+                    delivery_fee: 0,
                     status: 'confirmed',
                     order_type: 'online',
                     order_notes: `Pasarela MP | ID Pago: ${paymentId || 'N/A'} | Ref: ${externalReference || 'N/A'}`,
-                    created_at: new Date().toISOString()
                 };
 
                 if (isSupabase) {
                     const { error } = await (db as any).from('orders').insert([orderPayload]);
-                    if (error) throw error;
+                    if (error) {
+                        console.error('[OrderSuccess] Insert error:', error);
+                        throw error;
+                    }
                 } else {
                     // Si fuera Firebase (según los mocks en OrdersList)
                     // await addDoc(collection(db, 'orders'), orderPayload);

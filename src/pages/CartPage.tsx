@@ -72,20 +72,40 @@ export const CartPage: React.FC = () => {
 
     try {
       const isSupabase = typeof (db as any)?.from === 'function';
-      const orderPayload = {
-        user_id: user.id,
-        items: items.map((i: any) => ({ id: i.id, name: i.name, price: Number(i.price), quantity: i.quantity, image: i.image })),
-        total: getTotal(),
-        delivery_fee: deliveryFee,
-        order_notes: orderNotes || null,
-        status: 'pending',
-      };
+      const orderItems = items.map((i: any) => ({ id: i.id, name: i.name, price: Number(i.price), quantity: i.quantity, image: i.image }));
       if (isSupabase) {
-        await (db as any).from('orders').insert([orderPayload]);
+        const { error } = await (db as any).from('orders').insert([{
+          user_id: user.id,
+          user_name: userName || user.name || null,
+          user_email: userEmail || user.email || null,
+          user_phone: userPhone || null,
+          items: orderItems,
+          total: total,
+          delivery_fee: deliveryFee,
+          order_notes: orderNotes || null,
+          status: 'pending',
+          order_type: 'online',
+        }]);
+        if (error) {
+          console.error('[CartPage] Error inserting order:', error);
+          throw error;
+        }
       } else {
-        await createDocument('orders', { ...orderPayload, userName, userEmail, userPhone });
+        await createDocument('orders', {
+          user_id: user.id,
+          userName,
+          userEmail,
+          userPhone,
+          items: orderItems,
+          total: total,
+          delivery_fee: deliveryFee,
+          order_notes: orderNotes || null,
+          status: 'pending',
+          order_type: 'online',
+        });
       }
     } catch (e) {
+      console.error('[CartPage] Order save error:', e);
       toast({ title: "Error", description: "No se pudo guardar el pedido.", variant: "destructive" });
     }
 

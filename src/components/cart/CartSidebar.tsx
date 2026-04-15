@@ -8,12 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
 import { ShoppingCart, Plus, Minus, Trash2, MessageCircle, X } from 'lucide-react';
-// Mocks para evitar errores de compilación ya que Firebase fue removido
-const doc = (...args: any[]) => ({}) as any;
-const getDoc = (...args: any[]) => Promise.resolve({ exists: () => false, data: () => ({}) }) as any;
-const addDoc = (...args: any[]) => Promise.resolve({ id: 'mock-id' }) as any;
-const collection = (...args: any[]) => ({}) as any;
-const serverTimestamp = () => new Date() as any;
 import { db, auth } from "@/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -32,23 +26,16 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
   const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      const firebaseUser = auth.currentUser;
-      if (isAuthenticated && firebaseUser && firebaseUser.uid) {
-        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUserName(data.name || '');
-          setUserPhone(data.phone || '');
-          setUserEmail(data.email || firebaseUser.email || '');
-        } else {
-          setUserName(firebaseUser.email || '');
-          setUserPhone('');
-          setUserEmail(firebaseUser.email || '');
-        }
+    if (isAuthenticated && user) {
+      setUserName(user.name || '');
+      setUserEmail(user.email || '');
+      const isSupabase = typeof (db as any)?.from === 'function';
+      if (isSupabase && user.id) {
+        (db as any).from('users').select('phone').eq('id', user.id).maybeSingle()
+          .then(({ data }: any) => { if (data?.phone) setUserPhone(data.phone); })
+          .catch(() => { });
       }
-    };
-    fetchUserData();
+    }
   }, [isAuthenticated, user, isOpen]);
 
   const handleQuantityChange = (productId: string, newQuantity: number) => {
@@ -104,7 +91,7 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
         return itemText;
       }).join('\n')}\n\n` +
       (orderNotes ? `*📝 Notas adicionales:*\n${orderNotes}\n\n` : '') +
-      `💰 *TOTAL A PAGAR: $${getTotal().toLocaleString()}*\n\n` +
+      `💰 *TOTAL A PAGAR: $${total.toLocaleString()}*\n\n` +
       `⏰ Fecha: ${new Date().toLocaleDateString('es-AR')} - ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}\n\n` +
       `✅ Por favor confirma la disponibilidad y tiempo de entrega.\n`;
 
@@ -112,31 +99,41 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
     const whatsappUrl = `https://wa.me/${storeWhatsApp}?text=${encodeURIComponent(message)}`;
 
     try {
-      // Guarda el pedido en Firestore
-      await addDoc(collection(db, "orders"), {
-        userId: isAuthenticated ? user.id : null,
-        userName,
-        userEmail,
-        userPhone,
-        items: items.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          image: item.image
-        })),
-        orderNotes,
-        total: getTotal(),
-        createdAt: serverTimestamp(),
-        status: "pending"
-      });
+      // Guardar el pedido en Supabase
+      const isSupabase = typeof (db as any)?.from === 'function';
+      const orderItems = items.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: Number(item.price),
+        quantity: item.quantity,
+        image: item.image
+      }));
+
+      if (isSupabase) {
+        const { error } = await (db as any).from('orders').insert([{
+          user_id: user.id,
+          user_name: userName || user.name || null,
+          user_email: userEmail || user.email || null,
+          user_phone: userPhone || null,
+          items: orderItems,
+          total: total,
+          delivery_fee: deliveryFee,
+          order_notes: orderNotes || null,
+          status: 'pending',
+          order_type: 'online',
+        }]);
+        if (error) {
+          console.error('[CartSidebar] Error inserting order:', error);
+          throw error;
+        }
+      }
     } catch (error) {
+      console.error('[CartSidebar] Order save error:', error);
       toast({
         title: "Error",
         description: "No se pudo guardar el pedido en la base de datos.",
         variant: "destructive"
       });
-      // Puedes decidir si sigues con el WhatsApp o no
     }
 
     window.open(whatsappUrl, '_blank');
@@ -311,11 +308,5 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
                 </div>
               </div>
 
-              {/* DEBUG: Muestra los datos obtenidos */}
-              <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
-                <div>Nombre: {userName}</div>
-                <div>Email: {userEmail}</div>
-                <div>Teléfono: {userPhone || 'No especificado'}</div>
-              </div>
             </>)}        </div>      </SheetContent>    </Sheet>);
 };
