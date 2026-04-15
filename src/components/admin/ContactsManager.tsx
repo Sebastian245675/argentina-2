@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -64,11 +65,72 @@ export const ContactsManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('smart-lists');
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [savingContact, setSavingContact] = useState(false);
+  const [newContact, setNewContact] = useState({ name: '', phone: '', email: '', company: '' });
   const isSupabase = typeof (db as any)?.from === 'function';
 
   useEffect(() => {
     loadContacts();
   }, []);
+
+  const handleExportContacts = () => {
+    toast({ title: 'Exportar Contactos', description: 'Función en desarrollo.' });
+  };
+
+  const handleDeleteSelected = () => {
+    toast({ title: 'Eliminar Contactos', description: 'Función en desarrollo.' });
+  };
+
+  const handleAddContact = async () => {
+    if (!newContact.name.trim()) {
+      toast({ title: 'Error', description: 'El nombre es obligatorio', variant: 'destructive' });
+      return;
+    }
+
+    setSavingContact(true);
+    try {
+      if (isSupabase) {
+        const { data, error } = await (db as any).from('contacts').insert([
+          {
+            name: newContact.name,
+            phone: newContact.phone,
+            email: newContact.email,
+            company: newContact.company,
+            created_at: new Date().toISOString()
+          }
+        ]).select();
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          const newSavedContact = {
+            id: data[0].id,
+            name: data[0].name || '',
+            phone: data[0].phone || '',
+            email: data[0].email || '',
+            company: data[0].company || '',
+            createdAt: new Date(data[0].created_at),
+            tags: data[0].tags || [],
+            avatar: data[0].avatar || ''
+          };
+          setContacts(prev => [newSavedContact, ...prev]);
+        }
+      } else {
+        toast({ title: 'Error', description: 'No se usa Firebase, favor configurar Supabase.', variant: 'destructive'});
+      }
+
+      setNewContact({ name: '', phone: '', email: '', company: '' });
+      setShowAddDialog(false);
+      toast({ title: 'Contacto Agregado', description: 'El contacto ha sido guardado exitosamente.' });
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: 'Error', description: 'No se pudo guardar el contacto.', variant: 'destructive' });
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
 
   const loadContacts = async () => {
     try {
