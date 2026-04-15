@@ -222,12 +222,12 @@ export const ContactsManager: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="border-slate-200 shadow-sm hidden sm:flex">
+          <Button variant="outline" className="border-slate-200 shadow-sm hidden sm:flex" onClick={handleExportContacts}>
             <Download className="h-4 w-4 mr-2" />
             Exportar
           </Button>
           <div className="flex items-center gap-1">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all shadow-md active:scale-95">
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all shadow-md active:scale-95" onClick={() => setShowAddDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Agregar Contacto
             </Button>
@@ -250,9 +250,9 @@ export const ContactsManager: React.FC = () => {
                   <span>Restaurar / Restablecer</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-600 cursor-pointer">
+                <DropdownMenuItem className="text-red-600 cursor-pointer" onClick={handleDeleteSelected}>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  <span>Eliminar seleccionados</span>
+                  <span>Eliminar seleccionados ({selectedContacts.length})</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -633,6 +633,67 @@ export const ContactsManager: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog Agregar Contacto */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-800">
+              <Plus className="h-5 w-5 text-blue-600" />
+              Agregar Contacto
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label htmlFor="contact-name" className="text-sm font-semibold">Nombre *</label>
+              <Input
+                id="contact-name"
+                placeholder="Nombre completo"
+                value={newContact.name}
+                onChange={(e) => setNewContact(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="contact-phone" className="text-sm font-semibold">Teléfono</label>
+              <Input
+                id="contact-phone"
+                placeholder="Ej: +54 9 11 1234-5678"
+                value={newContact.phone}
+                onChange={(e) => setNewContact(prev => ({ ...prev, phone: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="contact-email" className="text-sm font-semibold">Email</label>
+              <Input
+                id="contact-email"
+                type="email"
+                placeholder="correo@ejemplo.com"
+                value={newContact.email}
+                onChange={(e) => setNewContact(prev => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="contact-company" className="text-sm font-semibold">Empresa</label>
+              <Input
+                id="contact-company"
+                placeholder="Nombre de la empresa"
+                value={newContact.company}
+                onChange={(e) => setNewContact(prev => ({ ...prev, company: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancelar</Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={handleAddContact}
+              disabled={savingContact}
+            >
+              {savingContact ? 'Guardando...' : 'Agregar Contacto'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

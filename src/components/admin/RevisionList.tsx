@@ -1,17 +1,5 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { db } from "@/firebase";
-
-// Mocks para evitar errores de referencia tras eliminar la librería Firebase
-const collection = (...args: any[]) => ({}) as any;
-const getDocs = async (...args: any[]) => ({ docs: [] }) as any;
-const deleteDoc = async (...args: any[]) => ({}) as any;
-const doc = (...args: any[]) => ({}) as any;
-const addDoc = async (...args: any[]) => ({}) as any;
-const updateDoc = async (...args: any[]) => ({}) as any;
-const Timestamp = { now: () => new Date() } as any;
-const getDoc = async (...args: any[]) => ({ exists: () => false, data: () => ({}) }) as any;
-const query = (...args: any[]) => ({}) as any;
-const where = (...args: any[]) => ({}) as any;
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -37,11 +25,31 @@ export const RevisionList: React.FC = () => {
   const [currentData, setCurrentData] = useState<any | null>(null);
   const [loadingCompare, setLoadingCompare] = useState(false);
 
+  const isSupabase = typeof (db as any)?.from === 'function';
+
   const fetchRevisions = async () => {
     setLoading(true);
-    const querySnapshot = await getDocs(collection(db, "revision"));
-    setRevisions(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    setLoading(false);
+    try {
+      if (isSupabase) {
+        const { data, error } = await (db as any)
+          .from('revision')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) {
+          console.error('Error loading revisions:', error);
+          setRevisions([]);
+        } else {
+          setRevisions(data || []);
+        }
+      } else {
+        setRevisions([]);
+      }
+    } catch (error) {
+      console.error('Error fetching revisions:', error);
+      setRevisions([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -49,200 +57,100 @@ export const RevisionList: React.FC = () => {
   }, []);
 
   const handleApprove = async (revision: any) => {
+    if (!isSupabase) {
+      toast({ title: 'Error', description: 'Base de datos no configurada.', variant: 'destructive' });
+      return;
+    }
     try {
-      // Para productos
-      if (revision.type === "add") {
-        const productData = {
-          ...revision.data,
-          createdAt: new Date(),
-          createdBy: revision.editorEmail || "unknown",
-          lastModified: new Date(),
-          lastModifiedBy: revision.editorEmail || "unknown",
-          approvedAt: new Date(),
-          approvedBy: "admin"
-        };
-        await addDoc(collection(db, "products"), productData);
-      } else if (revision.type === "edit" && revision.data.id) {
-        const updateData = {
-          ...revision.data,
-          lastModified: new Date(),
-          lastModifiedBy: revision.editorEmail || "unknown",
-          approvedAt: new Date(),
-          approvedBy: "admin"
-        };
-        await updateDoc(doc(db, "products", revision.data.id), updateData);
-      } else if (revision.type === "delete" && revision.data.id) {
-        // Para eliminar producto, ELIMINARLO PERMANENTEMENTE en lugar de marcarlo
-        if (window.confirm("¿Estás seguro de eliminar este producto permanentemente? Esta acción no se puede deshacer.")) {
-          // Eliminar el documento completamente de la colección de productos
-          await deleteDoc(doc(db, "products", revision.data.id));
-
-          // Buscar y eliminar cualquier revisión pendiente relacionada con este producto
-          try {
-            const revisionsQuery = query(
-              collection(db, "revision"),
-              where("data.id", "==", revision.data.id)
-            );
-
-            const revisionsSnapshot = await getDocs(revisionsQuery);
-
-            const deletePromises = revisionsSnapshot.docs
-              .filter(doc => doc.id !== revision.id) // No eliminar la revisión actual
-              .map(revDoc => deleteDoc(doc(db, "revision", revDoc.id)));
-
-            if (deletePromises.length > 0) {
-              await Promise.all(deletePromises);
-            }
-          } catch (cleanupError) {
-            console.error("Error limpiando revisiones relacionadas:", cleanupError);
-            // Continuar el proceso incluso si hay error en la limpieza
-          }
+      if (revision.type === 'add') {
+        const productData = { ...revision.data };
+        delete productData.id;
+        productData.created_by = revision.editorEmail || 'unknown';
+        productData.last_modified_by = revision.editorEmail || 'unknown';
+        const { error } = await (db as any).from('products').insert([productData]);
+        if (error) throw error;
+      } else if (revision.type === 'edit' && revision.data?.id) {
+        const updateData = { ...revision.data };
+        const productId = updateData.id;
+        delete updateData.id;
+        updateData.last_modified_by = revision.editorEmail || 'unknown';
+        const { error } = await (db as any).from('products').update(updateData).eq('id', productId);
+        if (error) throw error;
+      } else if (revision.type === 'delete' && revision.data?.id) {
+        if (window.confirm('¿Eliminar este producto permanentemente?')) {
+          const { error } = await (db as any).from('products').delete().eq('id', revision.data.id);
+          if (error) throw error;
         } else {
-          // Si el usuario cancela la eliminación permanente
-          toast({
-            title: "Operación cancelada",
-            description: "La eliminación permanente fue cancelada."
-          });
+          toast({ title: 'Cancelado', description: 'La eliminación fue cancelada.' });
           return;
         }
-      }
-      // Para info sections
-      else if (revision.type === "info_edit" && revision.sectionId) {
-        await updateDoc(doc(db, "infoSections", revision.sectionId), {
-          content: revision.data.content,
-          lastEdited: Timestamp.now()
-        });
-      } else if (revision.type === "info_toggle" && revision.sectionId) {
-        await updateDoc(doc(db, "infoSections", revision.sectionId), {
-          enabled: revision.data.enabled,
-          lastEdited: Timestamp.now()
-        });
+      } else if (revision.type === 'info_edit' && revision.sectionId) {
+        const { error } = await (db as any).from('info_sections').update({ content: revision.data.content }).eq('id', revision.sectionId);
+        if (error) throw error;
+      } else if (revision.type === 'info_toggle' && revision.sectionId) {
+        const { error } = await (db as any).from('info_sections').update({ enabled: revision.data.enabled }).eq('id', revision.sectionId);
+        if (error) throw error;
       }
 
-      await deleteDoc(doc(db, "revision", revision.id));
+      // Eliminar revisión después de aplicar
+      const { error: delError } = await (db as any).from('revision').delete().eq('id', revision.id);
+      if (delError) throw delError;
 
-      // Mensaje específico según el tipo de operación
       toast({
-        title: "Cambio aplicado",
-        description: revision.type === "delete"
-          ? "El producto ha sido eliminado permanentemente."
-          : "La revisión fue aprobada y aplicada."
+        title: 'Cambio aplicado',
+        description: revision.type === 'delete' ? 'Producto eliminado permanentemente.' : 'Revisión aprobada y aplicada.'
       });
-
       fetchRevisions();
       setSelected(null);
       setDialogOpen(false);
-    } catch (e) {
-      console.error("Error al aprobar revisión:", e);
-      toast({ title: "Error", description: "No se pudo aprobar la revisión.", variant: "destructive" });
+    } catch (e: any) {
+      console.error('Error al aprobar revisión:', e);
+      toast({ title: 'Error', description: e?.message || 'No se pudo aprobar la revisión.', variant: 'destructive' });
     }
   };
 
   const handleDelete = async (id: string) => {
+    if (!isSupabase) return;
     try {
-      // Buscar la revisión para obtener información antes de eliminarla
-      const revisionRef = doc(db, "revision", id);
-      const revisionSnap = await getDoc(revisionRef);
+      const revision = revisions.find(r => r.id === id);
 
-      if (!revisionSnap.exists()) {
-        toast({
-          title: "Error",
-          description: "La revisión no existe o ya fue eliminada",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const revisionData = revisionSnap.data();
-
-      // Si es una solicitud de eliminación y está autorizado, preguntar si quiere eliminar también el producto
-      if (revisionData.type === "delete" && revisionData.data?.id && user?.role === "admin") {
-        if (window.confirm("Esta es una solicitud de eliminación. ¿Desea eliminar también el producto de la base de datos?")) {
-          try {
-            // Eliminar el producto referenciado
-            await deleteDoc(doc(db, "products", revisionData.data.id));
-
-            // También limpiar revisiones pendientes relacionadas con este producto
-            try {
-              const revisionsQuery = query(
-                collection(db, "revision"),
-                where("data.id", "==", revisionData.data.id)
-              );
-
-              const revisionsSnapshot = await getDocs(revisionsQuery);
-
-              const deletePromises = revisionsSnapshot.docs
-                .filter(doc => doc.id !== id) // No eliminar la revisión actual
-                .map(revDoc => deleteDoc(doc(db, "revision", revDoc.id)));
-
-              if (deletePromises.length > 0) {
-                await Promise.all(deletePromises);
-              }
-            } catch (cleanupError) {
-              console.error("Error limpiando revisiones relacionadas:", cleanupError);
-              // Continuar incluso si hay error en la limpieza
-            }
-
-            toast({
-              title: "Producto eliminado",
-              description: `El producto ${revisionData.data.name || ''} ha sido eliminado permanentemente.`
-            });
-          } catch (prodError) {
-            console.error("Error eliminando producto:", prodError);
-            toast({
-              title: "Error",
-              description: "No se pudo eliminar el producto de la base de datos.",
-              variant: "destructive"
-            });
+      if (revision?.type === 'delete' && revision?.data?.id && user?.role === 'admin') {
+        if (window.confirm('¿Desea eliminar también el producto?')) {
+          const { error: prodError } = await (db as any).from('products').delete().eq('id', revision.data.id);
+          if (prodError) {
+            toast({ title: 'Error', description: 'No se pudo eliminar el producto.', variant: 'destructive' });
+          } else {
+            toast({ title: 'Producto eliminado', description: `${revision.data.name || 'Producto'} eliminado.` });
           }
         }
       }
 
-      // Eliminar la revisión de la base de datos
-      await deleteDoc(revisionRef);
-      toast({
-        title: "Revisión eliminada",
-        description: "La revisión fue eliminada correctamente."
-      });
+      const { error } = await (db as any).from('revision').delete().eq('id', id);
+      if (error) throw error;
 
+      toast({ title: 'Revisión eliminada', description: 'La revisión fue eliminada correctamente.' });
       fetchRevisions();
       setSelected(null);
       setDialogOpen(false);
-    } catch (error) {
-      console.error("Error al eliminar revisión:", error);
-      toast({
-        title: "Error",
-        description: "Ocurrió un error al eliminar la revisión.",
-        variant: "destructive"
-      });
+    } catch (error: any) {
+      console.error('Error al eliminar revisión:', error);
+      toast({ title: 'Error', description: error?.message || 'Error al eliminar la revisión.', variant: 'destructive' });
     }
   };
 
-  // Función para cargar los datos actuales y mostrar la comparación
   const handleViewChanges = async (revision: any) => {
     setCurrentRevision(revision);
     setLoadingCompare(true);
     setDialogOpen(true);
 
     try {
-      // Si es una edición, cargamos los datos actuales para comparar
-      if (revision.type === "edit" && revision.data?.id) {
-        const productRef = doc(db, "products", revision.data.id);
-        const productSnap = await getDoc(productRef);
-
-        if (productSnap.exists()) {
-          setCurrentData(productSnap.data());
-        } else {
-          setCurrentData(null);
-        }
-      }
-      // Para ediciones de secciones de información
-      else if (revision.type === "info_edit" && revision.sectionId) {
-        const sectionRef = doc(db, "infoSections", revision.sectionId);
-        const sectionSnap = await getDoc(sectionRef);
-
-        if (sectionSnap.exists()) {
-          setCurrentData(sectionSnap.data());
+      if (isSupabase) {
+        if (revision.type === 'edit' && revision.data?.id) {
+          const { data, error } = await (db as any).from('products').select('*').eq('id', revision.data.id).maybeSingle();
+          setCurrentData(error ? null : data);
+        } else if (revision.type === 'info_edit' && revision.sectionId) {
+          const { data, error } = await (db as any).from('info_sections').select('*').eq('id', revision.sectionId).maybeSingle();
+          setCurrentData(error ? null : data);
         } else {
           setCurrentData(null);
         }
@@ -250,12 +158,8 @@ export const RevisionList: React.FC = () => {
         setCurrentData(null);
       }
     } catch (error) {
-      console.error("Error al cargar datos para comparación:", error);
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar los datos actuales para la comparación",
-        variant: "destructive"
-      });
+      console.error('Error al cargar datos para comparación:', error);
+      toast({ title: 'Error', description: 'No se pudieron cargar los datos actuales', variant: 'destructive' });
       setCurrentData(null);
     } finally {
       setLoadingCompare(false);

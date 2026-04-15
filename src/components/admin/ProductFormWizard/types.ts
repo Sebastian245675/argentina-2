@@ -36,6 +36,14 @@ export interface ProductFormData {
   // Opciones de filtros seleccionadas: { filterId: [optionId1, optionId2, ...] }
   filterOptions?: { [filterId: string]: string[] };
   
+  // Opciones de decant (volúmenes con precio individual)
+  isDecant?: boolean;
+  decantOptions?: {
+    '2.5': { enabled: boolean; price: string };
+    '5': { enabled: boolean; price: string };
+    '10': { enabled: boolean; price: string };
+  };
+  
   // Estado
   isPublished: boolean;
 }

@@ -29,18 +29,17 @@ export const OrderSuccess = () => {
 
     useEffect(() => {
         const saveOrder = async () => {
-            // Quitamos el bloqueo estricto de Auth para permitir compras de invitados
-            if (orderSaved) return;
+            if (!isAuthenticated || !user || orderSaved) return;
 
-            // Si es un pago de pasarela exitoso o no hay status (asumimos éxito)
-            const isApproved = !status || status === 'approved';
+            // Solo guardamos si el estado es 'approved' o si no hay estado (asumimos éxito si llegó aquí)
+            if (status && status !== 'approved') return;
 
             try {
                 const isSupabase = typeof (db as any)?.from === 'function';
                 const orderPayload = {
-                    user_id: user?.id || `guest_${Date.now()}`,
-                    user_name: user?.name || 'Cliente Invitado',
-                    user_email: user?.email || 'compra@invitado.com',
+                    user_id: user.id,
+                    user_name: user.name || 'Usuario',
+                    user_email: user.email,
                     items: items.map((i: any) => ({
                         id: i.id,
                         name: i.name,
@@ -49,9 +48,9 @@ export const OrderSuccess = () => {
                         image: i.image
                     })),
                     total: getTotal(),
-                    status: isApproved ? 'confirmed' : 'pending',
-                    payment_method: 'pasarela',
-                    order_notes: `Pago MP: ${paymentId || 'N/A'} | Ref: ${externalReference || 'N/A'}`,
+                    status: 'confirmed',
+                    order_type: 'online',
+                    order_notes: `Pasarela MP | ID Pago: ${paymentId || 'N/A'} | Ref: ${externalReference || 'N/A'}`,
                     created_at: new Date().toISOString()
                 };
 

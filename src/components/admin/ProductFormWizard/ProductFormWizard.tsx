@@ -135,6 +135,12 @@ export const ProductFormWizard: React.FC<ProductFormWizardProps> = ({
                 paymentMethods: (data.payment_methods ?? data.paymentMethods) || [],
                 filterGroups: (data.filter_groups ?? data.filterGroups) || [],
                 filterOptions: (data.filter_options ?? data.filterOptions) || {},
+                isDecant: data.is_decant ?? data.isDecant ?? false,
+                decantOptions: data.decant_options ?? data.decantOptions ?? {
+                  '2.5': { enabled: false, price: '' },
+                  '5': { enabled: false, price: '' },
+                  '10': { enabled: false, price: '' },
+                },
                 isPublished: data.is_published ?? data.isPublished ?? true,
               });
               

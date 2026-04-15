@@ -161,6 +161,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'products', icon: <Package className="h-5 w-5" />, label: 'Productos', description: 'Gestión de inventario' },
     { id: 'contacts', icon: <Contact className="h-5 w-5" />, label: 'Contactos', description: 'Gestión de contactos' },
     { id: 'orders', icon: <ShoppingCart className="h-5 w-5" />, label: 'Pedidos', description: 'Control de ventas' },
+    { id: 'comments', icon: <MessageSquare className="h-5 w-5" />, label: 'Comentarios', description: 'Gestión de reseñas' },
     { id: 'categories', icon: <Tag className="h-5 w-5" />, label: 'Categorías', description: 'Organizar productos' },
     { id: 'ai-assistant', icon: <Bot className="h-5 w-5" />, label: 'Asistente IA', description: 'Inteligencia artificial' },
 
@@ -282,7 +283,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
             <input
               type="text"
-              placeholder="Search"
+              placeholder="Buscar"
               className="w-full bg-slate-800/50 border border-slate-700 rounded-md py-2 pl-9 pr-12 text-sm text-slate-300 focus:outline-none focus:border-slate-600 placeholder-slate-500"
             />
             <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">

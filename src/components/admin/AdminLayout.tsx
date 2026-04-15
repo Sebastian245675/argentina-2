@@ -150,7 +150,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
           <div className="flex items-center space-x-2 flex-1 justify-center">
             <span>Plan deluxe ilimitado websy</span>
             <button className="ml-3 bg-blue-600 hover:bg-blue-700 text-white px-3 py-0.5 rounded text-xs font-semibold transition-colors">
-              Resolve
+              Resolver
             </button>
           </div>
         </div>
@@ -185,10 +185,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
             {/* Dashboard Title */}
             <div className="flex flex-col ml-1.5">
               <h1 className="text-2xl font-semibold text-slate-800 tracking-tight">
-                Dashboard
+                Panel de Control
               </h1>
               <a href="#" className="text-xs text-blue-500 hover:text-blue-600 font-medium mt-0.5">
-                + Quick Filters
+                + Filtros Rápidos
               </a>
             </div>
           </div>
@@ -212,7 +212,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
               className="flex items-center space-x-1.5 px-3 py-1.5 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 transition-colors"
             >
               <Pencil className="h-3.5 w-3.5" />
-              <span>Edit Dashboard</span>
+              <span>Editar Panel</span>
             </button>
 
             {/* More Options */}
@@ -398,7 +398,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
               {sidebarItems.find(item => item.id === activeTab)?.label}
             </h2>
             <div className="flex items-center text-sm text-slate-500 mt-1">
-              <span>Application</span>
+              <span>Aplicación</span>
               <span className="mx-2">/</span>
               <span className="text-blue-500 font-medium">{sidebarItems.find(item => item.id === activeTab)?.label}</span>
             </div>

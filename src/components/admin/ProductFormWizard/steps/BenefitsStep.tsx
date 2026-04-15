@@ -45,9 +45,9 @@ const predefinedPaymentMethods = [
   "Daviplata"
 ];
 
-export const BenefitsStep: React.FC<StepComponentProps> = ({ 
-  formData, 
-  setFormData 
+export const BenefitsStep: React.FC<StepComponentProps> = ({
+  formData,
+  setFormData
 }) => {
   const toggleBenefit = (benefit: string) => {
     const current = formData.benefits || [];

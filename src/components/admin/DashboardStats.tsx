@@ -139,18 +139,18 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({ orders = [], onR
   }, [dateLabel]);
 
   const opportunityStatusData = [
-    { name: 'Won', value: metrics.wonCount || 0, color: '#3b82f6' },
-    { name: 'Abandoned', value: metrics.abandonedCount || 0, color: '#06b6d4' },
+    { name: 'Ganados', value: metrics.wonCount || 0, color: '#3b82f6' },
+    { name: 'Abandonados', value: metrics.abandonedCount || 0, color: '#06b6d4' },
   ].filter((d) => d.value > 0);
 
   const opportunityValueData = [
-    { name: 'Abandoned', value: metrics.abandonedRevenue || 0, fill: '#93c5fd' },
-    { name: 'Won', value: metrics.wonRevenue || 0, fill: '#3b82f6' },
+    { name: 'Abandonados', value: metrics.abandonedRevenue || 0, fill: '#93c5fd' },
+    { name: 'Ganados', value: metrics.wonRevenue || 0, fill: '#3b82f6' },
   ].filter((d) => d.value > 0);
 
   const conversionData = [
-    { name: 'Won', value: metrics.conversionRate || 0, fill: '#3b82f6' },
-    { name: 'Lost', value: 100 - (metrics.conversionRate || 0), fill: '#f1f5f9' },
+    { name: 'Ganados', value: metrics.conversionRate || 0, fill: '#3b82f6' },
+    { name: 'Perdidos', value: 100 - (metrics.conversionRate || 0), fill: '#f1f5f9' },
   ];
 
   const countChange =
@@ -182,7 +182,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({ orders = [], onR
           <div className="p-2 bg-white border border-slate-200 rounded-md shadow-sm">
             <Layout className="h-5 w-5 text-slate-500" />
           </div>
-          <h1 className="text-3xl font-normal text-slate-800">Dashboard</h1>
+          <h1 className="text-3xl font-normal text-slate-800">Panel de Control</h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -221,7 +221,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({ orders = [], onR
       </div>
 
       <div className="flex items-center text-blue-500 text-sm font-medium cursor-pointer hover:text-blue-600">
-        <span className="mr-1">+</span> Quick Filters
+        <span className="mr-1">+</span> Filtros Rápidos
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -229,9 +229,9 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({ orders = [], onR
         <Card className="shadow-sm border border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-base font-normal text-slate-700 flex items-center gap-2">
-              Opportunity Status
+              Estado de Oportunidades
               <button className="flex items-center space-x-1 px-2 py-0.5 border border-slate-200 rounded text-xs text-slate-500 font-normal">
-                <span>All Pipelines</span>
+                <span>Todos</span>
                 <ChevronDown className="h-3 w-3" />
               </button>
             </CardTitle>
@@ -249,7 +249,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({ orders = [], onR
               >
                 {countChange >= 0 ? '↑' : '↓'} {Math.abs(Math.round(countChange))}%
               </span>
-              <span className="text-xs text-slate-400">vs Last {daysRange} Days</span>
+              <span className="text-xs text-slate-400">vs Últimos {daysRange} días</span>
             </div>
 
             <div className="flex items-center justify-center h-64 relative">
@@ -285,11 +285,11 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({ orders = [], onR
             <div className="flex flex-col space-y-2 mt-2 pl-4 border-l-2 border-slate-100">
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-blue-500 rounded-sm"></div>
-                <span className="text-sm text-slate-600">Won - {metrics.wonCount}</span>
+                <span className="text-sm text-slate-600">Ganados - {metrics.wonCount}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-cyan-500 rounded-sm"></div>
-                <span className="text-sm text-slate-600">Abandoned - {metrics.abandonedCount}</span>
+                <span className="text-sm text-slate-600">Abandonados - {metrics.abandonedCount}</span>
               </div>
             </div>
           </CardContent>
@@ -299,9 +299,9 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({ orders = [], onR
         <Card className="shadow-sm border border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-base font-normal text-slate-700 flex items-center gap-2">
-              Opportunity Value
+              Valor de Oportunidades
               <button className="flex items-center space-x-1 px-2 py-0.5 border border-slate-200 rounded text-xs text-slate-500 font-normal">
-                <span>All Pipelines</span>
+                <span>Todos</span>
                 <ChevronDown className="h-3 w-3" />
               </button>
             </CardTitle>
@@ -319,7 +319,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({ orders = [], onR
               >
                 {revenueChange >= 0 ? '↑' : '↓'} {Math.abs(Math.round(revenueChange))}%
               </span>
-              <span className="text-xs text-slate-400">vs Last {daysRange} Days</span>
+              <span className="text-xs text-slate-400">vs Últimos {daysRange} días</span>
             </div>
 
             <div className="h-64 mt-4 w-full">
@@ -343,7 +343,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({ orders = [], onR
                     <Tooltip
                       cursor={{ fill: 'transparent' }}
                       formatter={(v: number) => formatCurrency(v)}
-                      labelFormatter={(l) => (l === 'Won' ? 'Ganados' : 'Abandonados')}
+                      labelFormatter={(l) => (l === 'Ganados' ? 'Ganados' : 'Abandonados')}
                     />
                     <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                       {opportunityValueData.map((entry, index) => (
@@ -366,7 +366,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({ orders = [], onR
             </div>
 
             <div className="mt-4 text-center">
-              <p className="text-xs text-slate-500">Total revenue</p>
+              <p className="text-xs text-slate-500">Ingresos totales</p>
               <p className="text-lg font-semibold text-slate-700">
                 {formatCurrency(metrics.totalRevenue)}
               </p>
@@ -378,9 +378,9 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({ orders = [], onR
         <Card className="shadow-sm border border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-base font-normal text-slate-700 flex items-center gap-2">
-              Conversion Rate
+              Tasa de Conversión
               <button className="flex items-center space-x-1 px-2 py-0.5 border border-slate-200 rounded text-xs text-slate-500 font-normal">
-                <span>All Pipelines</span>
+                <span>Todos</span>
                 <ChevronDown className="h-3 w-3" />
               </button>
             </CardTitle>
@@ -398,7 +398,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({ orders = [], onR
               >
                 {wonRevenueChange >= 0 ? '↑' : '↓'} {Math.abs(Math.round(wonRevenueChange))}%
               </span>
-              <span className="text-xs text-slate-400">vs Last {daysRange} Days</span>
+              <span className="text-xs text-slate-400">vs Últimos {daysRange} días</span>
             </div>
 
             <div className="flex items-center justify-center h-64 relative mt-2">
@@ -427,7 +427,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({ orders = [], onR
             </div>
 
             <div className="mt-4 text-center">
-              <p className="text-xs text-slate-500">Won revenue</p>
+              <p className="text-xs text-slate-500">Ingresos ganados</p>
               <p className="text-lg font-semibold text-slate-700">
                 {formatCurrency(metrics.wonRevenue)}
               </p>

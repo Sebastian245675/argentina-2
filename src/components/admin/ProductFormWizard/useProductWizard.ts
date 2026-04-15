@@ -70,6 +70,12 @@ const defaultFormData: ProductFormData = {
     paymentMethods: [],
     filterGroups: [],
     filterOptions: {},
+    isDecant: false,
+    decantOptions: {
+      '2.5': { enabled: false, price: '' },
+      '5': { enabled: false, price: '' },
+      '10': { enabled: false, price: '' },
+    },
     isPublished: true,
 };
 

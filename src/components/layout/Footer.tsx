@@ -19,11 +19,16 @@ export const Footer: React.FC = () => {
               Tu destino premium para fragancias, decants y productos de belleza de las mejores marcas del mundo.
             </p>
             <div className="flex gap-5">
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-blue-600 transition-colors bg-white p-2 rounded-full border border-gray-200" aria-label="Síguenos en Instagram">
+              <a href="https://www.instagram.com/visfum?igsh=b3c1ZzIyOWw2MG95" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-blue-600 transition-colors bg-white p-2 rounded-full border border-gray-200" aria-label="Síguenos en Instagram">
                 <Instagram className="w-5 h-5" />
               </a>
               <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-blue-600 transition-colors bg-white p-2 rounded-full border border-gray-200" aria-label="Síguenos en Facebook">
                 <Facebook className="w-5 h-5" />
+              </a>
+              <a href="https://www.tiktok.com/@visfumarg" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-blue-600 transition-colors bg-white p-2 rounded-full border border-gray-200" aria-label="Síguenos en TikTok">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V8.73a8.19 8.19 0 004.76 1.52v-3.4a4.85 4.85 0 01-1-.16z"/>
+                </svg>
               </a>
               <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-blue-600 transition-colors bg-white p-2 rounded-full border border-gray-200" aria-label="Síguenos en Youtube">
                 <Youtube className="w-5 h-5" />

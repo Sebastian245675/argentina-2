@@ -73,6 +73,7 @@ const CompanyConfiguration = lazy(() => import('@/components/admin/CompanyConfig
 const ConfigurationPanel = lazy(() => import('@/components/admin/ConfigurationPanel').then(m => ({ default: m.ConfigurationPanel })));
 const ContactsManager = lazy(() => import('@/components/admin/ContactsManager').then(m => ({ default: m.ContactsManager })));
 const FilterManager = lazy(() => import('@/components/admin/FilterManager').then(m => ({ default: m.FilterManager })));
+const CommentsManager = lazy(() => import('@/components/admin/CommentsManager').then(m => ({ default: m.CommentsManager })));
 
 // (ya importado arriba)
 import { Input } from "@/components/ui/input";
@@ -2530,10 +2531,16 @@ export const AdminPanel: React.FC = () => {
                 </Suspense>
               </TabsContent>
 
-              {/* Contacts tab */}
               <TabsContent value="contacts" className="space-y-6">
                 <Suspense fallback={<LoadingFallback />}>
                   <ContactsManager />
+                </Suspense>
+              </TabsContent>
+
+              {/* Comments tab */}
+              <TabsContent value="comments" className="space-y-6">
+                <Suspense fallback={<LoadingFallback />}>
+                  <CommentsManager />
                 </Suspense>
               </TabsContent>
 

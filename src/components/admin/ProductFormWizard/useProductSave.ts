@@ -83,6 +83,8 @@ export const useProductSave = () => {
         colors: formData.colors ?? [],
         // Guardar opciones de filtros dentro de specifications
         specifications: formData.specifications ?? [],
+        is_decant: formData.isDecant || false,
+        decant_options: formData.isDecant ? (formData.decantOptions || null) : null,
         last_modified_by: user?.email || "unknown",
       };
 
