@@ -29,46 +29,127 @@ export const OrderSuccess = () => {
 
     useEffect(() => {
         const saveOrder = async () => {
-            if (!isAuthenticated || !user || orderSaved) return;
+            if (orderSaved) return;
 
-            // Solo guardamos si el estado es 'approved' o si no hay estado (asumimos éxito si llegó aquí)
-            if (status && status !== 'approved') return;
+            // Solo guardamos si el estado es 'approved' o si no hay estado
+            if (status && status !== 'approved') {
+                setIsSaving(false);
+                return;
+            }
+
+            // Intentar obtener datos del pedido de múltiples fuentes
+            let orderItems: any[] = [];
+            let orderTotal = 0;
+            let orderUserName = 'Usuario';
+            let orderUserEmail = '';
+            let orderUserId = '';
+
+            // Fuente 1: Datos guardados en localStorage por MercadoPagoButton antes de redirigir
+            const pendingOrderRaw = localStorage.getItem('pending_mp_order');
+            let pendingOrder: any = null;
+            if (pendingOrderRaw) {
+                try {
+                    pendingOrder = JSON.parse(pendingOrderRaw);
+                } catch (e) {
+                    console.warn('[OrderSuccess] Could not parse pending order from localStorage');
+                }
+            }
+
+            // Fuente 2: Carrito actual (si aún tiene items en localStorage)
+            const cartItems = items.length > 0 ? items : null;
+
+            // Fuente 3: Auth context
+            if (isAuthenticated && user) {
+                orderUserId = user.id;
+                orderUserName = user.name || 'Usuario';
+                orderUserEmail = user.email || '';
+            }
+
+            // Prioridad: pendingOrder > cartItems
+            if (pendingOrder && pendingOrder.items?.length > 0) {
+                orderItems = pendingOrder.items;
+                orderTotal = pendingOrder.total || 0;
+                orderUserId = orderUserId || pendingOrder.user_id || '';
+                orderUserName = pendingOrder.user_name || orderUserName;
+                orderUserEmail = pendingOrder.user_email || orderUserEmail;
+            } else if (cartItems) {
+                orderItems = cartItems.map((i: any) => ({
+                    id: i.id,
+                    name: i.name,
+                    price: Number(i.price),
+                    quantity: i.quantity,
+                    image: i.image
+                }));
+                orderTotal = getTotal();
+            }
+
+            // Si no hay items de ninguna fuente, no podemos guardar
+            if (orderItems.length === 0) {
+                console.warn('[OrderSuccess] No order items found from any source');
+                setIsSaving(false);
+                return;
+            }
+
+            // Si no hay user_id, esperamos a que cargue la auth
+            if (!orderUserId) {
+                console.warn('[OrderSuccess] No user ID available yet, waiting...');
+                setIsSaving(false);
+                return; // useEffect se re-ejecutará cuando isAuthenticated cambie
+            }
 
             try {
                 const isSupabase = typeof (db as any)?.from === 'function';
-                const orderPayload = {
-                    user_id: user.id,
-                    user_name: user.name || 'Usuario',
-                    user_email: user.email,
-                    user_phone: null as string | null,
-                    items: items.map((i: any) => ({
-                        id: i.id,
-                        name: i.name,
-                        price: Number(i.price),
-                        quantity: i.quantity,
-                        image: i.image
-                    })),
-                    total: getTotal(),
-                    delivery_fee: 0,
-                    status: 'confirmed',
-                    order_type: 'online',
-                    order_notes: `Pasarela MP | ID Pago: ${paymentId || 'N/A'} | Ref: ${externalReference || 'N/A'}`,
-                };
-
                 if (isSupabase) {
-                    const { error } = await (db as any).from('orders').insert([orderPayload]);
-                    if (error) {
-                        console.error('[OrderSuccess] Insert error:', error);
-                        throw error;
+                    // Primero intentar actualizar la orden pendiente que ya fue pre-guardada por MercadoPagoButton
+                    const { data: existingOrders, error: findErr } = await (db as any)
+                        .from('orders')
+                        .select('id')
+                        .eq('user_id', orderUserId)
+                        .eq('status', 'pending')
+                        .order('created_at', { ascending: false })
+                        .limit(1);
+                    
+                    if (!findErr && existingOrders && existingOrders.length > 0) {
+                        // Actualizar la orden pendiente existente a confirmada
+                        const { error: updateErr } = await (db as any)
+                            .from('orders')
+                            .update({
+                                status: 'confirmed',
+                                order_notes: `Pasarela MP | ID Pago: ${paymentId || 'N/A'} | Ref: ${externalReference || 'N/A'}`,
+                            })
+                            .eq('id', existingOrders[0].id);
+                        
+                        if (updateErr) {
+                            console.error('[OrderSuccess] Update error:', updateErr);
+                            throw updateErr;
+                        }
+                        console.log('[OrderSuccess] Orden pendiente actualizada a confirmed:', existingOrders[0].id);
+                    } else {
+                        // No hay orden pendiente, crear una nueva
+                        const { error } = await (db as any).from('orders').insert([{
+                            user_id: orderUserId,
+                            user_name: orderUserName,
+                            user_email: orderUserEmail,
+                            user_phone: pendingOrder?.user_phone || null,
+                            items: orderItems,
+                            total: orderTotal,
+                            delivery_fee: pendingOrder?.delivery_fee || 0,
+                            status: 'confirmed',
+                            order_type: 'online',
+                            order_notes: `Pasarela MP | ID Pago: ${paymentId || 'N/A'} | Ref: ${externalReference || 'N/A'}`,
+                        }]);
+                        if (error) {
+                            console.error('[OrderSuccess] Insert error:', error);
+                            throw error;
+                        }
+                        console.log('[OrderSuccess] Nueva orden creada como confirmed');
                     }
-                } else {
-                    // Si fuera Firebase (según los mocks en OrdersList)
-                    // await addDoc(collection(db, 'orders'), orderPayload);
-                    // Pero parece que la mayoría de la app usa el estilo Supabase ahora
                 }
 
                 setOrderSaved(true);
                 clearCart();
+                // Limpiar el pedido pendiente de localStorage
+                localStorage.removeItem('pending_mp_order');
                 toast({
                     title: "¡Pago confirmado!",
                     description: "Tu pedido ha sido registrado correctamente."
@@ -77,7 +158,7 @@ export const OrderSuccess = () => {
                 console.error('Error al guardar el pedido:', error);
                 toast({
                     title: "Aviso",
-                    description: "Tu pago fue exitoso, pero hubo un problema al registrar el pedido automáticamente. Por favor contacta a soporte.",
+                    description: "Tu pago fue exitoso, pero hubo un problema al registrar el pedido. Por favor contacta a soporte.",
                     variant: "destructive"
                 });
             } finally {
@@ -85,11 +166,7 @@ export const OrderSuccess = () => {
             }
         };
 
-        if (items.length > 0) {
-            saveOrder();
-        } else {
-            setIsSaving(false);
-        }
+        saveOrder();
     }, [isAuthenticated, user, items, orderSaved]);
 
     const handleWhatsAppRedirect = () => {
