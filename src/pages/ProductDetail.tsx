@@ -406,6 +406,8 @@ const ProductDetailPage = () => {
       if (!urlSlug) return;
       setLoading(true);
       setImageLoading(true);
+      window.scrollTo(0, 0);
+      setQuantity(1);
       const isSupabase = typeof (db as any)?.from === 'function';
       try {
         if (isSupabase) {
