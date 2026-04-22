@@ -24,11 +24,18 @@ export interface Product {
   paymentMethods?: string[];
   colors?: { name: string; hexCode: string; image: string }[];
   isPublished?: boolean; // Control de visibilidad pública
+  isDecant?: boolean; // true = decant (frasco fraccionado), false/undefined = sellado
+  decantOptions?: {
+    '2.5': { enabled: boolean; price: number };
+    '5': { enabled: boolean; price: number };
+    '10': { enabled: boolean; price: number };
+  };
 }
 
 export interface CartItem extends Product {
   quantity: number;
   selectedColor?: { name: string; hexCode: string; image: string };
+  selectedMl?: string; // Volumen seleccionado para decants ("2.5", "5", "10")
 }
 
 interface CartContextType {

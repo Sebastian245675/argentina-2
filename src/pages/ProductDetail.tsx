@@ -363,6 +363,21 @@ const ProductDetailPage = () => {
     const subcategoryObj = categoriesData.find(cat => cat.id === subcategoryId);
     const terceraCategoriaObj = categoriesData.find(cat => cat.id === terceraCategoriaId);
 
+    // Parsear decant_options de la base de datos
+    let parsedDecantOptions: Product['decantOptions'] = undefined;
+    if (row.decant_options) {
+      try {
+        const raw = typeof row.decant_options === 'string' ? JSON.parse(row.decant_options) : row.decant_options;
+        parsedDecantOptions = {
+          '2.5': { enabled: !!raw?.['2.5']?.enabled, price: Number(raw?.['2.5']?.price ?? 0) },
+          '5': { enabled: !!raw?.['5']?.enabled, price: Number(raw?.['5']?.price ?? 0) },
+          '10': { enabled: !!raw?.['10']?.enabled, price: Number(raw?.['10']?.price ?? 0) },
+        };
+      } catch (e) {
+        console.warn('[mapSupabaseProduct] Error parsing decant_options:', e);
+      }
+    }
+
     return {
       id: row.id,
       name: row.name,
@@ -396,7 +411,9 @@ const ProductDetailPage = () => {
       warranties: row.warranties,
       paymentMethods: row.payment_methods,
       colors: row.colors,
-      isPublished: row.is_published !== false
+      isPublished: row.is_published !== false,
+      isDecant: row.is_decant === true,
+      decantOptions: parsedDecantOptions,
     };
   };
 
@@ -666,16 +683,65 @@ const ProductDetailPage = () => {
     return (sum / reviews.length).toFixed(1);
   };
 
+  // Detectar si el producto es un Decant:
+  // 1. Campo is_decant de la BD
+  // 2. Nombre empieza con "D " (convención de nomenclatura de la tienda)
+  // 3. Nombre contiene "Decant" (fallback)
+  const isDecant = React.useMemo(() => {
+    if (!product) return false;
+    if (product.isDecant === true) return true;
+    const name = (product.name || '').trim();
+    if (name.startsWith('D ')) return true;
+    if (/decant/i.test(name)) return true;
+    const cat = (product.categoryName || product.category || '').toLowerCase();
+    if (cat.includes('decant')) return true;
+    return false;
+  }, [product]);
+
+  // Obtener las variantes de ml habilitadas para decants
+  const enabledMlOptions = React.useMemo((): ('2.5' | '5' | '10')[] => {
+    if (!isDecant) return [];
+    // Si hay decantOptions configuradas en la BD, usar solo las habilitadas
+    if (product?.decantOptions) {
+      const opts = (['2.5', '5', '10'] as const).filter(ml => product.decantOptions?.[ml]?.enabled);
+      if (opts.length > 0) return opts;
+    }
+    // Fallback: si es decant pero no tiene opciones configuradas, mostrar las 3 por defecto
+    return ['2.5', '5', '10'];
+  }, [isDecant, product]);
+
+  // Calcular precio actual según si es decant y el ml seleccionado
+  const currentPrice = React.useMemo(() => {
+    if (!product) return 0;
+    if (isDecant && product.decantOptions) {
+      const opt = product.decantOptions[selectedMililitros];
+      if (opt?.enabled && opt.price > 0) return opt.price;
+    }
+    return product.price;
+  }, [product, selectedMililitros, isDecant]);
+
+  // Auto-seleccionar el primer ml habilitado al cargar un decant
+  React.useEffect(() => {
+    if (isDecant && enabledMlOptions.length > 0 && !enabledMlOptions.includes(selectedMililitros)) {
+      setSelectedMililitros(enabledMlOptions[0]);
+    }
+  }, [product?.id, enabledMlOptions, isDecant]);
+
   // Manejadores
   const handleAddToCart = () => {
     if (product) {
-      // Pass the selected color if available
-      addToCart(product, quantity, selectedColor);
+      // Para decants, crear un producto con el precio correcto del ml seleccionado
+      const productToAdd = isDecant
+        ? { ...product, price: currentPrice }
+        : product;
+
+      addToCart(productToAdd, quantity, selectedColor);
 
       const colorInfo = selectedColor ? ` (color: ${selectedColor.name})` : '';
+      const mlInfo = isDecant ? ` (${selectedMililitros}ml)` : '';
       toast({
         title: "¡Producto agregado!",
-        description: `${quantity}x ${product.name}${colorInfo} agregado a tu carrito`,
+        description: `${quantity}x ${product.name}${mlInfo}${colorInfo} agregado a tu carrito`,
       });
     }
   };
@@ -902,7 +968,8 @@ const ProductDetailPage = () => {
                   </div>
                 );
               })()}
-              {/* Bloque "Decant" — pegado debajo del control de imágenes */}
+              {/* Bloque "Decant" — solo visible para productos decant */}
+              {isDecant && enabledMlOptions.length > 0 && (
               <div className="mt-6 w-full">
                 <p className="text-2xl font-bold text-black tracking-tight mb-2">Decant</p>
                 <div className="flex items-center gap-4 flex-wrap">
@@ -910,52 +977,58 @@ const ProductDetailPage = () => {
                     <path strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" d="M19 14L5 14M19 14L13 8M19 14L13 20" />
                   </svg>
                   <div className="flex gap-2">
-                    {(['2.5', '5', '10'] as const).map((ml) => (
+                    {enabledMlOptions.map((ml) => (
                       <button
                         key={ml}
                         type="button"
                         onClick={() => setSelectedMililitros(ml)}
-                        className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-1.5 rounded border text-sm font-medium ${selectedMililitros === ml ? 'bg-black text-white border-black' : 'bg-white text-neutral-600 border-neutral-300 hover:border-neutral-400'}`}
+                        className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-1.5 rounded border text-sm font-medium transition-colors ${selectedMililitros === ml ? 'bg-black text-white border-black' : 'bg-white text-neutral-600 border-neutral-300 hover:border-neutral-400'}`}
                       >
-                        {ml}
+                        {ml}ml
                       </button>
                     ))}
                   </div>
                 </div>
               </div>
+              )}
             </div>
           </div>
 
-          {/* Columna derecha: título, precio, formas de pago, ml, cantidad, CTA, envío - estilo Esenzzia */}
+          {/* Columna derecha: título, precio, formas de pago, ml, cantidad, CTA, envío */}
           <div className="flex flex-col">
             <h1 className="text-3xl md:text-4xl font-bold text-black mb-1">{product.name}</h1>
-            <div className="text-4xl md:text-5xl font-bold text-black mb-2">${product.price.toLocaleString('es-AR')}</div>
-            <p className="text-sm text-neutral-500 mb-3">Precio sin impuestos ${(product.price / 1.21).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
+            <div className="text-4xl md:text-5xl font-bold text-black mb-2">${currentPrice.toLocaleString('es-AR')}</div>
 
-            {/* Formas de pago - líneas tipo Esenzzia */}
-            <ul className="space-y-1 text-sm text-neutral-700 mb-4">
-              <li>6 x ${(product.price / 6).toLocaleString('es-AR', { maximumFractionDigits: 0 })} sin interés con tarjeta de crédito</li>
-              <li>${(product.price * 0.75).toLocaleString('es-AR', { maximumFractionDigits: 0 })} por Transferencia</li>
-              <li>${(product.price * 0.70).toLocaleString('es-AR', { maximumFractionDigits: 0 })} en Efectivo en showroom</li>
-            </ul>
+            {/* Precio sin impuestos — solo para sellados */}
+            {!isDecant && (
+              <p className="text-sm text-neutral-500 mb-3">Precio sin impuestos ${(currentPrice / 1.21).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
+            )}
+
+            {/* Cuotas — solo para sellados */}
+            {!isDecant && (
+              <p className="text-sm text-neutral-700 mb-4">6 x ${(currentPrice / 6).toLocaleString('es-AR', { maximumFractionDigits: 0 })} sin interés con tarjeta de crédito</p>
+            )}
+
             <p className="text-sm text-neutral-600 mb-6">Envío gratis superando los $150.000</p>
 
-            {/* Selector Mililitros - botones 2,5 | 5 | 10 */}
+            {/* Selector Mililitros — solo para decants */}
+            {isDecant && enabledMlOptions.length > 0 && (
             <div className="mb-4">
-              <p className="text-sm font-medium text-black mb-2">Mililitros: <strong>{selectedMililitros}</strong></p>
+              <p className="text-sm font-medium text-black mb-2">Mililitros: <strong>{selectedMililitros}ml</strong></p>
               <div className="flex gap-2">
-                {(['2.5', '5', '10'] as const).map((ml) => (
+                {enabledMlOptions.map((ml) => (
                   <button
                     key={ml}
                     type="button"
                     onClick={() => setSelectedMililitros(ml)}
                     className={`px-4 py-2 rounded border text-sm font-medium transition-colors ${selectedMililitros === ml ? 'bg-black text-white border-black' : 'bg-white text-neutral-600 border-neutral-300 hover:border-neutral-400'}`}
                   >
-                    {ml}
+                    {ml}ml
                   </button>
                 ))}
               </div>
             </div>
+            )}
 
             {/* Cantidad [- 1 +] */}
             <div className="flex items-center border border-neutral-300 rounded overflow-hidden w-fit mb-4">
@@ -1334,21 +1407,23 @@ const ProductDetailPage = () => {
         <section className="max-w-6xl mx-auto px-4 my-12">
           <h2 className="text-2xl font-bold text-black mb-6">Productos relacionados</h2>
           <div className="relative flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory">
-            {(similarProducts?.length ? similarProducts : []).slice(0, 6).map((p) => (
+            {(similarProducts?.length ? similarProducts : []).slice(0, 6).map((p) => {
+              const pIsDecant = p.isDecant === true || (p.name || '').trim().startsWith('D ') || /decant/i.test(p.name || '') || (p.categoryName || p.category || '').toLowerCase().includes('decant');
+              return (
               <div
                 key={p.id}
                 className="flex-shrink-0 w-64 snap-center bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => goToProduct(p)}
               >
-                <p className="text-center text-xs font-medium text-neutral-600 py-2 border-b border-neutral-100">Decant</p>
+                {pIsDecant && (
+                  <p className="text-center text-xs font-medium text-neutral-600 py-2 border-b border-neutral-100">Decant</p>
+                )}
                 <div className="p-4 flex justify-center h-40">
                   <img src={p.image} alt={p.name} width="160" height="160" className="max-h-full w-auto object-contain" />
                 </div>
                 <div className="p-4 border-t border-neutral-100">
                   <p className="font-medium text-black text-sm line-clamp-2 mb-2">{p.name}</p>
                   <p className="text-xl font-bold text-black mb-1">${p.price.toLocaleString('es-AR')}</p>
-                  <p className="text-xs text-neutral-600 mb-1">6 x ${(p.price / 6).toLocaleString('es-AR', { maximumFractionDigits: 0 })} sin interés con tarjeta de crédito</p>
-                  <p className="text-xs text-neutral-600 mb-2">${(p.price * 0.75).toLocaleString('es-AR', { maximumFractionDigits: 0 })} por Transferencia</p>
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -1363,7 +1438,8 @@ const ProductDetailPage = () => {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 

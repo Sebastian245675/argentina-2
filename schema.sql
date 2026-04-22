@@ -60,6 +60,8 @@ CREATE TABLE IF NOT EXISTS public.products (
   last_modified_by TEXT,
   cost_updated_at TIMESTAMP WITH TIME ZONE,
   profit_margin DECIMAL(10, 2),
+  is_decant BOOLEAN DEFAULT FALSE,
+  decant_options JSONB DEFAULT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
