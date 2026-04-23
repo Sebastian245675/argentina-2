@@ -160,7 +160,8 @@ const AboutUs = () => {
                     Ver en el mapa
                   </a>
                 </li>
-                <li>WhatsApp: 11 2671-1308</li>
+                <li>Asesor 1: 11 2671-1308</li>
+                <li>Asesor 2: 387 222-8571</li>
                 <li>Instagram: <a href="https://www.instagram.com/visfum?igsh=b3c1ZzIyOWw2MG95" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">visfum</a></li>
                 <li>Facebook: Regala Algo</li>
                 <li>TikTok: <a href="https://www.tiktok.com/@visfumarg" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">@visfumarg</a></li>

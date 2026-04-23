@@ -46,7 +46,7 @@ export const CartPage: React.FC = () => {
     else updateQuantity(productId, newQuantity);
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (phoneNumber: string = '541126711308') => {
     if (!isAuthenticated || !user) {
       toast({ title: "Inicia sesión", description: "Debes iniciar sesión para realizar un pedido", variant: "destructive" });
       return;
@@ -68,7 +68,7 @@ export const CartPage: React.FC = () => {
       (orderNotes ? `*Notas:* ${orderNotes}\n\n` : '') +
       `💰 *TOTAL: $${getTotal().toLocaleString()}*\n\n` +
       `⏰ ${new Date().toLocaleDateString('es-AR')} - ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}\n✅ Confirma disponibilidad y entrega.`;
-    const whatsappUrl = `https://wa.me/541126711308?text=${encodeURIComponent(message)}`;
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
 
     try {
       const isSupabase = typeof (db as any)?.from === 'function';
@@ -208,10 +208,16 @@ export const CartPage: React.FC = () => {
             ) : (
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col sm:flex-row gap-3">
-                  <Button className="flex-1 h-12 bg-green-600 hover:bg-green-700" onClick={handleCheckout} disabled={isCheckingOut}>
-                    <MessageCircle className="h-5 w-5 mr-2" />
-                    {isCheckingOut ? 'Enviando...' : 'Pedir por WhatsApp'}
-                  </Button>
+                  <div className="flex-1 flex flex-col gap-3">
+                    <Button className="w-full h-12 bg-green-600 hover:bg-green-700" onClick={() => handleCheckout('541126711308')} disabled={isCheckingOut}>
+                      <MessageCircle className="h-5 w-5 mr-2" />
+                      {isCheckingOut ? 'Enviando...' : 'Pedir a Asesor 1'}
+                    </Button>
+                    <Button className="w-full h-12 bg-green-600 hover:bg-green-700" onClick={() => handleCheckout('5493872228571')} disabled={isCheckingOut}>
+                      <MessageCircle className="h-5 w-5 mr-2" />
+                      {isCheckingOut ? 'Enviando...' : 'Pedir a Asesor 2'}
+                    </Button>
+                  </div>
 
                   <div className="flex-1">
                     <MercadoPagoButton

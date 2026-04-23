@@ -167,7 +167,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                   >
                     <span className="text-green-500 text-xl">📱</span>
                     <div className="text-left">
-                      <div className="text-sm font-bold text-gray-900">WhatsApp (Opción 1)</div>
+                      <div className="text-sm font-bold text-gray-900">Asesor comercial 1</div>
                       <div className="text-[11px] text-gray-700 font-medium">+54 9 11 2671-1308</div>
                     </div>
                   </a>
@@ -179,7 +179,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                   >
                     <span className="text-green-500 text-xl">📱</span>
                     <div className="text-left">
-                      <div className="text-sm font-bold text-gray-900">WhatsApp (Opción 2)</div>
+                      <div className="text-sm font-bold text-gray-900">Asesor comercial 2</div>
                       <div className="text-[11px] text-gray-700 font-medium">+54 9 387 222-8571</div>
                     </div>
                   </a>

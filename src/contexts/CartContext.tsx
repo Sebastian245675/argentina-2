@@ -80,10 +80,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // If there's a selected color, we need to check if that specific product+color combination exists
       if (selectedColor) {
         const existingItemWithColor = prevItems.find(
-          item => item.id === product.id && 
-                  item.selectedColor?.name === selectedColor.name
+          item => item.id === product.id &&
+            item.selectedColor?.name === selectedColor.name
         );
-        
+
         if (existingItemWithColor) {
           // If the same product with same color exists, update quantity
           return prevItems.map(item =>
@@ -100,7 +100,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const existingItem = prevItems.find(
           item => item.id === product.id && !item.selectedColor
         );
-        
+
         if (existingItem) {
           return prevItems.map(item =>
             item.id === product.id && !item.selectedColor
@@ -123,7 +123,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       removeFromCart(productId);
       return;
     }
-    
+
     setItems(prevItems =>
       prevItems.map(item =>
         item.id === productId ? { ...item, quantity } : item

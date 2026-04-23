@@ -59,13 +59,13 @@ export const Footer: React.FC = () => {
             <ul className="space-y-4">
               <li>
                 <a href="https://wa.me/541126711308" target="_blank" rel="noopener noreferrer" className="flex flex-col group py-1">
-                  <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1 group-hover:text-blue-600 transition-colors">WhatsApp 1</span>
+                  <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1 group-hover:text-blue-600 transition-colors">Asesor comercial 1</span>
                   <span className="text-[13px] font-black text-gray-900">+54 11 2671-1308</span>
                 </a>
               </li>
               <li>
                 <a href="https://wa.me/5493872228571" target="_blank" rel="noopener noreferrer" className="flex flex-col group py-1">
-                  <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1 group-hover:text-blue-600 transition-colors">WhatsApp 2</span>
+                  <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1 group-hover:text-blue-600 transition-colors">Asesor comercial 2</span>
                   <span className="text-[13px] font-black text-gray-900">+54 9 387 222-8571</span>
                 </a>
               </li>
