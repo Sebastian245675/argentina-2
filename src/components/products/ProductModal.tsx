@@ -22,6 +22,48 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
   const { user } = useAuth();
   const [quantity, setQuantity] = useState(1);
   const [viewRecorded, setViewRecorded] = useState(false);
+  const [selectedMililitros, setSelectedMililitros] = useState<'2.5' | '5' | '10'>('2.5');
+
+  // Detectar si el producto es un Decant
+  const isDecant = React.useMemo(() => {
+    if (!product) return false;
+    if (product.isDecant === true) return true;
+    const name = (product.name || '').trim();
+    if (name.startsWith('D ')) return true;
+    if (/decant/i.test(name)) return true;
+    const cat = (product.categoryName || product.category || '').toLowerCase();
+    if (cat.includes('decant')) return true;
+    return false;
+  }, [product]);
+
+  // Obtener las variantes de ml habilitadas para decants
+  const enabledMlOptions = React.useMemo((): ('2.5' | '5' | '10')[] => {
+    if (!isDecant) return [];
+    // Si hay decantOptions configuradas en la BD, usar solo las habilitadas
+    if (product?.decantOptions) {
+      const opts = (['2.5', '5', '10'] as const).filter(ml => product.decantOptions?.[ml]?.enabled);
+      if (opts.length > 0) return opts;
+    }
+    // Fallback: si es decant pero no tiene opciones configuradas, mostrar las 3 por defecto
+    return ['2.5', '5', '10'];
+  }, [isDecant, product]);
+
+  // Calcular precio actual según si es decant y el ml seleccionado
+  const currentPrice = React.useMemo(() => {
+    if (!product) return 0;
+    if (isDecant && product.decantOptions) {
+      const opt = product.decantOptions[selectedMililitros];
+      if (opt?.enabled && opt.price > 0) return opt.price;
+    }
+    return product.price;
+  }, [product, selectedMililitros, isDecant]);
+
+  // Auto-seleccionar el primer ml habilitado al cargar un decant
+  useEffect(() => {
+    if (isDecant && enabledMlOptions.length > 0 && !enabledMlOptions.includes(selectedMililitros)) {
+      setSelectedMililitros(enabledMlOptions[0]);
+    }
+  }, [product?.id, enabledMlOptions, isDecant, selectedMililitros]);
 
   useEffect(() => {
     // Registrar vista solo cuando el modal se abre y tenemos un producto
@@ -39,10 +81,20 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
   if (!product) return null;
 
   const handleAddToCart = () => {
-    addToCart(product, quantity);
+    // Para decants, crear un producto con el precio correcto del ml seleccionado
+    const productToAdd = isDecant
+      ? { ...product, price: currentPrice }
+      : product;
+
+    // Para decants, pasar el ml seleccionado para identificación única en el carrito
+    const mlForCart = isDecant ? selectedMililitros : undefined;
+    
+    addToCart(productToAdd, quantity, undefined, mlForCart);
+    
+    const mlInfo = isDecant ? ` (${selectedMililitros}ml)` : '';
     toast({
       title: "¡Producto agregado!",
-      description: `${quantity}x ${product.name} agregado a tu carrito`,
+      description: `${quantity}x ${product.name}${mlInfo} agregado a tu carrito`,
     });
     onClose();
   };
@@ -75,7 +127,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
               <Badge 
                 className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-medium py-1.5 px-3"
               >
-                {product.category}
+                {product.categoryName || product.category}
               </Badge>
             </div>
             {product.stock < 5 && (
@@ -104,7 +156,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
                 <div className="space-y-1">
                   <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Precio</div>
                   <span className="text-3xl font-bold text-slate-900 dark:text-white">
-                    ${product.price.toLocaleString()}
+                    ${currentPrice.toLocaleString()}
                   </span>
                 </div>
                 <Badge variant="outline" className="text-blue-600 border-blue-600 dark:text-blue-400 dark:border-blue-400 py-1.5 px-3">
@@ -147,6 +199,33 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
                   </p>
                 </div>
               </div>
+
+              {/* Selección de Ml para Decants */}
+              {isDecant && enabledMlOptions.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    Selecciona el tamaño (Volumen)
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {enabledMlOptions.map((ml) => (
+                      <button
+                        key={ml}
+                        onClick={() => setSelectedMililitros(ml)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+                          selectedMililitros === ml
+                            ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-200'
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600'
+                        }`}
+                      >
+                        {ml === '2.5' ? '2,5 ml' : `${ml} ml`}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-500 italic">
+                    * El precio varía según el tamaño seleccionado
+                  </p>
+                </div>
+              )}
 
               {/* Características con cards */}
               <div className="space-y-3">

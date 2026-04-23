@@ -329,8 +329,8 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 </li>
               );
             })}
-            {/* Decants - ítem fijo que navega a la categoría Decants */}
-            {!mainCategoriesForNav.some(c => c.toLowerCase().includes('decant')) && (
+            {/* Decants - Solo mostrar si no viene ya en las categorías de la base de datos */}
+            {!mainCategoriesForNav.some(c => c.toLowerCase() === 'decants' || c.toLowerCase() === 'decant') && (
               <li className="relative group/nav">
                 <button
                   type="button"

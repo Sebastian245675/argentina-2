@@ -79,7 +79,7 @@ export function useCategories() {
     categoriesData.forEach(cat => {
       if (cat.parentId && mainIds.has(cat.parentId)) {
         const parent = mainById[cat.parentId];
-        const parentName = parent?.name;
+        const parentName = parent?.name?.trim();
         if (parentName) {
           if (!result[parentName]) result[parentName] = [];
           result[parentName].push(cat);

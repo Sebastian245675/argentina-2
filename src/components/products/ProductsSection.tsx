@@ -178,7 +178,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   }, [searchTerm, selectedCategory, getCategoryByName]);
 
   const baseFiltered = useMemo(() => {
-    return allProducts.filter(filterFn);
+    return allProducts.filter(p => p.isPublished !== false).filter(filterFn);
   }, [allProducts, filterFn]);
 
   const mlCounts = useMemo(() => {
