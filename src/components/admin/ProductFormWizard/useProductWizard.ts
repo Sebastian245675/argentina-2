@@ -72,9 +72,9 @@ const defaultFormData: ProductFormData = {
     filterOptions: {},
     isDecant: false,
     decantOptions: {
-      '2.5': { enabled: false, price: '' },
-      '5': { enabled: false, price: '' },
-      '10': { enabled: false, price: '' },
+      '2.5': { enabled: false, price: '', stock: '' },
+      '5':   { enabled: true,  price: '', stock: '' },
+      '10':  { enabled: true,  price: '', stock: '' },
     },
     isPublished: true,
 };
@@ -169,8 +169,16 @@ export const useProductWizard = (initialData?: Partial<ProductFormData>, isEditi
     switch (stepId) {
       case 'basic':
         return !!(formData.name && formData.category);
-      case 'pricing':
+      case 'pricing': {
+        // Si es Decant, validar que al menos una variante tenga precio y stock
+        if (formData.isDecant && formData.decantOptions) {
+          const opts = formData.decantOptions;
+          return (['2.5', '5', '10'] as const).some(
+            ml => opts[ml].enabled && opts[ml].price !== '' && opts[ml].stock !== ''
+          );
+        }
         return !!(formData.price && formData.stock);
+      }
       case 'images':
         return !!formData.image;
       case 'specifications':

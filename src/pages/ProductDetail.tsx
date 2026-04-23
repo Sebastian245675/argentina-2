@@ -735,7 +735,9 @@ const ProductDetailPage = () => {
         ? { ...product, price: currentPrice }
         : product;
 
-      addToCart(productToAdd, quantity, selectedColor);
+      // Para decants, pasar el ml seleccionado para identificación única en el carrito
+      const mlForCart = isDecant ? selectedMililitros : undefined;
+      addToCart(productToAdd, quantity, selectedColor || undefined, mlForCart);
 
       const colorInfo = selectedColor ? ` (color: ${selectedColor.name})` : '';
       const mlInfo = isDecant ? ` (${selectedMililitros}ml)` : '';

@@ -77,7 +77,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({ selectedProductId, onP
     warranties: [] as string[],
     paymentMethods: [] as string[],
     colors: [] as { name: string, hexCode: string, image: string }[],
-    isPublished: true  // Por defecto publicado
+    isPublished: true,  // Por defecto publicado
+    // Campos exclusivos para Decants
+    isDecant: false,
+    decantOptions: {
+      '2.5': { enabled: false, price: '', stock: '' },
+      '5':   { enabled: true,  price: '', stock: '' },
+      '10':  { enabled: true,  price: '', stock: '' },
+    } as Record<string, { enabled: boolean; price: string; stock: string }>
   });
   const [products, setProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -393,6 +400,13 @@ export const ProductForm: React.FC<ProductFormProps> = ({ selectedProductId, onP
         colors: formData.colors ?? [],
         specifications: formData.specifications ?? [],
         last_modified_by: user?.email || "unknown",
+        // Campos Decant (solo se activan si es un producto Decant)
+        is_decant: formData.isDecant || false,
+        decant_options: formData.isDecant ? {
+          '2.5': { enabled: formData.decantOptions['2.5'].enabled, price: parseFloat(formData.decantOptions['2.5'].price) || 0, stock: parseInt(formData.decantOptions['2.5'].stock, 10) || 0 },
+          '5':   { enabled: formData.decantOptions['5'].enabled,   price: parseFloat(formData.decantOptions['5'].price)   || 0, stock: parseInt(formData.decantOptions['5'].stock, 10)   || 0 },
+          '10':  { enabled: formData.decantOptions['10'].enabled,  price: parseFloat(formData.decantOptions['10'].price)  || 0, stock: parseInt(formData.decantOptions['10'].stock, 10)  || 0 },
+        } : null,
       };
 
       if (isEditing && editingId) {
@@ -500,7 +514,23 @@ export const ProductForm: React.FC<ProductFormProps> = ({ selectedProductId, onP
       warranties: product.warranties || [],
       paymentMethods: product.paymentMethods || [],
       colors: product.colors || [],
-      isPublished: product.isPublished !== undefined ? product.isPublished : true
+      isPublished: product.isPublished !== undefined ? product.isPublished : true,
+      isDecant: product.isDecant || product.is_decant || false,
+      decantOptions: (() => {
+        const raw = product.decantOptions || product.decant_options;
+        if (raw && typeof raw === 'object') {
+          return {
+            '2.5': { enabled: !!raw?.['2.5']?.enabled, price: String(raw?.['2.5']?.price || ''), stock: String(raw?.['2.5']?.stock || '') },
+            '5':   { enabled: !!raw?.['5']?.enabled,   price: String(raw?.['5']?.price || ''),   stock: String(raw?.['5']?.stock || '') },
+            '10':  { enabled: !!raw?.['10']?.enabled,  price: String(raw?.['10']?.price || ''),  stock: String(raw?.['10']?.stock || '') },
+          };
+        }
+        return {
+          '2.5': { enabled: false, price: '', stock: '' },
+          '5':   { enabled: true,  price: '', stock: '' },
+          '10':  { enabled: true,  price: '', stock: '' },
+        };
+      })()
     });
 
     // Scroll al formulario
@@ -604,7 +634,13 @@ export const ProductForm: React.FC<ProductFormProps> = ({ selectedProductId, onP
       warranties: [],
       paymentMethods: [],
       colors: [],
-      isPublished: true
+      isPublished: true,
+      isDecant: false,
+      decantOptions: {
+        '2.5': { enabled: false, price: '', stock: '' },
+        '5':   { enabled: true,  price: '', stock: '' },
+        '10':  { enabled: true,  price: '', stock: '' },
+      }
     });
   };
 
@@ -1222,6 +1258,66 @@ export const ProductForm: React.FC<ProductFormProps> = ({ selectedProductId, onP
                   </div>
                 )}
               </div>
+
+              {/* ================================================================ */}
+              {/* SECCIÓN DECANT — Solo visible si la categoría seleccionada es Decant */}
+              {/* ================================================================ */}
+              {(() => {
+                const selectedCatName = (categories.find(c => c.id === formData.category)?.name || '').toLowerCase();
+                if (!selectedCatName.includes('decant')) return null;
+                return (
+                  <div className="border-2 border-emerald-300 rounded-xl overflow-hidden">
+                    <div className="flex items-center gap-3 p-4 bg-emerald-50 border-b border-emerald-200">
+                      <span className="text-2xl">🧪</span>
+                      <div>
+                        <h3 className="text-base font-bold text-emerald-900">Precios y Stock por Presentación — Decant</h3>
+                        <p className="text-xs text-emerald-600">Configura precio y stock para cada tamaño. La opción 2,5ml está desactivada por defecto.</p>
+                      </div>
+                    </div>
+                    <div className="p-4 space-y-4 bg-white">
+                      {/* Toggle isDecant */}
+                      <div className={`flex items-center justify-between p-3 rounded-lg border ${formData.isDecant ? 'bg-emerald-50 border-emerald-300' : 'bg-amber-50 border-amber-200'}`}>
+                        <span className="text-sm font-semibold text-gray-700">
+                          {formData.isDecant ? '✅ Producto marcado como Decant' : '⚠️ Marcar como producto Decant'}
+                        </span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" checked={formData.isDecant} onChange={(e) => setFormData({ ...formData, isDecant: e.target.checked })} className="sr-only peer" />
+                          <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                        </label>
+                      </div>
+                      {/* Tarjetas por presentación */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {(['2.5', '5', '10'] as const).map((ml) => {
+                          const opt = formData.decantOptions[ml];
+                          return (
+                            <div key={ml} className={`rounded-xl border-2 p-4 transition-all ${opt.enabled ? 'border-emerald-400 bg-emerald-50/40 shadow-sm' : 'border-gray-200 bg-gray-50 opacity-60'}`}>
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-xl font-black text-gray-900">{ml}ml</span>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input type="checkbox" checked={opt.enabled} onChange={(e) => setFormData({ ...formData, decantOptions: { ...formData.decantOptions, [ml]: { ...opt, enabled: e.target.checked } } })} className="sr-only peer" />
+                                  <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                                </label>
+                              </div>
+                              {ml === '2.5' && !opt.enabled && <p className="text-[10px] text-gray-400 mb-2">Desactivada por defecto</p>}
+                              <div className="space-y-2">
+                                <div>
+                                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Precio ($)</label>
+                                  <input type="number" value={opt.price} disabled={!opt.enabled} onChange={(e) => setFormData({ ...formData, decantOptions: { ...formData.decantOptions, [ml]: { ...opt, price: e.target.value } } })} placeholder="Ej: 8000" className="w-full h-9 px-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-400 disabled:bg-gray-100 disabled:cursor-not-allowed" />
+                                </div>
+                                <div>
+                                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Stock (unidades)</label>
+                                  <input type="number" value={opt.stock} disabled={!opt.enabled} onChange={(e) => setFormData({ ...formData, decantOptions: { ...formData.decantOptions, [ml]: { ...opt, stock: e.target.value } } })} placeholder="Ej: 20" className="w-full h-9 px-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-400 disabled:bg-gray-100 disabled:cursor-not-allowed" />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-gray-400">💡 El campo "Precio de venta" y "Stock" global actúan como fallback si no se configuran valores por presentación.</p>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Sección: Imágenes del Producto - Colapsable */}
               <div className="space-y-4 border border-slate-200 rounded-lg overflow-hidden">

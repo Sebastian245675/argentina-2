@@ -235,13 +235,25 @@ export const AdminPanel: React.FC = () => {
 
   useEffect(() => {
     if (isSupabase) {
-      setIsAdmin(!!user?.isAdmin);
+      const isUserAdmin = user?.email === "admin@gmail.com" || user?.email === "admin@tienda.com";
+      setIsAdmin(isUserAdmin);
       setIsSubAdmin(user?.subCuenta === "si");
+      
       if (user?.subCuenta === "si") {
         document.documentElement.classList.add('notranslate');
         document.body.setAttribute('translate', 'no');
       }
+      
       setSessionStart(new Date());
+      
+      // Si no es admin ni subadmin, y ya terminó de cargar, redirigir
+      if (!isUserAdmin && user?.subCuenta !== "si") {
+        // Solo redirigir si el usuario existe pero no tiene permisos
+        if (user) {
+          navigate('/');
+        }
+      }
+      
       setLoading(false);
       return;
     }
