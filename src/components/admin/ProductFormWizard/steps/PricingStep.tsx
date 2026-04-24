@@ -18,30 +18,37 @@ export const PricingStep: React.FC<StepComponentProps> = ({
   categories,
   onValidationChange,
 }) => {
-  // Detectar automáticamente si la categoría seleccionada es Decant
+  // Detectar automáticamente si es Decant por categoría o por nombre
   const selectedCatName = (categories.find(c => c.id === formData.category)?.name || '').toLowerCase();
-  const isDecantCategory = selectedCatName.includes('decant');
+  const productName = (formData.name || '').toLowerCase();
+  
+  const isDecantAutoDetected = selectedCatName.includes('decant') || productName.includes('decant');
 
-  // Cuando la categoría cambia a Decant, activar isDecant automáticamente y poblar defaults
+  // Sincronizar el estado automático con el formData
   React.useEffect(() => {
-    if (isDecantCategory && !formData.isDecant) {
+    if (isDecantAutoDetected && !formData.isDecant) {
       setFormData({
         ...formData,
         isDecant: true,
         decantOptions: formData.decantOptions || DEFAULT_DECANT_OPTIONS,
       });
     }
-    // Si la categoría deja de ser Decant, desactivar
-    if (!isDecantCategory && formData.isDecant) {
-      setFormData({ ...formData, isDecant: false });
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDecantCategory]);
+  }, [isDecantAutoDetected]);
+
+  // Permitir que el usuario lo active/desactive manualmente si lo desea
+  const toggleDecantMode = (enabled: boolean) => {
+    setFormData({
+      ...formData,
+      isDecant: enabled,
+      decantOptions: enabled ? (formData.decantOptions || DEFAULT_DECANT_OPTIONS) : formData.decantOptions
+    });
+  };
 
   // Validación: si es Decant, al menos una presentación debe tener precio y stock; si no, price y stock globales
   React.useEffect(() => {
     let isValid = false;
-    if (isDecantCategory) {
+    if (formData.isDecant) {
       const opts = formData.decantOptions || DEFAULT_DECANT_OPTIONS;
       isValid = (['2.5', '5', '10'] as const).some(
         ml => opts[ml].enabled && opts[ml].price !== '' && opts[ml].stock !== ''
@@ -51,7 +58,7 @@ export const PricingStep: React.FC<StepComponentProps> = ({
     }
     onValidationChange?.(isValid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.price, formData.stock, formData.decantOptions, isDecantCategory]);
+  }, [formData.price, formData.stock, formData.decantOptions, formData.isDecant]);
 
   const margin =
     formData.price && formData.cost && parseFloat(formData.price) > 0 && parseFloat(formData.cost) > 0
@@ -72,11 +79,33 @@ export const PricingStep: React.FC<StepComponentProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Selector de Modo Manual (por si falla la detección automática) */}
+      <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-xl">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-lg shadow-sm">🧪</div>
+          <div>
+            <p className="text-sm font-bold text-gray-800">Modo de Venta</p>
+            <p className="text-xs text-gray-500">¿Es un Decant con múltiples tamaños?</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-gray-400">{formData.isDecant ? 'Multi-tamaño' : 'Estándar'}</span>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.isDecant}
+              onChange={(e) => toggleDecantMode(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+          </label>
+        </div>
+      </div>
 
       {/* ===================================================== */}
       {/* MODO DECANT: Formulario exclusivo para productos Decant */}
       {/* ===================================================== */}
-      {isDecantCategory ? (
+      {formData.isDecant ? (
         <div className="space-y-5">
           {/* Banner informativo */}
           <div className="flex items-center gap-3 p-4 bg-emerald-50 border-2 border-emerald-300 rounded-xl">

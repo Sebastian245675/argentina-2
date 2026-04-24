@@ -70,22 +70,25 @@ export const useProductSave = () => {
         .filter(ml => opts[ml].enabled && opts[ml].price !== '')
         .map(ml => parseFloat(opts[ml].price));
       numericPrice = activePrices.length > 0 ? Math.min(...activePrices) : 0;
+      
       const totalStock = (['2.5', '5', '10'] as const)
         .filter(ml => opts[ml].enabled && opts[ml].stock !== '')
         .reduce((sum, ml) => sum + (parseInt(opts[ml].stock, 10) || 0), 0);
       numericStock = totalStock;
     } else {
-      numericPrice = parseFloat(formData.price);
-      numericStock = parseInt(formData.stock, 10);
+      numericPrice = parseFloat(formData.price) || 0;
+      numericStock = parseInt(formData.stock, 10) || 0;
     }
 
-    const numericCost = formData.cost ? parseFloat(formData.cost) : null;
+    // Redondear para evitar 'numeric field overflow' en la DB
+    numericPrice = Math.round(numericPrice);
+    const numericCost = formData.cost ? Math.round(parseFloat(formData.cost)) : null;
 
-    if (isNaN(numericPrice) || isNaN(numericStock) || (formData.cost && isNaN(numericCost as number))) {
+    if (isNaN(numericPrice) || isNaN(numericStock)) {
       toast({
         variant: "destructive",
         title: "Error al guardar producto",
-        description: "El precio, costo y stock deben ser valores numéricos."
+        description: "El precio y stock deben ser valores numéricos válidos."
       });
       throw new Error("Valores numéricos inválidos");
     }
@@ -106,7 +109,7 @@ export const useProductSave = () => {
         name: formData.name,
         description: formData.description,
         price: numericPrice,
-        original_price: formData.isOffer ? parseFloat(formData.originalPrice) : numericPrice,
+        original_price: formData.isOffer ? Math.round(parseFloat(formData.originalPrice)) : numericPrice,
         image: formData.image || null,
         additional_images: formData.additionalImages?.filter(Boolean) ?? [],
         category: formData.category,
@@ -119,28 +122,27 @@ export const useProductSave = () => {
         cost: numericCost,
         is_published: formData.isPublished,
         is_offer: formData.isOffer,
-        discount: formData.isOffer ? parseFloat(formData.discount) : 0,
+        discount: formData.isOffer ? Math.round(parseFloat(formData.discount)) : 0,
         benefits: formData.benefits ?? [],
         warranties: formData.warranties ?? [],
         payment_methods: formData.paymentMethods ?? [],
         colors: formData.colors ?? [],
-        // Guardar opciones de filtros dentro de specifications
         specifications: formData.specifications ?? [],
         is_decant: formData.isDecant || false,
         decant_options: formData.isDecant && formData.decantOptions ? {
           '2.5': {
             enabled: formData.decantOptions['2.5'].enabled,
-            price: parseFloat(formData.decantOptions['2.5'].price) || 0,
+            price: Math.round(parseFloat(formData.decantOptions['2.5'].price)) || 0,
             stock: parseInt(formData.decantOptions['2.5'].stock, 10) || 0,
           },
           '5': {
             enabled: formData.decantOptions['5'].enabled,
-            price: parseFloat(formData.decantOptions['5'].price) || 0,
+            price: Math.round(parseFloat(formData.decantOptions['5'].price)) || 0,
             stock: parseInt(formData.decantOptions['5'].stock, 10) || 0,
           },
           '10': {
             enabled: formData.decantOptions['10'].enabled,
-            price: parseFloat(formData.decantOptions['10'].price) || 0,
+            price: Math.round(parseFloat(formData.decantOptions['10'].price)) || 0,
             stock: parseInt(formData.decantOptions['10'].stock, 10) || 0,
           },
         } : null,

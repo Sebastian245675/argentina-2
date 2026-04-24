@@ -706,8 +706,8 @@ const ProductDetailPage = () => {
       const opts = (['2.5', '5', '10'] as const).filter(ml => product.decantOptions?.[ml]?.enabled);
       if (opts.length > 0) return opts;
     }
-    // Fallback: si es decant pero no tiene opciones configuradas, mostrar las 3 por defecto
-    return ['2.5', '5', '10'];
+    // Fallback: si es decant pero no tiene opciones configuradas explícitamente, mostrar solo 5ml por defecto
+    return ['5'];
   }, [isDecant, product]);
 
   // Calcular precio actual según si es decant y el ml seleccionado
