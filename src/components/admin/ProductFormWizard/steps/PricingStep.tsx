@@ -26,6 +26,9 @@ export const PricingStep: React.FC<StepComponentProps> = ({
 
   // Sincronizar el estado automático con el formData
   React.useEffect(() => {
+    // Solo actuar si ya cargaron las categorías (para evitar falsos negativos al inicio)
+    if (categories.length === 0) return;
+
     if (isDecantAutoDetected && !formData.isDecant) {
       setFormData({
         ...formData,
@@ -34,7 +37,7 @@ export const PricingStep: React.FC<StepComponentProps> = ({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDecantAutoDetected]);
+  }, [isDecantAutoDetected, categories.length]);
 
   // Permitir que el usuario lo active/desactive manualmente si lo desea
   const toggleDecantMode = (enabled: boolean) => {

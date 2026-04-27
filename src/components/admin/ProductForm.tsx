@@ -35,6 +35,19 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ImageUploader } from './ImageUploader';
 import { MultiImageUploader } from './MultiImageUploader';
 
+// Mocks de Firebase para compatibilidad con Supabase
+const collection = (...args: any[]) => ({}) as any;
+const query = (...args: any[]) => ({}) as any;
+const where = (...args: any[]) => ({}) as any;
+const getDocs = async (...args: any[]) => ({ docs: [] }) as any;
+const doc = (...args: any[]) => ({}) as any;
+const deleteDoc = async (...args: any[]) => ({}) as any;
+const updateDoc = async (...args: any[]) => ({}) as any;
+const addDoc = async (...args: any[]) => ({ id: 'mock-id' }) as any;
+const setDoc = async (...args: any[]) => ({}) as any;
+const getDoc = async (...args: any[]) => ({ exists: () => false, data: () => ({}) }) as any;
+const createUserWithEmailAndPassword = async (...args: any[]) => ({ user: { uid: 'mock-uid' } }) as any;
+
 // Utilidad para crear slugs SEO-friendly
 function slugify(text: string): string {
   return text
@@ -98,12 +111,18 @@ export const ProductForm: React.FC<ProductFormProps> = ({ selectedProductId, onP
 
   // Estados para secciones colapsables
   const [sectionsOpen, setSectionsOpen] = useState({
-    basicInfo: true,
+    basic: true,
+    pricing: true,
     images: true,
+    specs: false,
     offers: false,
-    details: false,
-    benefits: false
+    benefits: false,
+    colors: false,
+    decant: false
   });
+
+  const isSupabase = typeof (db as any)?.from === 'function';
+  const { auth } = useAuth() as any;
 
   const [monthlyCostData, setMonthlyCostData] = useState<{
     month: string;

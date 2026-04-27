@@ -76,13 +76,15 @@ export const useProductSave = () => {
         .reduce((sum, ml) => sum + (parseInt(opts[ml].stock, 10) || 0), 0);
       numericStock = totalStock;
     } else {
-      numericPrice = parseFloat(formData.price) || 0;
-      numericStock = parseInt(formData.stock, 10) || 0;
+      numericPrice = parseFloat(formData.price || '0') || 0;
+      numericStock = parseInt(formData.stock || '0', 10) || 0;
     }
 
     // Redondear para evitar 'numeric field overflow' en la DB
     numericPrice = Math.round(numericPrice);
-    const numericCost = formData.cost ? Math.round(parseFloat(formData.cost)) : null;
+    const numericCost = formData.cost ? Math.round(parseFloat(formData.cost) || 0) : null;
+    const numericOriginalPrice = formData.originalPrice ? Math.round(parseFloat(formData.originalPrice) || numericPrice) : numericPrice;
+    const numericDiscount = formData.discount ? Math.round(parseFloat(formData.discount) || 0) : 0;
 
     if (isNaN(numericPrice) || isNaN(numericStock)) {
       toast({
@@ -109,7 +111,7 @@ export const useProductSave = () => {
         name: formData.name,
         description: formData.description,
         price: numericPrice,
-        original_price: formData.isOffer ? Math.round(parseFloat(formData.originalPrice)) : numericPrice,
+        original_price: formData.isOffer ? numericOriginalPrice : numericPrice,
         image: formData.image || null,
         additional_images: formData.additionalImages?.filter(Boolean) ?? [],
         category: formData.category,
@@ -122,7 +124,7 @@ export const useProductSave = () => {
         cost: numericCost,
         is_published: formData.isPublished,
         is_offer: formData.isOffer,
-        discount: formData.isOffer ? Math.round(parseFloat(formData.discount)) : 0,
+        discount: formData.isOffer ? numericDiscount : 0,
         benefits: formData.benefits ?? [],
         warranties: formData.warranties ?? [],
         payment_methods: formData.paymentMethods ?? [],
