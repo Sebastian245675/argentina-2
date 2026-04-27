@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import { TopPromoBar } from "@/components/layout/TopPromoBar";
 import { AdvancedHeader } from "@/components/layout/AdvancedHeader";
 import { HeroBanner } from "@/components/layout/HeroBanner";
-import { Footer } from "@/components/layout/Footer";
-import { FloatingActionButtons } from "@/components/layout/FloatingActionButtons";
-import { ProductsSection } from "@/components/products/ProductsSection";
 import { StoreStructuredData } from "@/components/seo/StructuredData";
 import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { useCategories } from "@/hooks/use-categories";
+
+const Footer = React.lazy(() => import("@/components/layout/Footer").then(m => ({ default: m.Footer })));
+const FloatingActionButtons = React.lazy(() => import("@/components/layout/FloatingActionButtons").then(m => ({ default: m.FloatingActionButtons })));
+const ProductsSection = React.lazy(() => import("@/components/products/ProductsSection").then(m => ({ default: m.ProductsSection })));
 
 const AdvancedIndex = () => {
   const location = useLocation();
@@ -55,7 +56,9 @@ const AdvancedIndex = () => {
 
       <h1 className="sr-only">VISFUM - Perfumes Importados y Decants Originales</h1>
 
-      <FloatingActionButtons />
+      <React.Suspense fallback={null}>
+        <FloatingActionButtons />
+      </React.Suspense>
 
       <div className="w-full">
         <TopPromoBar setPromoVisible={setPromoVisible} />
@@ -75,15 +78,19 @@ const AdvancedIndex = () => {
       <HeroBanner />
 
       <main className="relative z-10 w-full pt-4">
-        <ProductsSection
-          selectedCategory="Todos"
-          setSelectedCategory={setSelectedCategory}
-          setCategories={setCategories}
-          initialSearchTerm={searchTerm}
-        />
+        <React.Suspense fallback={<div className="h-96 flex items-center justify-center">Cargando productos...</div>}>
+          <ProductsSection
+            selectedCategory="Todos"
+            setSelectedCategory={setSelectedCategory}
+            setCategories={setCategories}
+            initialSearchTerm={searchTerm}
+          />
+        </React.Suspense>
       </main>
 
-      <Footer />
+      <React.Suspense fallback={null}>
+        <Footer />
+      </React.Suspense>
     </div>
   );
 };

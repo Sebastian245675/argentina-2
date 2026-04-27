@@ -69,8 +69,14 @@ export default defineConfig(({ mode }) => ({
             // Agrupar gráficos
             if (id.includes('recharts') || id.includes('d3')) return 'vendor-charts';
 
-            // Todo lo demás (React, Radix, Lucide, etc.) en un solo vendor core
-            // para evitar errores de orden de carga como el de createContext
+            // Separar librerías pesadas para mejor caché y paralelización
+            if (id.includes('lucide-react')) return 'vendor-lucide';
+            if (id.includes('react-router-dom') || id.includes('@remix-run')) return 'vendor-router';
+            if (id.includes('react-dom') || id.includes('react')) return 'vendor-react';
+            if (id.includes('@tanstack') || id.includes('react-query')) return 'vendor-query';
+            if (id.includes('@radix-ui') || id.includes('class-variance-authority') || id.includes('clsx') || id.includes('tailwind-merge')) return 'vendor-ui';
+            
+            // Todo lo demás en un vendor genérico
             return 'vendor-core';
           }
         },
