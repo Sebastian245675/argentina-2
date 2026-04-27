@@ -24,8 +24,9 @@ export const useProductSave = () => {
     editingId = null,
     onSuccess
   }: SaveProductParams): Promise<void> => {
-    // Validación
-    if (!formData.name || !formData.price || !formData.stock || !formData.category) {
+    // Validación: para Decants, al menos una variante debe tener precio y stock
+    const isDecantProduct = formData.isDecant && formData.decantOptions;
+    if (!formData.name || !formData.category) {
       toast({
         variant: "destructive",
         title: "Error al guardar producto",
@@ -34,15 +35,62 @@ export const useProductSave = () => {
       throw new Error("Campos obligatorios incompletos");
     }
 
-    const numericPrice = parseFloat(formData.price);
-    const numericStock = parseInt(formData.stock, 10);
-    const numericCost = formData.cost ? parseFloat(formData.cost) : null;
-
-    if (isNaN(numericPrice) || isNaN(numericStock) || (formData.cost && isNaN(numericCost as number))) {
+    if (!isDecantProduct && (!formData.price || !formData.stock)) {
       toast({
         variant: "destructive",
         title: "Error al guardar producto",
-        description: "El precio, costo y stock deben ser valores numéricos."
+        description: "Por favor completa el precio y el stock del producto."
+      });
+      throw new Error("Campos de precio/stock incompletos");
+    }
+
+    if (isDecantProduct) {
+      const opts = formData.decantOptions!;
+      const hasValidOption = (['2.5', '5', '10'] as const).some(
+        ml => opts[ml].enabled && opts[ml].price !== '' && opts[ml].stock !== ''
+      );
+      if (!hasValidOption) {
+        toast({
+          variant: "destructive",
+          title: "Error al guardar Decant",
+          description: "Debes activar al menos una presentación con precio y stock para guardar el producto."
+        });
+        throw new Error("Decant sin variantes válidas");
+      }
+    }
+
+    // Para Decants: precio global = precio mínimo de las variantes activas (fallback)
+    // Para productos normales: usar el campo price directamente
+    let numericPrice: number;
+    let numericStock: number;
+
+    if (isDecantProduct) {
+      const opts = formData.decantOptions!;
+      const activePrices = (['2.5', '5', '10'] as const)
+        .filter(ml => opts[ml].enabled && opts[ml].price !== '')
+        .map(ml => parseFloat(opts[ml].price));
+      numericPrice = activePrices.length > 0 ? Math.min(...activePrices) : 0;
+      
+      const totalStock = (['2.5', '5', '10'] as const)
+        .filter(ml => opts[ml].enabled && opts[ml].stock !== '')
+        .reduce((sum, ml) => sum + (parseInt(opts[ml].stock, 10) || 0), 0);
+      numericStock = totalStock;
+    } else {
+      numericPrice = parseFloat(formData.price || '0') || 0;
+      numericStock = parseInt(formData.stock || '0', 10) || 0;
+    }
+
+    // Redondear para evitar 'numeric field overflow' en la DB
+    numericPrice = Math.round(numericPrice);
+    const numericCost = formData.cost ? Math.round(parseFloat(formData.cost) || 0) : null;
+    const numericOriginalPrice = formData.originalPrice ? Math.round(parseFloat(formData.originalPrice) || numericPrice) : numericPrice;
+    const numericDiscount = formData.discount ? Math.round(parseFloat(formData.discount) || 0) : 0;
+
+    if (isNaN(numericPrice) || isNaN(numericStock)) {
+      toast({
+        variant: "destructive",
+        title: "Error al guardar producto",
+        description: "El precio y stock deben ser valores numéricos válidos."
       });
       throw new Error("Valores numéricos inválidos");
     }
@@ -63,7 +111,7 @@ export const useProductSave = () => {
         name: formData.name,
         description: formData.description,
         price: numericPrice,
-        original_price: formData.isOffer ? parseFloat(formData.originalPrice) : numericPrice,
+        original_price: formData.isOffer ? numericOriginalPrice : numericPrice,
         image: formData.image || null,
         additional_images: formData.additionalImages?.filter(Boolean) ?? [],
         category: formData.category,
@@ -76,15 +124,30 @@ export const useProductSave = () => {
         cost: numericCost,
         is_published: formData.isPublished,
         is_offer: formData.isOffer,
-        discount: formData.isOffer ? parseFloat(formData.discount) : 0,
+        discount: formData.isOffer ? numericDiscount : 0,
         benefits: formData.benefits ?? [],
         warranties: formData.warranties ?? [],
         payment_methods: formData.paymentMethods ?? [],
         colors: formData.colors ?? [],
-        // Guardar opciones de filtros dentro de specifications
         specifications: formData.specifications ?? [],
         is_decant: formData.isDecant || false,
-        decant_options: formData.isDecant ? (formData.decantOptions || null) : null,
+        decant_options: formData.isDecant && formData.decantOptions ? {
+          '2.5': {
+            enabled: formData.decantOptions['2.5'].enabled,
+            price: Math.round(parseFloat(formData.decantOptions['2.5'].price)) || 0,
+            stock: parseInt(formData.decantOptions['2.5'].stock, 10) || 0,
+          },
+          '5': {
+            enabled: formData.decantOptions['5'].enabled,
+            price: Math.round(parseFloat(formData.decantOptions['5'].price)) || 0,
+            stock: parseInt(formData.decantOptions['5'].stock, 10) || 0,
+          },
+          '10': {
+            enabled: formData.decantOptions['10'].enabled,
+            price: Math.round(parseFloat(formData.decantOptions['10'].price)) || 0,
+            stock: parseInt(formData.decantOptions['10'].stock, 10) || 0,
+          },
+        } : null,
         last_modified_by: user?.email || "unknown",
       };
 

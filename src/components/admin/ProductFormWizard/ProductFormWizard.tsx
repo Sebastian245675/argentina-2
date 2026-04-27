@@ -136,11 +136,21 @@ export const ProductFormWizard: React.FC<ProductFormWizardProps> = ({
                 filterGroups: (data.filter_groups ?? data.filterGroups) || [],
                 filterOptions: (data.filter_options ?? data.filterOptions) || {},
                 isDecant: data.is_decant ?? data.isDecant ?? false,
-                decantOptions: data.decant_options ?? data.decantOptions ?? {
-                  '2.5': { enabled: false, price: '' },
-                  '5': { enabled: false, price: '' },
-                  '10': { enabled: false, price: '' },
-                },
+                decantOptions: (() => {
+                  const raw = data.decant_options ?? data.decantOptions;
+                  if (raw && typeof raw === 'object') {
+                    return {
+                      '2.5': { enabled: !!raw?.['2.5']?.enabled, price: String(raw?.['2.5']?.price ?? ''), stock: String(raw?.['2.5']?.stock ?? '') },
+                      '5':   { enabled: !!raw?.['5']?.enabled,   price: String(raw?.['5']?.price ?? ''),   stock: String(raw?.['5']?.stock ?? '') },
+                      '10':  { enabled: !!raw?.['10']?.enabled,  price: String(raw?.['10']?.price ?? ''),  stock: String(raw?.['10']?.stock ?? '') },
+                    };
+                  }
+                  return {
+                    '2.5': { enabled: false, price: '', stock: '' },
+                    '5':   { enabled: true,  price: '', stock: '' },
+                    '10':  { enabled: true,  price: '', stock: '' },
+                  };
+                })(),
                 isPublished: data.is_published ?? data.isPublished ?? true,
               });
               

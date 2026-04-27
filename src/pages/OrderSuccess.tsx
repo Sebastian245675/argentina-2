@@ -169,14 +169,14 @@ export const OrderSuccess = () => {
         saveOrder();
     }, [isAuthenticated, user, items, orderSaved]);
 
-    const handleWhatsAppRedirect = () => {
+    const handleWhatsAppRedirect = (number: string) => {
         const message = `Hola! Acabo de realizar un pago por la pasarela de Mercado Pago.\n\n` +
             `👤 *Usuario:* ${user?.name || 'No especificado'}\n` +
             `📧 *Email:* ${user?.email || 'No especificado'}\n` +
             `🆔 *ID de Pago:* ${paymentId || 'No disponible'}\n\n` +
             `Adjunto el comprobante del pago.`;
 
-        const whatsappUrl = `https://wa.me/541126711308?text=${encodeURIComponent(message)}`;
+        const whatsappUrl = `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');
     };
 
@@ -245,20 +245,27 @@ export const OrderSuccess = () => {
                             <div>
                                 <h4 className="font-bold text-amber-800 text-lg">Paso obligatorio para confirmar:</h4>
                                 <p className="text-amber-700 text-sm mt-1">
-                                    Para que confirmemos tu pago y preparemos tu pedido:
-                                </p>
-                                <p className="text-amber-900 font-extrabold mt-3 animate-pulse">
-                                    Diríjase al WhatsApp con la foto del comprobante
+                                    Para que confirmemos tu pago y preparemos tu pedido, envía el comprobante a uno de nuestros asesores:
                                 </p>
                             </div>
 
-                            <Button
-                                onClick={handleWhatsAppRedirect}
-                                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-12 shadow-lg hover:shadow-green-200 transition-all gap-2"
-                            >
-                                <MessageCircle className="h-5 w-5" />
-                                Enviar Comprobante por WhatsApp
-                            </Button>
+                            <div className="flex flex-col gap-3">
+                                <Button
+                                    onClick={() => handleWhatsAppRedirect('541126711308')}
+                                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-12 shadow-lg hover:shadow-green-200 transition-all gap-2"
+                                >
+                                    <MessageCircle className="h-5 w-5" />
+                                    Enviar a Asesor Comercial 1
+                                </Button>
+
+                                <Button
+                                    onClick={() => handleWhatsAppRedirect('5493872228571')}
+                                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-12 shadow-lg hover:shadow-green-200 transition-all gap-2"
+                                >
+                                    <MessageCircle className="h-5 w-5" />
+                                    Enviar a Asesor Comercial 2
+                                </Button>
+                            </div>
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-3">

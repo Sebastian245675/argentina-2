@@ -56,7 +56,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) 
   return (
     <div
       className="group flex flex-col cursor-pointer h-full bg-white rounded-2xl overflow-hidden shadow-[0_2px_15px_rgb(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] transition-all duration-700 border border-gray-200 hover:border-gray-300 hover:-translate-y-2"
-      onClick={handleViewDetails}
+      onClick={() => onClick?.(product)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >

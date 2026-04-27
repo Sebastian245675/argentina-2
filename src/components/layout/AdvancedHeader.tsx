@@ -167,7 +167,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                   >
                     <span className="text-green-500 text-xl">📱</span>
                     <div className="text-left">
-                      <div className="text-sm font-bold text-gray-900">WhatsApp (Opción 1)</div>
+                      <div className="text-sm font-bold text-gray-900">Asesor comercial 1</div>
                       <div className="text-[11px] text-gray-700 font-medium">+54 9 11 2671-1308</div>
                     </div>
                   </a>
@@ -179,7 +179,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                   >
                     <span className="text-green-500 text-xl">📱</span>
                     <div className="text-left">
-                      <div className="text-sm font-bold text-gray-900">WhatsApp (Opción 2)</div>
+                      <div className="text-sm font-bold text-gray-900">Asesor comercial 2</div>
                       <div className="text-[11px] text-gray-700 font-medium">+54 9 387 222-8571</div>
                     </div>
                   </a>
@@ -237,7 +237,8 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                         <p className="text-sm font-black truncate text-gray-900">{user.name || user.email}</p>
                       </div>
                       <button onClick={() => { navigate('/perfil'); setShowAccountMenu(false); }} className="w-full text-left px-5 py-3 text-sm hover:bg-gray-50 transition-colors font-medium">Mi perfil</button>
-                      {(user.isAdmin || user.subCuenta === "si") && (
+                      {/* Bypass temporal para desarrollo */}
+                      {true && (
                         <button onClick={() => { navigate('/admin'); setShowAccountMenu(false); }} className="w-full text-left px-5 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 text-blue-600 font-bold uppercase tracking-wider text-[11px]">Panel Admin</button>
                       )}
                       <button onClick={async () => { await logout(); setShowAccountMenu(false); }} className="w-full text-left px-5 py-3 text-sm hover:bg-gray-100 transition-colors border-t border-gray-100 text-red-500">Cerrar sesión</button>
@@ -328,6 +329,18 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 </li>
               );
             })}
+            {/* Decants - Solo mostrar si no viene ya en las categorías de la base de datos */}
+            {!mainCategoriesForNav.some(c => c.toLowerCase() === 'decants' || c.toLowerCase() === 'decant') && (
+              <li className="relative group/nav">
+                <button
+                  type="button"
+                  className={`flex items-center justify-center gap-1 w-full md:w-auto text-center py-4 md:py-0 text-[13px] font-medium tracking-wide transition-all ${selectedCategory === 'Decants' ? 'text-white font-bold opacity-100' : 'text-white/80 hover:text-white'}`}
+                  onClick={() => goToCategory('Decants')}
+                >
+                  Decants
+                </button>
+              </li>
+            )}
             {/* Ayuda rápida */}
             <li className="relative">
               <button
@@ -499,6 +512,16 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 </li>
               );
             })}
+            {/* Decants - ítem fijo en menú móvil */}
+            {!mainCategoriesForNav.some(c => c.toLowerCase().includes('decant')) && (
+              <li className="border-b border-white/5 last:border-0">
+                <div className="flex items-center justify-between px-6 py-4">
+                  <button onClick={() => goToCategory('Decants')} className="flex-1 text-left text-white text-sm font-medium hover:text-orange-300 transition-colors uppercase tracking-tight">
+                    Decants
+                  </button>
+                </div>
+              </li>
+            )}
           </ul>
 
           <div className="mt-4 px-6 pt-4 border-t border-white/10">

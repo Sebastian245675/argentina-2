@@ -46,7 +46,7 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
     }
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (phoneNumber: string = '541126711308') => {
     if (!isAuthenticated || !user) {
       toast({
         title: "Inicia sesión",
@@ -95,8 +95,7 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
       `⏰ Fecha: ${new Date().toLocaleDateString('es-AR')} - ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}\n\n` +
       `✅ Por favor confirma la disponibilidad y tiempo de entrega.\n`;
 
-    const storeWhatsApp = '541126711308'; // Número de WhatsApp de Visfum en Argentina
-    const whatsappUrl = `https://wa.me/${storeWhatsApp}?text=${encodeURIComponent(message)}`;
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
 
     try {
       // Guardar el pedido en Supabase
@@ -282,15 +281,30 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose }) => 
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex justify-center mb-4">
-                    <Button
-                      className="w-full max-w-xs gradient-orange hover:opacity-90 h-12 flex items-center justify-center text-lg"
-                      onClick={handleCheckout}
-                      disabled={isCheckingOut}
-                    >
-                      <MessageCircle className="h-6 w-6 mr-2" />
-                      {isCheckingOut ? 'Enviando...' : 'Enviar Pedido por WhatsApp'}
-                    </Button>
+                  <div className="flex flex-col gap-3">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest text-center mb-1">Enviar pedido a:</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        variant="outline"
+                        className="h-14 flex flex-col items-center justify-center border-green-200 hover:bg-green-50 hover:border-green-300 transition-all group"
+                        onClick={() => handleCheckout('541126711308')}
+                        disabled={isCheckingOut}
+                      >
+                        <MessageCircle className="h-5 w-5 text-green-600 mb-1 group-hover:scale-110 transition-transform" />
+                        <span className="text-[11px] font-black uppercase">Asesor 1</span>
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        className="h-14 flex flex-col items-center justify-center border-green-200 hover:bg-green-50 hover:border-green-300 transition-all group"
+                        onClick={() => handleCheckout('5493872228571')}
+                        disabled={isCheckingOut}
+                      >
+                        <MessageCircle className="h-5 w-5 text-green-600 mb-1 group-hover:scale-110 transition-transform" />
+                        <span className="text-[11px] font-black uppercase">Asesor 2</span>
+                      </Button>
+                    </div>
+                    {isCheckingOut && <p className="text-center text-[10px] text-green-600 font-bold animate-pulse">Procesando envío...</p>}
                   </div>
                 )}
 

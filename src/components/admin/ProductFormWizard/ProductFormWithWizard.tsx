@@ -125,7 +125,8 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
         const { data, error } = await (db as any)
           .from("products")
           .select("*")
-          .order("updated_at", { ascending: false });
+          .order("updated_at", { ascending: false })
+          .limit(200);
         if (error) throw error;
 
         const normalized = (data || []).map((product: any) => ({
@@ -824,12 +825,12 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
       });
     }
   };
-
   // Si el wizard está abierto, mostrar solo el wizard
   if (showWizard) {
     return (
       <div className="space-y-4 max-w-full overflow-x-hidden">
         <ProductFormWizard
+          key={editingProductId || 'new-product'}
           selectedProductId={editingProductId}
           onProductSelected={handleWizardClose}
           categories={categories}

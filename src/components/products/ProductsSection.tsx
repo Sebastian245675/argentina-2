@@ -167,18 +167,22 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
         return !cat.includes('decant');
       }
 
-      const sel = selectedCategory.toLowerCase();
-      const catName = String(p.categoryName || '').toLowerCase();
-      const subName = String(p.subcategoryName || '').toLowerCase();
-      const tercName = String(p.terceraCategoriaName || '').toLowerCase();
+      const sel = selectedCategory.toLowerCase().trim();
+      const catName = String(p.categoryName || p.category || '').toLowerCase().trim();
+      const subName = String(p.subcategoryName || p.subcategory || '').toLowerCase().trim();
+      const tercName = String(p.terceraCategoriaName || '').toLowerCase().trim();
 
-      return catName.includes(sel) || subName.includes(sel) || tercName.includes(sel) ||
-        String(p.category) === selectedCategory || String(p.subcategory) === selectedCategory;
+      // Si la categoría seleccionada o la del producto contienen 'decant', es un match
+      if (sel.includes('decant') && catName.includes('decant')) return true;
+
+      return catName.includes(sel) || sel.includes(catName) || 
+             subName.includes(sel) || sel.includes(subName) || 
+             tercName.includes(sel);
     };
   }, [searchTerm, selectedCategory, getCategoryByName]);
 
   const baseFiltered = useMemo(() => {
-    return allProducts.filter(filterFn);
+    return allProducts.filter(p => p.isPublished !== false).filter(filterFn);
   }, [allProducts, filterFn]);
 
   const mlCounts = useMemo(() => {

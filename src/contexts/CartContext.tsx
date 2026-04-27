@@ -40,9 +40,9 @@ export interface CartItem extends Product {
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (product: Product, quantity?: number, selectedColor?: { name: string; hexCode: string; image: string }) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addToCart: (product: Product, quantity?: number, selectedColor?: { name: string; hexCode: string; image: string }, selectedMl?: string) => void;
+  removeFromCart: (productId: string, selectedMl?: string) => void;
+  updateQuantity: (productId: string, quantity: number, selectedMl?: string) => void;
   clearCart: () => void;
   getTotal: () => number;
   getItemCount: () => number;
@@ -75,15 +75,30 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('cart', JSON.stringify(items));
   }, [items]);
 
-  const addToCart = (product: Product, quantity: number = 1, selectedColor?: { name: string; hexCode: string; image: string }) => {
+  const addToCart = (product: Product, quantity: number = 1, selectedColor?: { name: string; hexCode: string; image: string }, selectedMl?: string) => {
     setItems(prevItems => {
+      // For decant products, use id + selectedMl as unique key
+      if (selectedMl) {
+        const existing = prevItems.find(
+          item => item.id === product.id && item.selectedMl === selectedMl
+        );
+        if (existing) {
+          return prevItems.map(item =>
+            item.id === product.id && item.selectedMl === selectedMl
+              ? { ...item, quantity: item.quantity + quantity }
+              : item
+          );
+        } else {
+          return [...prevItems, { ...product, quantity, selectedMl }];
+        }
+      }
       // If there's a selected color, we need to check if that specific product+color combination exists
       if (selectedColor) {
         const existingItemWithColor = prevItems.find(
-          item => item.id === product.id && 
-                  item.selectedColor?.name === selectedColor.name
+          item => item.id === product.id &&
+            item.selectedColor?.name === selectedColor.name
         );
-        
+
         if (existingItemWithColor) {
           // If the same product with same color exists, update quantity
           return prevItems.map(item =>
@@ -98,12 +113,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         // Handle products without color selection (original behavior)
         const existingItem = prevItems.find(
-          item => item.id === product.id && !item.selectedColor
+          item => item.id === product.id && !item.selectedColor && !item.selectedMl
         );
-        
+
         if (existingItem) {
           return prevItems.map(item =>
-            item.id === product.id && !item.selectedColor
+            item.id === product.id && !item.selectedColor && !item.selectedMl
               ? { ...item, quantity: item.quantity + quantity }
               : item
           );
@@ -114,20 +129,26 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const removeFromCart = (productId: string) => {
-    setItems(prevItems => prevItems.filter(item => item.id !== productId));
+  const removeFromCart = (productId: string, selectedMl?: string) => {
+    setItems(prevItems => prevItems.filter(item => {
+      if (selectedMl) return !(item.id === productId && item.selectedMl === selectedMl);
+      return item.id !== productId;
+    }));
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = (productId: string, quantity: number, selectedMl?: string) => {
     if (quantity <= 0) {
-      removeFromCart(productId);
+      removeFromCart(productId, selectedMl);
       return;
     }
-    
+
     setItems(prevItems =>
-      prevItems.map(item =>
-        item.id === productId ? { ...item, quantity } : item
-      )
+      prevItems.map(item => {
+        if (selectedMl) {
+          return item.id === productId && item.selectedMl === selectedMl ? { ...item, quantity } : item;
+        }
+        return item.id === productId ? { ...item, quantity } : item;
+      })
     );
   };
 
