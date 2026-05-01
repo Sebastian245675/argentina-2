@@ -93,12 +93,12 @@ export const HeroBanner: React.FC = () => {
       >
         {/* Tagline */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-          <div style={{ height: '1px', width: '18px', backgroundColor: '#C9A84C', flexShrink: 0 }} />
+          <div style={{ height: '1px', width: '18px', backgroundColor: 'hsl(214,100%,15%)', flexShrink: 0 }} />
           <span style={{
-            color: '#9A7B2E',
+            color: 'hsl(214,100%,15%)',
             fontSize: 'clamp(7px, 1.8vw, 10px)',
             letterSpacing: '0.22em',
-            fontWeight: 600,
+            fontWeight: 700,
             textTransform: 'uppercase',
             fontFamily: "'Outfit', sans-serif",
           }}>

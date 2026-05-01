@@ -39,59 +39,47 @@ const FAQPage = () => {
   const parseFAQContent = (content: string) => {
     if (!content) return [];
     const faqs: { question: string; answer: string }[] = [];
-    const blocks = content.split(/\n\s*\n\s*\n/).filter(block => block.trim());
 
-    blocks.forEach(block => {
-      const lines = block.split('\n').filter(line => line.trim());
-      if (lines.length === 0) return;
+    // Normalizar saltos de línea y limpiar espacios extras
+    const normalized = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = normalized.split('\n');
 
-      let questionIndex = -1;
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line.startsWith('¿') && line.length > 3) {
-          questionIndex = i;
-          break;
-        }
-      }
+    let currentQuestion = '';
+    let currentAnswerLines: string[] = [];
 
-      if (questionIndex >= 0) {
-        const question = lines[questionIndex].trim().replace(/^¿\s*/, '').replace(/\?$/, '').trim();
-        const answerLines = lines.slice(questionIndex + 1);
-        const answer = answerLines.join('\n').trim();
-
-        if (question && answer) {
-          faqs.push({ question, answer });
-        }
-      }
-    });
-
-    if (faqs.length === 0) {
-      const lines = content.split('\n');
-      let currentQuestion = '';
-      let currentAnswer: string[] = [];
-
-      lines.forEach((line) => {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('¿') && trimmed.length > 3) {
-          if (currentQuestion && currentAnswer.length > 0) {
-            faqs.push({
-              question: currentQuestion.replace(/^¿\s*/, '').replace(/\?$/, '').trim(),
-              answer: currentAnswer.join('\n').trim()
-            });
-          }
-          currentQuestion = trimmed;
-          currentAnswer = [];
-        } else if (currentQuestion && trimmed.length > 0) {
-          currentAnswer.push(trimmed);
-        }
-      });
-      if (currentQuestion && currentAnswer.length > 0) {
+    const flushCurrent = () => {
+      if (currentQuestion && currentAnswerLines.some(l => l.trim())) {
         faqs.push({
-          question: currentQuestion.replace(/^¿\s*/, '').replace(/\?$/, '').trim(),
-          answer: currentAnswer.join('\n').trim()
+          question: currentQuestion
+            .replace(/^[¿\s]+/, '')
+            .replace(/[?\s]+$/, '')
+            .trim(),
+          answer: currentAnswerLines
+            .join('\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim(),
         });
       }
+    };
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Detectar inicio de pregunta: línea que empieza con ¿ (con o sin número previo)
+      const isQuestion =
+        /^[¿]/.test(trimmed) ||
+        /^\d+[\.\)]\s*¿/.test(trimmed) ||
+        /^[-*•]\s*¿/.test(trimmed);
+
+      if (isQuestion && trimmed.length > 3) {
+        flushCurrent();
+        currentQuestion = trimmed.replace(/^\d+[\.\)]\s*/, '').replace(/^[-*•]\s*/, '');
+        currentAnswerLines = [];
+      } else if (currentQuestion) {
+        currentAnswerLines.push(line);
+      }
     }
+
+    flushCurrent();
     return faqs;
   };
 
@@ -115,7 +103,7 @@ const FAQPage = () => {
           <div className="max-w-[1200px] mx-auto px-4 md:px-6">
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-16">
-              {/* Left Column: FAQ Accordion & Steps */}
+              {/* Left Column: FAQ Accordion */}
               <div className="lg:col-span-2">
                 <h1 className="text-4xl md:text-5xl font-extrabold text-[hsl(214,100%,38%)] tracking-tight mb-2 uppercase">
                   FAQ
@@ -131,23 +119,29 @@ const FAQPage = () => {
                   </div>
                 ) : enabled && faqs.length > 0 ? (
                   <>
-                    <div className="space-y-3 mb-16">
+                    <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden shadow-sm mb-16">
                       {faqs.map((faq, index) => {
                         const isOpen = openQuestion === index;
                         return (
-                          <div key={index} className="border border-gray-100 rounded-sm overflow-hidden shadow-sm transition-all duration-300">
+                          <div key={index}>
                             <button
                               onClick={() => setOpenQuestion(isOpen ? null : index)}
-                              className={`w-full text-left px-5 md:px-6 py-4 md:py-5 font-bold flex justify-between items-center transition-colors ${isOpen ? 'bg-[hsl(214,100%,38%)] text-white' : 'bg-gray-50 text-gray-800 hover:bg-gray-100'}`}
+                              className={`w-full text-left px-5 md:px-6 py-4 md:py-5 font-bold flex justify-between items-start gap-4 transition-colors ${isOpen ? 'bg-[hsl(214,100%,38%)] text-white' : 'bg-white text-gray-900 hover:bg-gray-50'}`}
                             >
-                              <span className="text-[13px] md:text-sm uppercase tracking-wide pr-4">¿{faq.question.toUpperCase()}?</span>
-                              <ChevronDown className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                              <span className="text-[13px] md:text-sm leading-snug pr-2">
+                                ¿{faq.question}?
+                              </span>
+                              <ChevronDown className={`w-5 h-5 flex-shrink-0 mt-0.5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
                             </button>
-                            <div
-                              className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}
-                            >
-                              <div className="p-5 md:p-6 text-sm md:text-[15px] text-gray-600 leading-relaxed bg-white border-t border-gray-100 whitespace-pre-line">
-                                {faq.answer}
+                            <div className={`transition-all duration-400 ease-in-out overflow-hidden ${isOpen ? 'max-h-[1000px]' : 'max-h-0'}`}>
+                              <div className="px-5 md:px-6 py-5 bg-gray-50 border-t border-gray-100">
+                                {faq.answer.split('\n\n').map((paragraph, pIdx) => (
+                                  paragraph.trim() ? (
+                                    <p key={pIdx} className="text-sm md:text-[15px] text-gray-600 leading-relaxed mb-3 last:mb-0">
+                                      {paragraph.trim()}
+                                    </p>
+                                  ) : null
+                                ))}
                               </div>
                             </div>
                           </div>

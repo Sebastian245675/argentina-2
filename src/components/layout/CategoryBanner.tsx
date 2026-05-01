@@ -79,6 +79,8 @@ export const CategoryBanner: React.FC<CategoryBannerProps> = ({ name }) => {
       {/* Imagen de fondo — LCP: fetchPriority high, eager */}
       <img
         src={config.image}
+        srcSet={`${config.image}?w=640 640w, ${config.image} 1600w`}
+        sizes="100vw"
         alt={name}
         width="1600"
         height="900"
@@ -98,13 +100,13 @@ export const CategoryBanner: React.FC<CategoryBannerProps> = ({ name }) => {
       >
         {/* Tagline con línea dorada */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-          <div style={{ height: '1px', width: '16px', backgroundColor: '#C9A84C', flexShrink: 0 }} />
+          <div style={{ height: '1px', width: '16px', backgroundColor: 'hsl(214,100%,15%)', flexShrink: 0 }} />
           <span
             style={{
-              color: '#9A7B2E',
+              color: 'hsl(214,100%,15%)',
               fontSize: 'clamp(7px, 1.6vw, 9px)',
               letterSpacing: '0.2em',
-              fontWeight: 600,
+              fontWeight: 700,
               textTransform: 'uppercase',
               fontFamily: "'Outfit', sans-serif",
             }}
@@ -131,9 +133,9 @@ export const CategoryBanner: React.FC<CategoryBannerProps> = ({ name }) => {
         {/* Subtítulo dorado itálico */}
         <span
           style={{
-            color: '#C9A84C',
+            color: 'hsl(214,100%,15%)',
             fontSize: 'clamp(1rem, 2.8vw, 1.9rem)',
-            fontWeight: 400,
+            fontWeight: 600,
             fontStyle: 'italic',
             fontFamily: "'Cormorant Garamond', serif",
             lineHeight: 1.2,
@@ -145,7 +147,7 @@ export const CategoryBanner: React.FC<CategoryBannerProps> = ({ name }) => {
         </span>
 
         {/* Línea separadora dorada */}
-        <div style={{ width: '20px', height: '1px', backgroundColor: '#C9A84C', marginBottom: '6px' }} />
+        <div style={{ width: '20px', height: '2px', backgroundColor: 'hsl(214,100%,15%)', marginBottom: '6px' }} />
 
         {/* Descripción — visible solo en pantallas ≥sm */}
         <p

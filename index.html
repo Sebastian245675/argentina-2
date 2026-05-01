@@ -5,9 +5,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="google" content="notranslate" />
-  <link rel="preconnect" href="https://images.unsplash.com" />
+
+  <!-- Preconnect a dominios críticos -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://vqkshcozrnqfbxreuczj.supabase.co" crossorigin />
+
+  <!-- Preload LCP image: descubierta desde el HTML antes de que cargue JS -->
+  <link rel="preload" as="image" href="/chanel_hero.png" fetchpriority="high" />
 
   <!-- Primary Meta Tags -->
   <title>VISFUM - Tienda Online Perfumería y Regalería</title>

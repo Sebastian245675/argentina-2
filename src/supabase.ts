@@ -5,7 +5,21 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://vqkshcozrnqfb
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_m431429UTneqaTwUWFwvhQ_EpzC-nrB'
 
 // Create Supabase client
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 2,
+    },
+  },
+  global: {
+    headers: { 'x-client-info': 'visfum-web' },
+  },
+})
 
 // Export auth and database for use throughout the app
 export const auth = supabase.auth

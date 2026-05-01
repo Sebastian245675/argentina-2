@@ -32,7 +32,16 @@ const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const CartPage = lazy(() => import("./pages/CartPage").then(m => ({ default: m.CartPage })));
 const OrderSuccess = lazy(() => import("./pages/OrderSuccess").then(m => ({ default: m.OrderSuccess })));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,      // 5 minutos — no refetcha si los datos son recientes
+      gcTime: 10 * 60 * 1000,        // 10 minutos en cache después de desmontar
+      retry: 1,                       // Solo 1 reintento en errores
+      refetchOnWindowFocus: false,    // No refetcha al volver al tab
+    },
+  },
+});
 
 const App = () => {
   useEffect(() => {

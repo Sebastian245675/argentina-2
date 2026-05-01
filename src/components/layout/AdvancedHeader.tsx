@@ -108,9 +108,11 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
               <img
                 src="/logo%20vifum.png"
                 alt="VISFUM"
-                width="140"
-                height="70"
-                className="h-[50px] md:h-[70px] w-auto object-contain"
+                width="120"
+                height="60"
+                loading="eager"
+                fetchPriority="high"
+                className="h-[50px] md:h-[60px] w-auto object-contain"
               />
             </div>
           </div>
@@ -437,7 +439,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
       >
         {/* Sidebar Header */}
         <div className="p-5 border-b border-white/10 flex justify-between items-center bg-[hsl(214,100%,30%)]">
-          <img src="/logo%20vifum.png" alt="VISFUM" className="h-8 w-auto object-contain" />
+          <img src="/logo%20vifum.png" alt="VISFUM" width="80" height="32" loading="lazy" className="h-8 w-auto object-contain" />
           <button
             onClick={() => setIsMenuOpen(false)}
             className="text-white p-2 hover:bg-white/10 rounded-full transition-colors"
