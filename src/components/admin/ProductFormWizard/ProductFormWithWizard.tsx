@@ -84,8 +84,18 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
 
   useEffect(() => {
     fetchCategories();
-    fetchProducts();
   }, []);
+
+  // Efecto para búsqueda y filtrado debounced (server-side)
+  useEffect(() => {
+    if (categories.length === 0) return; // Esperar a que las categorías carguen primero
+
+    const timer = setTimeout(() => {
+      fetchProducts(searchTerm, selectedCategory);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, selectedCategory, categories.length]);
 
   useEffect(() => {
     if (selectedProductId) {
@@ -118,15 +128,25 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
     }
   };
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (search?: string, category?: string) => {
     setLoadingProducts(true);
     try {
       if (isSupabase) {
-        const { data, error } = await (db as any)
-          .from("products")
-          .select("*")
+        let query = (db as any).from("products").select("*");
+        
+        if (search && search.trim()) {
+          const term = `%${search.trim()}%`;
+          query = query.or(`name.ilike.${term},description.ilike.${term}`);
+        }
+        
+        if (category) {
+          query = query.or(`category_id.eq.${category},category.eq.${category},subcategory.eq.${category},tercera_categoria.eq.${category}`);
+        }
+
+        const { data, error } = await query
           .order("updated_at", { ascending: false })
-          .limit(200);
+          .limit(search ? 1000 : 500); // More products when searching
+        
         if (error) throw error;
 
         const normalized = (data || []).map((product: any) => ({
@@ -144,6 +164,8 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
           subcategoryName: categories.find(c => c.id === product.subcategory)?.name || product.subcategory,
         }));
         setProducts(normalized);
+        // Reset visible products to initial 20 when results change
+        setVisibleProducts(20);
       }
     } catch (error) {
       console.error('Error cargando productos:', error);

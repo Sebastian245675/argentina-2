@@ -406,7 +406,7 @@ export const AdminPanel: React.FC = () => {
             .from('products')
             .select('*')
             .order('created_at', { ascending: false })
-            .limit(200); // Limitar para mejorar rendimiento
+            .limit(1000); // Aumentar límite para mejorar visibilidad de productos antiguos
           if (error) throw error;
           setProducts((data || []).map(p => ({ ...p, id: p.id })));
           return;
