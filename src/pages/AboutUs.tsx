@@ -169,7 +169,21 @@ const AboutUs = () => {
             </div>
           </div>
           <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
-            <p>&copy; 2024 VISFUM. Todos los derechos reservados.</p>
+            <p>
+              &copy; 2024 VISFUM. Todos los derechos reservados.
+              <br />
+              <span className="inline-block mt-1">
+                Desarrollado por{' '}
+                <a 
+                  href="https://websysrl.com/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-lg font-bold text-green-800 hover:text-green-900 transition-colors"
+                >
+                  websy
+                </a>
+              </span>
+            </p>
           </div>
         </div>
       </footer>

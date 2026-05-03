@@ -118,8 +118,20 @@ export const Footer: React.FC = () => {
           </div>
 
           <div className="flex flex-col items-center md:items-end gap-2">
-            <p className="text-[11px] font-bold text-gray-900">
+            <p className="text-[11px] font-bold text-gray-900 text-center md:text-right">
               VISFUM © {new Date().getFullYear()}. Todos los derechos reservados.
+              <br />
+              <span className="inline-block mt-1">
+                Desarrollado por{' '}
+                <a 
+                  href="https://websysrl.com/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-lg font-bold text-green-800 hover:text-green-900 transition-colors"
+                >
+                  websy
+                </a>
+              </span>
             </p>
             <div className="flex items-center gap-6 text-[10px] font-bold text-gray-700 uppercase tracking-[0.2em]">
               <Link to="/terminos" className="hover:text-blue-600 transition-colors py-2">Términos</Link>
