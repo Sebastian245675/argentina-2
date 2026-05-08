@@ -54,61 +54,14 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    target: 'esnext',
+    target: 'es2020',
     minify: 'esbuild',
     cssMinify: true,
     cssCodeSplit: true,
     modulePreload: {
       polyfill: true,
     },
-    rollupOptions: {
-      output: {
-        manualChunks: (id: string) => {
-          if (id.includes('node_modules')) {
-            // Firebase y Supabase — muy pesados, separados
-            if (id.includes('firebase')) return 'vendor-firebase';
-            if (id.includes('supabase') || id.includes('@supabase')) return 'vendor-supabase';
-
-            // Gráficos — solo se usan en admin
-            if (id.includes('recharts') || id.includes('d3')) return 'vendor-charts';
-
-            // Animaciones — solo en páginas con motion
-            if (id.includes('framer-motion')) return 'vendor-motion';
-
-            // Validación — solo en formularios
-            if (id.includes('zod') || id.includes('@hookform') || id.includes('react-hook-form')) return 'vendor-forms';
-
-            // Carousel — solo en home
-            if (id.includes('embla')) return 'vendor-embla';
-
-            // Fechas — solo cuando se muestran pedidos/historial
-            if (id.includes('date-fns')) return 'vendor-dates';
-
-            // Íconos — muy grande, cacheado aparte
-            if (id.includes('lucide-react')) return 'vendor-lucide';
-
-            // Router
-            if (id.includes('react-router-dom') || id.includes('@remix-run')) return 'vendor-router';
-
-            // React core — el más crítico, siempre necesario
-            if (id.includes('react-dom') || (id.includes('/react/') && !id.includes('react-router'))) return 'vendor-react';
-
-            // React Query
-            if (id.includes('@tanstack') || id.includes('react-query')) return 'vendor-query';
-
-            // UI Components (Radix)
-            if (id.includes('@radix-ui') || id.includes('class-variance-authority') || id.includes('clsx') || id.includes('tailwind-merge')) return 'vendor-ui';
-
-            // Toast / Sonner
-            if (id.includes('sonner') || id.includes('react-hot-toast')) return 'vendor-toast';
-
-            // Todo lo demás
-            return 'vendor-core';
-          }
-        },
-      },
-    },
-    chunkSizeWarningLimit: 800,
+    chunkSizeWarningLimit: 1500,
     reportCompressedSize: false,
   },
   esbuild: {

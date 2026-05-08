@@ -1,3 +1,4 @@
+import React from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
@@ -24,42 +25,6 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
-
-// Agregar manejo de errores global para evitar pantalla blanca
-const renderApp = () => {
-  try {
-    createRoot(document.getElementById("root")!).render(
-      <React.StrictMode>
-        <ErrorBoundary>
-          <App />
-        </ErrorBoundary>
-      </React.StrictMode>
-    );
-  } catch (error) {
-    console.error("Error crítico al renderizar la aplicación:", error);
-    // Mostrar una página de error amigable en lugar de pantalla blanca
-    document.body.innerHTML = `
-      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:Arial,sans-serif;">
-        <h1 style="color:#e53e3e;">Oops, algo salió mal</h1>
-        <p>Hubo un problema al cargar la aplicación. Por favor intente:</p>
-        <ul style="margin-bottom:20px;">
-          <li>Recargar la página</li>
-          <li>Limpiar el caché del navegador</li>
-          <li>Desactivar extensiones de traducción</li>
-        </ul>
-        <button 
-          onclick="window.location.reload()" 
-          style="background:#3182ce; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer;"
-        >
-          Recargar página
-        </button>
-      </div>
-    `;
-  }
-};
-
-// Componente para manejar errores y prevenir pantalla blanca
-import React from 'react';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -130,5 +95,40 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     return this.props.children;
   }
 }
+
+// Agregar manejo de errores global para evitar pantalla blanca
+const renderApp = () => {
+  try {
+    const rootElement = document.getElementById("root");
+    if (!rootElement) throw new Error("No se encontró el elemento root");
+    
+    createRoot(rootElement).render(
+      <React.StrictMode>
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+      </React.StrictMode>
+    );
+  } catch (error) {
+    console.error("Error crítico al renderizar la aplicación:", error);
+    document.body.innerHTML = `
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:Arial,sans-serif;">
+        <h1 style="color:#e53e3e;">Oops, algo salió mal</h1>
+        <p>Hubo un problema al cargar la aplicación. Por favor intente:</p>
+        <ul style="margin-bottom:20px;">
+          <li>Recargar la página</li>
+          <li>Limpiar el caché del navegador</li>
+          <li>Desactivar extensiones de traducción</li>
+        </ul>
+        <button 
+          onclick="window.location.reload()" 
+          style="background:#3182ce; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer;"
+        >
+          Recargar página
+        </button>
+      </div>
+    `;
+  }
+};
 
 renderApp();
