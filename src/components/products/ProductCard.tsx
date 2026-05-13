@@ -29,6 +29,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) 
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
+  const lastTapRef = React.useRef(0);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -45,6 +46,16 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) 
     navigate(`/producto/${slug}`);
   };
 
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+    if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+      e.preventDefault();
+      handleViewDetails();
+    }
+    lastTapRef.current = now;
+  };
+
   // Discount Calculation
   const discountPercentage = useMemo(() => {
     if (product.originalPrice && product.price && product.originalPrice > product.price) {
@@ -55,8 +66,13 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) 
 
   return (
     <div
-      className="group flex flex-col cursor-pointer h-full bg-white rounded-2xl overflow-hidden shadow-[0_2px_15px_rgb(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] transition-all duration-700 border border-gray-200 hover:border-gray-300 hover:-translate-y-2"
+      className="group flex flex-col cursor-pointer h-full bg-white rounded-2xl overflow-hidden shadow-[0_2px_15px_rgb(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] transition-all duration-700 border border-gray-200 hover:border-gray-300 hover:-translate-y-2 touch-manipulation"
       onClick={() => onClick?.(product)}
+      onDoubleClick={(e) => {
+        e.preventDefault();
+        handleViewDetails();
+      }}
+      onTouchEnd={handleTouchEnd}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -100,27 +116,28 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) 
         <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
         {/* Action Buttons on Hover Glassmorphism */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 transform translate-y-full group-hover:translate-y-0 transition-transform duration-500 flex gap-2">
+        <div className="absolute bottom-0 left-0 right-0 p-2 md:p-4 transform translate-y-full group-hover:translate-y-0 transition-transform duration-500 flex gap-1.5 md:gap-2">
           <Button
             size="sm"
-            className="flex-1 bg-white/80 backdrop-blur-md text-gray-900 hover:bg-black hover:text-white px-4 py-3 text-[10px] font-medium uppercase tracking-[0.2em] rounded-xl shadow-lg border border-white/50 transition-all min-h-[44px]"
+            className="flex-1 bg-white/80 backdrop-blur-md text-gray-900 hover:bg-black hover:text-white px-2 md:px-4 py-2 md:py-3 text-[9px] md:text-[10px] font-medium uppercase tracking-widest md:tracking-[0.2em] rounded-xl shadow-lg border border-white/50 transition-all min-h-[36px] md:min-h-[44px] overflow-hidden"
             onClick={handleAddToCart}
             aria-label={`Agregar ${product.name} al carrito`}
           >
-            <ShoppingCart className="w-3 h-3 mr-2" />
-            Añadir
+            <ShoppingCart className="w-3 h-3 mr-1.5 md:mr-2 shrink-0" />
+            <span className="truncate">Añadir</span>
           </Button>
           <Button
             size="sm"
             variant="outline"
-            className="bg-white/80 backdrop-blur-md text-gray-900 hover:bg-white px-4 py-3 rounded-xl shadow-lg border border-white/50 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="bg-white/80 backdrop-blur-md text-gray-900 hover:bg-white px-2 md:px-4 py-1 md:py-2 rounded-xl shadow-lg border border-white/50 transition-all min-h-[36px] md:min-h-[44px] min-w-[36px] md:min-w-[44px] flex flex-col items-center justify-center shrink-0 gap-0.5"
             aria-label={`Ver detalles de ${product.name}`}
             onClick={(e) => {
               e.stopPropagation();
               handleViewDetails();
             }}
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            <span className="text-[7px] font-bold uppercase tracking-widest text-gray-600">Ver</span>
           </Button>
         </div>
       </div>
