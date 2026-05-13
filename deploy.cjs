@@ -16,7 +16,7 @@ const SERVER = {
   host: '46.202.145.83',
   port: 65002,
   username: 'u999131485',
-  password: '32232dA*',
+  password: process.env.SSH_PASSWORD || 'jjhdaA*wedsdqw34',
 };
 
 const LOCAL_DIST = path.join(__dirname, 'dist');
