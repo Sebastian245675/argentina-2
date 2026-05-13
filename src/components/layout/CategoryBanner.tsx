@@ -58,8 +58,6 @@ const DEFAULT_CONFIG: CategoryConfig = {
 const PROMO_ITEMS = [
   '3 DECANTS x $25.000',
   '3 CUOTAS SIN INTERÉS',
-  '25% OFF TRANSFERENCIA',
-  '30% OFF EFECTIVO',
 ];
 
 interface CategoryBannerProps {
@@ -171,7 +169,7 @@ export const CategoryBanner: React.FC<CategoryBannerProps> = ({ name }) => {
         className="absolute bottom-0 left-0 right-0 z-20"
         style={{ backgroundColor: 'rgba(8,8,8,0.88)', backdropFilter: 'blur(4px)' }}
       >
-        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/10">
+        <div className="grid grid-cols-2 divide-x divide-white/10">
           {PROMO_ITEMS.map((text, i) => (
             <div
               key={i}

@@ -195,12 +195,17 @@ async function staleWhileRevalidate(request) {
     })
     .catch(error => {
       console.log('Error actualizando caché:', error);
-      // Si la red falla, devolvemos null para que se use la caché
       return null;
     });
   
-  // Devolver la versión en caché si existe, o esperar la red
-  return cachedResponse || fetchPromise;
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+  
+  const response = await fetchPromise;
+  if (response) return response;
+  
+  return new Response('Not found', {status: 404, statusText: 'Not found'});
 }
 
 // Función para limitar el tamaño de la caché

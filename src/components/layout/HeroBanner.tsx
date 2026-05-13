@@ -146,8 +146,6 @@ export const HeroBanner: React.FC = () => {
         <span className="text-white/40 shrink-0">|</span>
         <span className="shrink-0">3 DECANTS x $25.000</span>
         <span className="text-white/40 shrink-0">|</span>
-        <span className="shrink-0">30% OFF EFECTIVO / 25% OFF TRANSF.</span>
-        <span className="text-white/40 shrink-0">|</span>
         <span className="shrink-0">3 CUOTAS</span>
       </div>
 

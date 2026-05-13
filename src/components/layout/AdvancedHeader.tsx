@@ -96,15 +96,53 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
     <div className="w-full font-sans selection:bg-blue-800 selection:text-white">
       {/* Top Header - Blue Theme */}
       <header className="bg-[hsl(214,100%,38%)] text-white w-full border-b border-[hsl(214,80%,28%)] overflow-visible relative z-[60]">
-        <div className="w-full max-w-[1800px] mx-auto px-4 md:px-8 py-3 flex items-center justify-between overflow-visible">
-          {/* Logo */}
+        <div className="w-full max-w-[1300px] mx-auto px-4 md:px-8 py-3 flex items-center justify-between overflow-visible">
+          
+          {/* Mobile Menu Toggle (Left on mobile) */}
+          <div className="md:hidden flex items-center justify-start flex-1">
+            <button
+              className="text-white p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-label={isMenuOpen ? "Cerrar menú principal" : "Abrir menú principal"}
+            >
+              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+
+          {/* Search Bar - Desktop Only (Left) */}
+          <div className="hidden md:flex flex-1 items-center justify-start">
+            <form
+              className="relative w-full max-w-[280px]"
+              onSubmit={handleSearchSubmit}
+              role="search"
+            >
+              <input
+                id="search-input"
+                type="text"
+                placeholder="Buscar"
+                value={localSearchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="w-full py-[6px] px-3 pr-9 text-[13px] text-white bg-transparent border border-white/40 rounded-[2px] focus:outline-none focus:border-white focus:bg-white/5 transition-all placeholder:text-white/60"
+                aria-label="Buscador de productos"
+              />
+              <button
+                type="submit"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
+                aria-label="Ejecutar búsqueda"
+              >
+                <Search className="w-[15px] h-[15px]" />
+              </button>
+            </form>
+          </div>
+
+          {/* Logo (Center) */}
           <div
-            className="flex-shrink-0 cursor-pointer flex items-center gap-3 overflow-visible"
+            className="flex-shrink-0 cursor-pointer flex items-center justify-center flex-1 md:flex-none"
             onClick={() => navigate('/')}
             role="banner"
             aria-label="Ir a inicio de VISFUM"
           >
-            <div className="h-10 md:h-12 flex items-center overflow-visible">
+            <div className="h-10 md:h-12 flex items-center justify-center overflow-visible">
               <img
                 src="/logo%20vifum.png"
                 alt="VISFUM"
@@ -117,42 +155,17 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
             </div>
           </div>
 
-          {/* Search Bar - Minimal & White */}
-          <form
-            className="hidden md:flex flex-1 max-w-2xl mx-12 relative group"
-            onSubmit={handleSearchSubmit}
-            role="search"
-          >
-            <input
-              id="search-input"
-              type="text"
-              placeholder="¿Qué estás buscando?"
-              value={localSearchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full py-2.5 px-5 pr-12 text-sm text-gray-800 bg-white border-2 border-transparent rounded-lg focus:outline-none focus:border-white/50 transition-all placeholder:text-gray-500"
-              aria-label="Buscador de productos"
-            />
-            <button
-              type="submit"
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 group-hover:text-blue-600 transition-colors p-2"
-              aria-label="Ejecutar búsqueda"
-            >
-              <Search className="w-5 h-5" />
-            </button>
-          </form>
-
-          {/* Icons - Clean & Minimal */}
-          <div className="flex items-center space-x-6">
+          {/* Icons (Right) */}
+          <div className="flex items-center justify-end space-x-6 flex-1">
             {/* Help */}
             <div className="relative group/help hidden sm:block">
               <button
-                className="flex flex-col items-center gap-1 group transition-opacity hover:opacity-80 p-1"
+                className="flex items-center justify-center transition-opacity hover:opacity-80 p-1"
                 onMouseEnter={() => setShowHelpMenu(true)}
                 onMouseLeave={() => setShowHelpMenu(false)}
                 aria-label="Menú de Ayuda y Contacto"
               >
-                <HelpCircle className="w-6 h-6 stroke-[1.5px]" />
-                <span className="text-[10px] uppercase font-bold tracking-wider">Ayuda</span>
+                <HelpCircle className="w-[22px] h-[22px] md:w-6 md:h-6 stroke-[1.5px]" />
               </button>
 
               {showHelpMenu && (
@@ -212,12 +225,11 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
               }}
             >
               <button
-                className="flex flex-col items-center gap-1 hover:opacity-80 transition-opacity"
+                className="flex items-center justify-center hover:opacity-80 transition-opacity p-1"
                 onClick={() => setShowAccountMenu(prev => !prev)}
                 aria-label="Menú de Cuenta"
               >
-                <User className="w-6 h-6 stroke-[1.5px]" />
-                <span className="text-[10px] uppercase font-bold tracking-wider hidden md:block">Mi cuenta</span>
+                <User className="w-[22px] h-[22px] md:w-6 md:h-6 stroke-[1.5px]" />
               </button>
 
               {showAccountMenu && (
@@ -239,10 +251,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                         <p className="text-sm font-black truncate text-gray-900">{user.name || user.email}</p>
                       </div>
                       <button onClick={() => { navigate('/perfil'); setShowAccountMenu(false); }} className="w-full text-left px-5 py-3 text-sm hover:bg-gray-50 transition-colors font-medium">Mi perfil</button>
-                      {/* Bypass temporal para desarrollo */}
-                      {true && (
-                        <button onClick={() => { navigate('/admin'); setShowAccountMenu(false); }} className="w-full text-left px-5 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 text-blue-600 font-bold uppercase tracking-wider text-[11px]">Panel Admin</button>
-                      )}
+                      <button onClick={() => { navigate('/admin'); setShowAccountMenu(false); }} className="w-full text-left px-5 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 text-blue-600 font-bold uppercase tracking-wider text-[11px]">Panel Admin</button>
                       <button onClick={async () => { await logout(); setShowAccountMenu(false); }} className="w-full text-left px-5 py-3 text-sm hover:bg-gray-100 transition-colors border-t border-gray-100 text-red-500">Cerrar sesión</button>
                     </div>
                   ) : (
@@ -257,28 +266,18 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
             {/* Cart */}
             <button
-              className="flex flex-col items-center gap-1 hover:opacity-80 transition-opacity relative"
+              className="flex items-center justify-center hover:opacity-80 transition-opacity relative p-1"
               onClick={() => navigate('/cart')}
               aria-label={`Ver carrito de compras, ${itemCount} productos`}
             >
               <div className="relative">
-                <ShoppingCart className="w-6 h-6 stroke-[1.5px]" />
+                <ShoppingCart className="w-[22px] h-[22px] md:w-6 md:h-6 stroke-[1.5px]" />
                 {itemCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-md">
+                  <span className="absolute -top-1.5 -right-2 bg-red-600 text-white text-[10px] font-bold w-[18px] h-[18px] rounded-full flex items-center justify-center shadow-md border border-white/20">
                     {itemCount}
                   </span>
                 )}
               </div>
-              <span className="text-[10px] uppercase font-bold tracking-wider hidden md:block">Mi carrito</span>
-            </button>
-
-            {/* Mobile Toggle */}
-            <button
-              className="md:hidden text-white p-3 -mr-2 min-w-[48px] min-h-[48px] flex items-center justify-center"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              aria-label={isMenuOpen ? "Cerrar menú principal" : "Abrir menú principal"}
-            >
-              {isMenuOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
             </button>
           </div>
         </div>
@@ -286,13 +285,13 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
       {/* Navigation Bar - Desktop only */}
       <nav
-        className="relative hidden md:block bg-[hsl(214,100%,38%)] border-t border-white/20 border-b border-[hsl(214,80%,28%)] z-50"
+        className="relative hidden md:block bg-[hsl(214,100%,38%)] border-b border-[hsl(214,80%,28%)] z-50"
         onMouseLeave={() => {
           categoryDropdownTimer.current = setTimeout(() => setOpenCategoryDropdown(null), 100);
         }}
       >
-        <div className="w-full max-w-[1800px] mx-auto px-4 md:px-8">
-          <ul className="flex flex-col items-center md:flex-row md:items-center md:justify-center md:space-x-8 text-white md:py-3.5">
+        <div className="w-full max-w-[1300px] mx-auto px-4 md:px-8">
+          <ul className="flex flex-col items-center md:flex-row md:items-center md:justify-center md:space-x-10 text-white md:py-3.5">
             {mainCategoriesForNav.map((category) => {
               const isActive = selectedCategory === category;
               const subs = getSubsForMain(category);
@@ -331,7 +330,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 </li>
               );
             })}
-            {/* Decants - Solo mostrar si no viene ya en las categorías de la base de datos */}
+            {/* Decants */}
             {!mainCategoriesForNav.some(c => c.toLowerCase() === 'decants' || c.toLowerCase() === 'decant') && (
               <li className="relative group/nav">
                 <button
@@ -359,7 +358,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
           </ul>
         </div>
 
-        {/* Dropdown Categorías (Mega-Menu) - Blue Minimal Style */}
+        {/* Dropdown Categorías (Mega-Menu) - Blue Theme */}
         {openCategoryDropdown && (() => {
           const subs = getSubsForMain(openCategoryDropdown);
           if (subs.length === 0) return null;
@@ -372,7 +371,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 setOpenCategoryDropdown(openCategoryDropdown);
               }}
             >
-              <div className="w-full max-w-6xl mx-auto flex flex-col items-center px-8 py-10">
+              <div className="w-full max-w-[1300px] mx-auto flex flex-col items-center px-8 py-10">
                 <div className="w-full flex flex-wrap justify-center gap-x-20 gap-y-10">
                   {subs.map((sub) => {
                     const thirds = getThirdsForSub(sub.id ?? '');
