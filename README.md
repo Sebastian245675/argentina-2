@@ -60,9 +60,24 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Project structure
+
+- `src/`: application code
+- `public/`: static assets
+- `docs/`: migration notes, guides, checklists and roadmap docs
+- `database/sql/`: SQL setup and migration scripts
+- `scripts/`: deploy, debug and maintenance scripts
+- `firebase/`: Firebase support files such as CORS and storage rules
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/d6ed1ae0-d09d-46df-a6d6-e911d6ab609d) and click on Share -> Publish.
+
+For the local deploy helper script:
+
+```sh
+npm run deploy
+```
 
 ## Can I connect a custom domain to my Lovable project?
 

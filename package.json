@@ -9,8 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "node deploy.cjs",
-    "ship": "vite build && node deploy.cjs"
+    "deploy": "node scripts/deploy.cjs",
+    "ship": "vite build && node scripts/deploy.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

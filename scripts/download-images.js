@@ -5,17 +5,18 @@ const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
 const admin = require('firebase-admin');
+const PROJECT_ROOT = path.resolve(__dirname, '..');
 
 // Necesitarás crear un archivo serviceAccountKey.json desde Firebase Console
 // Proyecto > Configuración > Cuentas de servicio > Generar nueva clave privada
-const serviceAccount = require('./serviceAccountKey.json');
+const serviceAccount = require(path.join(PROJECT_ROOT, 'serviceAccountKey.json'));
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 
 const db = admin.firestore();
-const DOWNLOAD_FOLDER = './downloaded_images';
+const DOWNLOAD_FOLDER = path.join(PROJECT_ROOT, 'downloaded_images');
 
 // Crear la carpeta si no existe
 if (!fs.existsSync(DOWNLOAD_FOLDER)) {

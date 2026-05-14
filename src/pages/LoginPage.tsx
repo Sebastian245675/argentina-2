@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
-import { auth } from "@/firebase";
+import { auth } from '@/firebase';
+import { getAuthErrorMessage, isEmailConfirmationPendingError } from '@/lib/auth-email';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -14,99 +15,114 @@ export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  
+
   const [loginData, setLoginData] = useState({
     email: '',
-    password: ''
+    password: '',
   });
-  
+
   const [resetEmail, setResetEmail] = useState('');
   const [errors, setErrors] = useState({
     email: '',
-    password: ''
+    password: '',
   });
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
+  const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const newErrors = {
+
+    const nextErrors = {
       email: '',
-      password: ''
+      password: '',
     };
-    
+
     if (!loginData.email || !validateEmail(loginData.email)) {
-      newErrors.email = 'Email inválido';
+      nextErrors.email = 'Email invalido';
     }
-    
+
     if (!loginData.password || loginData.password.length < 6) {
-      newErrors.password = 'Contraseña debe tener al menos 6 caracteres';
+      nextErrors.password = 'Contrasena debe tener al menos 6 caracteres';
     }
-    
-    if (newErrors.email || newErrors.password) {
-      setErrors(newErrors);
+
+    if (nextErrors.email || nextErrors.password) {
+      setErrors(nextErrors);
       return;
     }
-    
+
     setIsLoading(true);
+
     try {
-      const { data, error } = await auth.signInWithPassword({
+      const { error } = await auth.signInWithPassword({
         email: loginData.email,
-        password: loginData.password
+        password: loginData.password,
       });
-      
+
       if (error) throw error;
-      
+
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', loginData.email);
+      } else {
+        localStorage.removeItem('rememberedEmail');
+      }
+
       toast({
-        title: "¡Bienvenido!",
-        description: "Sesión iniciada correctamente",
+        title: 'Bienvenido',
+        description: 'Sesion iniciada correctamente.',
       });
-      
-      setIsLoading(false);
+
       navigate('/');
-    } catch (error: any) {
-      toast({
-        title: "Error de login",
-        description: error.message || "No se pudo iniciar sesión",
-        variant: "destructive",
-      });
+    } catch (error) {
+      if (isEmailConfirmationPendingError(error)) {
+        toast({
+          title: 'Confirma tu correo',
+          description: 'Tu cuenta existe, pero falta confirmar el email antes de iniciar sesion.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Error de login',
+          description: getAuthErrorMessage(error) || 'No se pudo iniciar sesion',
+          variant: 'destructive',
+        });
+      }
+    } finally {
       setIsLoading(false);
     }
   };
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!resetEmail || !validateEmail(resetEmail)) {
       toast({
-        title: "Email inválido",
-        description: "Por favor ingresa un email válido",
-        variant: "destructive",
+        title: 'Email invalido',
+        description: 'Por favor ingresa un email valido',
+        variant: 'destructive',
       });
       return;
     }
-    
+
     setIsLoading(true);
+
     try {
-      const { data, error } = await auth.resetPasswordForEmail(resetEmail);
-      
+      const { error } = await auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/login`,
+      });
+
       if (error) throw error;
-      
+
       toast({
-        title: "Email enviado",
-        description: "Revisa tu email para restablecer tu contraseña",
+        title: 'Email enviado',
+        description: 'Revisa tu email para restablecer tu contrasena.',
       });
       setShowForgotPassword(false);
       setResetEmail('');
-    } catch (error: any) {
+    } catch (error) {
       toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
+        title: 'Error',
+        description: getAuthErrorMessage(error),
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -115,7 +131,6 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Azul (igual que barra) */}
       <div className="hidden lg:flex lg:w-1/2 bg-[hsl(214,100%,38%)] flex-col items-center justify-center p-8">
         <button
           onClick={() => navigate('/')}
@@ -123,15 +138,13 @@ export const LoginPage: React.FC = () => {
         >
           <ArrowLeft className="w-6 h-6" />
         </button>
-        
+
         <div className="flex items-center justify-center">
           <img src="/logo%20vifum.png" alt="Logo" className="h-24 md:h-32 w-auto object-contain" />
         </div>
       </div>
 
-      {/* Right Side - White with Form */}
       <div className="w-full lg:w-1/2 bg-white flex flex-col">
-        {/* Mobile Header */}
         <div className="lg:hidden bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <button
             onClick={() => navigate('/')}
@@ -145,10 +158,8 @@ export const LoginPage: React.FC = () => {
           <div className="w-10"></div>
         </div>
 
-        {/* Form Container */}
         <div className="flex-1 flex items-center justify-center p-8 lg:p-12">
           <div className="w-full max-w-md">
-            
             {!showForgotPassword ? (
               <>
                 <div className="mb-8">
@@ -157,7 +168,6 @@ export const LoginPage: React.FC = () => {
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-4">
-                  {/* Email */}
                   <div>
                     <Label htmlFor="email" className="text-sm font-semibold text-black mb-2 block">
                       Email
@@ -176,22 +186,28 @@ export const LoginPage: React.FC = () => {
                         className="pl-10 py-2.5 border-gray-300 rounded-none focus:border-black focus:ring-0"
                       />
                     </div>
-                    {errors.email && (
-                      <p className="text-red-600 text-xs mt-1">{errors.email}</p>
-                    )}
+                    {errors.email && <p className="text-red-600 text-xs mt-1">{errors.email}</p>}
                   </div>
 
-                  {/* Password */}
                   <div>
-                    <Label htmlFor="password" className="text-sm font-semibold text-black mb-2 block">
-                      Contraseña
-                    </Label>
+                    <div className="flex items-center justify-between mb-2">
+                      <Label htmlFor="password" className="text-sm font-semibold text-black block">
+                        Contrasena
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotPassword(true)}
+                        className="text-xs text-gray-500 hover:text-black transition-colors"
+                      >
+                        Olvidaste tu contrasena?
+                      </button>
+                    </div>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                       <Input
                         id="password"
                         type={showPassword ? 'text' : 'password'}
-                        placeholder="••••••••"
+                        placeholder="........"
                         value={loginData.password}
                         onChange={(e) => {
                           setLoginData({ ...loginData, password: e.target.value });
@@ -204,55 +220,34 @@ export const LoginPage: React.FC = () => {
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                       >
-                        {showPassword ? (
-                          <EyeOff className="w-5 h-5" />
-                        ) : (
-                          <Eye className="w-5 h-5" />
-                        )}
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
-                    {errors.password && (
-                      <p className="text-red-600 text-xs mt-1">{errors.password}</p>
-                    )}
+                    {errors.password && <p className="text-red-600 text-xs mt-1">{errors.password}</p>}
                   </div>
 
-                  {/* Remember Me & Forgot Password */}
-                  <div className="flex items-center justify-between pt-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={rememberMe}
-                        onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                      />
-                      <span className="text-sm text-gray-600">Recuérdame</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowForgotPassword(true)}
-                      className="text-sm text-black hover:underline"
-                    >
-                      ¿Olvidaste tu contraseña?
-                    </button>
-                  </div>
+                  <label className="flex items-center gap-3 text-sm text-gray-600 cursor-pointer pt-2">
+                    <Checkbox checked={rememberMe} onCheckedChange={(checked) => setRememberMe(checked === true)} />
+                    Recordarme
+                  </label>
 
-                  {/* Submit Button */}
                   <Button
                     type="submit"
                     disabled={isLoading}
                     className="w-full bg-black hover:bg-gray-800 text-white font-semibold py-2.5 rounded-none mt-6"
                   >
-                    {isLoading ? 'Cargando...' : 'Entrar'}
+                    {isLoading ? 'Ingresando...' : 'Ingresar'}
                   </Button>
                 </form>
 
-                {/* Register Link */}
                 <div className="mt-6 text-center border-t border-gray-200 pt-6">
                   <p className="text-gray-600 text-sm">
-                    ¿No tienes cuenta?{' '}
+                    No tienes cuenta?{' '}
                     <button
                       onClick={() => navigate('/register')}
                       className="text-black font-semibold hover:underline"
                     >
-                      Regístrate aquí
+                      Registrate aqui
                     </button>
                   </p>
                 </div>
@@ -261,12 +256,14 @@ export const LoginPage: React.FC = () => {
               <>
                 <div className="mb-8">
                   <button
+                    type="button"
                     onClick={() => setShowForgotPassword(false)}
-                    className="mb-4 p-2 hover:bg-gray-100 rounded-full transition-colors inline-block"
+                    className="flex items-center gap-2 text-sm text-gray-500 hover:text-black transition-colors mb-4"
                   >
-                    <ArrowLeft className="w-5 h-5" />
+                    <ArrowLeft className="w-4 h-4" />
+                    Volver
                   </button>
-                  <h1 className="text-3xl font-bold text-black mb-2">Restablecer contraseña</h1>
+                  <h1 className="text-3xl font-bold text-black mb-2">Recuperar acceso</h1>
                   <p className="text-gray-600">Ingresa tu email para recibir instrucciones</p>
                 </div>
 
@@ -293,7 +290,7 @@ export const LoginPage: React.FC = () => {
                     disabled={isLoading}
                     className="w-full bg-black hover:bg-gray-800 text-white font-semibold py-2.5 rounded-none mt-6"
                   >
-                    {isLoading ? 'Enviando...' : 'Enviar instrucciones'}
+                    {isLoading ? 'Enviando...' : 'Enviar email'}
                   </Button>
                 </form>
               </>

@@ -1,19 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { 
-  User, Mail, Lock, Phone, Eye, EyeOff, AlertCircle, 
-  ArrowLeft, ArrowRight, CheckCircle2, Loader2
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { auth, db } from "@/firebase";
+import { auth } from '@/firebase';
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
+  Mail,
+  Phone,
+  User,
+} from 'lucide-react';
+import {
+  getAuthErrorMessage,
+  isAlreadyRegisteredError,
+  isEmailConfirmationPendingError,
+  isEmailRateLimitError,
+  registerUserWithEmail,
+  resendSignupConfirmationEmail,
+} from '@/lib/auth-email';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -25,15 +42,17 @@ type RegisterStep = 'personal' | 'account' | 'verification';
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [registerStep, setRegisterStep] = useState<RegisterStep>('personal');
-  
-  // Form validation states
+  const [isLoading, setIsLoading] = useState(false);
+  const [isResendingConfirmation, setIsResendingConfirmation] = useState(false);
+  const [requiresEmailConfirmation, setRequiresEmailConfirmation] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
   const [errors, setErrors] = useState({
     loginEmail: '',
     loginPassword: '',
@@ -41,12 +60,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     registerEmail: '',
     registerPhone: '',
     registerPassword: '',
-    resetEmail: ''
+    resetEmail: '',
   });
-  
+
   const [loginData, setLoginData] = useState({
     email: '',
-    password: ''
+    password: '',
   });
 
   const [registerData, setRegisterData] = useState({
@@ -56,291 +75,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     confirmPassword: '',
     phone: '',
     address: '',
-    acceptTerms: false
+    acceptTerms: false,
   });
-  
+
   const [resetPasswordEmail, setResetPasswordEmail] = useState('');
 
-  const handleQuickAdminLogin = async () => {
-    setIsLoading(true);
-    try {
-      await signInWithEmailAndPassword(auth, 'admin@gmail.com', 'admin123');
-      toast({
-        title: "¡Acceso de administrador!",
-        description: "Bienvenido al panel de administración",
-      });
-      onClose();
-      setTimeout(() => {
-        navigate('/admin');
-      }, 500);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudo acceder como administrador",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Validation functions
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-  
-  const validatePassword = (password: string) => {
-    // At least 8 characters, 1 uppercase, 1 lowercase, 1 number
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-    return passwordRegex.test(password);
-  };
-  
-  const validatePhoneNumber = (phone: string) => {
-    const digits = phone.replace(/\D/g, '');
-    return digits.length >= 8 && digits.length <= 15;
-  };
-  
-  // Handle login with email and password
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Reset errors
-    setErrors({
-      ...errors,
-      loginEmail: '',
-      loginPassword: ''
-    });
-    
-    // Validate form
-    let hasErrors = false;
-    
-    if (!validateEmail(loginData.email)) {
-      setErrors(prev => ({...prev, loginEmail: 'Ingresa un email válido'}));
-      hasErrors = true;
-    }
-    
-    if (!loginData.password) {
-      setErrors(prev => ({...prev, loginPassword: 'La contraseña es obligatoria'}));
-      hasErrors = true;
-    }
-    
-    if (hasErrors) return;
-    
-    setIsLoading(true);
-
-    try {
-      console.log("AuthModal:login:start", { email: loginData.email });
-      const { data, error } = await auth.signInWithPassword({
-        email: loginData.email,
-        password: loginData.password
-      });
-
-      console.log("AuthModal:login:result", { userId: data?.user?.id, hasSession: !!data?.session, error });
-      if (error) throw error;
-      
-      // Store email in localStorage if rememberMe is checked
-      if (rememberMe) {
-        localStorage.setItem('rememberedEmail', loginData.email);
-      } else {
-        localStorage.removeItem('rememberedEmail');
-      }
-      
-      toast({
-        title: "¡Bienvenido!",
-        description: "Has iniciado sesión correctamente",
-      });
-      
-      // Pequeño delay para asegurar que Supabase actualiza el estado
-      setTimeout(() => {
-        console.log("AuthModal:login:closeModal" );
-        onClose();
-      }, 300);
-    } catch (error: any) {
-      console.error("AuthModal:login:error", error);
-      // Handle specific error codes
-      if (error.message?.includes('Invalid login credentials')) {
-        setErrors(prev => ({...prev, loginEmail: 'Email o contraseña incorrectos'}));
-      } else if (error.message?.includes('too many requests')) {
-        toast({
-          title: "Demasiados intentos",
-          description: "Has realizado demasiados intentos fallidos. Prueba más tarde o restablece tu contraseña.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: error.message || "No se pudo iniciar sesión. Verifica tus credenciales.",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Eliminados métodos de inicio de sesión con redes sociales
-
-  // Handle password reset
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Reset errors
-    setErrors({
-      ...errors,
-      resetEmail: ''
-    });
-    
-    // Validate email
-    if (!validateEmail(resetPasswordEmail)) {
-      setErrors(prev => ({...prev, resetEmail: 'Ingresa un email válido'}));
-      return;
-    }
-    
-    setIsLoading(true);
-    
-    try {
-      const { error } = await auth.resetPasswordForEmail(resetPasswordEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Correo enviado",
-        description: "Revisa tu bandeja de entrada para restablecer tu contraseña",
-      });
-      setShowForgotPassword(false);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "No se pudo enviar el correo de recuperación",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-          description: "No se pudo enviar el correo de recuperación",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle register
-  const validateRegisterForm = () => {
-    let isValid = true;
-    const newErrors = {...errors};
-    
-    // Step 1: Personal information
-    if (registerStep === 'personal') {
-      if (!registerData.name.trim()) {
-        newErrors.registerName = 'El nombre es obligatorio';
-        isValid = false;
-      } else if (registerData.name.length < 3) {
-        newErrors.registerName = 'El nombre debe tener al menos 3 caracteres';
-        isValid = false;
-      }
-      
-      if (!validatePhoneNumber(registerData.phone)) {
-        newErrors.registerPhone = 'Teléfono debe tener entre 8 y 15 dígitos';
-        isValid = false;
-      }
-    }
-    
-    // Step 2: Account details
-    if (registerStep === 'account') {
-      if (!validateEmail(registerData.email)) {
-        newErrors.registerEmail = 'Ingresa un email válido';
-        isValid = false;
-      }
-      
-      if (!validatePassword(registerData.password)) {
-        newErrors.registerPassword = 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número';
-        isValid = false;
-      } else if (registerData.password !== registerData.confirmPassword) {
-        newErrors.registerPassword = 'Las contraseñas no coinciden';
-        isValid = false;
-      }
-      
-      if (!registerData.acceptTerms) {
-        toast({
-          title: "Términos y condiciones",
-          description: "Debes aceptar los términos y condiciones para continuar",
-          variant: "destructive",
-        });
-        isValid = false;
-      }
-    }
-    
-    setErrors({...newErrors});
-    return isValid;
-  };
-  
-  const advanceRegisterStep = () => {
-    if (!validateRegisterForm()) return;
-    
-    if (registerStep === 'personal') {
-      setRegisterStep('account');
-    } else if (registerStep === 'account') {
-      handleRegisterSubmit();
-    }
-  };
-  
-  const handleRegisterSubmit = async () => {
-    setIsLoading(true);
-    
-    const { email, password, name, phone, address } = registerData;
-
-    try {
-      // Create user in Supabase Auth
-      const { data, error } = await auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-            phone,
-            address: address || ''
-          }
-        }
-      });
-
-      if (error) throw error;
-      
-      // Show success message (skip DB insert to avoid RLS errors)
-      toast({
-        title: "¡Cuenta creada!",
-        description: "¡Bienvenido a nuestra tienda!",
-      });
-      
-      setRegisterStep('verification');
-    } catch (error: any) {
-      if (error.message?.includes('already registered')) {
-        setErrors(prev => ({...prev, registerEmail: 'Este email ya está en uso'}));
-        setRegisterStep('account'); // Go back to account step
-      } else {
-        toast({
-          title: "Error",
-          description: error.message || "No se pudo crear tu cuenta. Intenta nuevamente.",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Handle register form submission
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-    advanceRegisterStep();
-  };
-
-  // Load remembered email on component mount
   useEffect(() => {
     const rememberedEmail = localStorage.getItem('rememberedEmail');
     if (rememberedEmail) {
@@ -349,46 +88,291 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     }
   }, []);
 
-  // Cierra el modal automáticamente cuando el usuario se autentica
   useEffect(() => {
     if (user && isOpen) {
       onClose();
     }
   }, [user, isOpen, onClose]);
 
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open) {
-        onClose();
-        // Reset states when modal is closed
-        setShowForgotPassword(false);
-        setRegisterStep('personal');
+  const resetRegisterState = () => {
+    setRegisterStep('personal');
+    setRequiresEmailConfirmation(false);
+    setIsResendingConfirmation(false);
+  };
+
+  const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  const validatePassword = (password: string) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password);
+
+  const validatePhoneNumber = (phone: string) => {
+    const digits = phone.replace(/\D/g, '');
+    return digits.length >= 8 && digits.length <= 15;
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    setErrors(prev => ({
+      ...prev,
+      loginEmail: '',
+      loginPassword: '',
+    }));
+
+    let hasErrors = false;
+
+    if (!validateEmail(loginData.email)) {
+      hasErrors = true;
+      setErrors(prev => ({ ...prev, loginEmail: 'Ingresa un email valido' }));
+    }
+
+    if (!loginData.password) {
+      hasErrors = true;
+      setErrors(prev => ({ ...prev, loginPassword: 'La contrasena es obligatoria' }));
+    }
+
+    if (hasErrors) return;
+
+    setIsLoading(true);
+
+    try {
+      const { data, error } = await auth.signInWithPassword({
+        email: loginData.email,
+        password: loginData.password,
+      });
+
+      if (error) throw error;
+
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', loginData.email);
+      } else {
+        localStorage.removeItem('rememberedEmail');
       }
-    }}>
+
+      toast({
+        title: 'Bienvenido',
+        description: 'Has iniciado sesion correctamente.',
+      });
+
+      if (data.user) {
+        setTimeout(() => onClose(), 250);
+      }
+    } catch (error) {
+      if (isEmailConfirmationPendingError(error)) {
+        toast({
+          title: 'Confirma tu correo',
+          description: 'Tu cuenta existe, pero falta confirmar el email antes de iniciar sesion.',
+          variant: 'destructive',
+        });
+      } else if (getAuthErrorMessage(error).includes('Invalid login credentials')) {
+        setErrors(prev => ({ ...prev, loginEmail: 'Email o contrasena incorrectos' }));
+      } else {
+        toast({
+          title: 'Error',
+          description: getAuthErrorMessage(error) || 'No se pudo iniciar sesion.',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    setErrors(prev => ({ ...prev, resetEmail: '' }));
+
+    if (!validateEmail(resetPasswordEmail)) {
+      setErrors(prev => ({ ...prev, resetEmail: 'Ingresa un email valido' }));
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { error } = await auth.resetPasswordForEmail(resetPasswordEmail, {
+        redirectTo: `${window.location.origin}/login`,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Correo enviado',
+        description: 'Revisa tu bandeja para restablecer la contrasena.',
+      });
+      setShowForgotPassword(false);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: getAuthErrorMessage(error) || 'No se pudo enviar el correo de recuperacion.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const validateRegisterForm = () => {
+    let isValid = true;
+    const nextErrors = {
+      ...errors,
+      registerName: '',
+      registerEmail: '',
+      registerPhone: '',
+      registerPassword: '',
+    };
+
+    if (registerStep === 'personal') {
+      if (!registerData.name.trim()) {
+        nextErrors.registerName = 'El nombre es obligatorio';
+        isValid = false;
+      } else if (registerData.name.trim().length < 3) {
+        nextErrors.registerName = 'El nombre debe tener al menos 3 caracteres';
+        isValid = false;
+      }
+
+      if (!validatePhoneNumber(registerData.phone)) {
+        nextErrors.registerPhone = 'Telefono debe tener entre 8 y 15 digitos';
+        isValid = false;
+      }
+    }
+
+    if (registerStep === 'account') {
+      if (!validateEmail(registerData.email)) {
+        nextErrors.registerEmail = 'Ingresa un email valido';
+        isValid = false;
+      }
+
+      if (!validatePassword(registerData.password)) {
+        nextErrors.registerPassword =
+          'La contrasena debe tener al menos 8 caracteres, una mayuscula, una minuscula y un numero';
+        isValid = false;
+      } else if (registerData.password !== registerData.confirmPassword) {
+        nextErrors.registerPassword = 'Las contrasenas no coinciden';
+        isValid = false;
+      }
+
+      if (!registerData.acceptTerms) {
+        toast({
+          title: 'Terminos y condiciones',
+          description: 'Debes aceptar los terminos y condiciones para continuar.',
+          variant: 'destructive',
+        });
+        isValid = false;
+      }
+    }
+
+    setErrors(nextErrors);
+    return isValid;
+  };
+
+  const handleRegisterSubmit = async () => {
+    setIsLoading(true);
+
+    try {
+      const result = await registerUserWithEmail({
+        email: registerData.email,
+        password: registerData.password,
+        name: registerData.name,
+        phone: registerData.phone,
+        address: registerData.address,
+      });
+
+      setRequiresEmailConfirmation(result.requiresEmailConfirmation);
+      setRegisterStep('verification');
+
+      toast({
+        title: 'Cuenta creada',
+        description: result.requiresEmailConfirmation
+          ? 'Revisa tu correo para confirmar la cuenta.'
+          : 'Tu cuenta ya esta activa.',
+      });
+    } catch (error) {
+      if (isAlreadyRegisteredError(error)) {
+        setErrors(prev => ({ ...prev, registerEmail: 'Este email ya esta en uso' }));
+        setRegisterStep('account');
+      } else {
+        toast({
+          title: 'Error',
+          description: getAuthErrorMessage(error) || 'No se pudo crear tu cuenta.',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const advanceRegisterStep = () => {
+    if (!validateRegisterForm()) return;
+
+    if (registerStep === 'personal') {
+      setRegisterStep('account');
+      return;
+    }
+
+    handleRegisterSubmit();
+  };
+
+  const handleRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    advanceRegisterStep();
+  };
+
+  const handleResendConfirmation = async () => {
+    setIsResendingConfirmation(true);
+
+    try {
+      await resendSignupConfirmationEmail(registerData.email);
+      toast({
+        title: 'Correo reenviado',
+        description: 'Te enviamos un nuevo enlace de confirmacion.',
+      });
+    } catch (error) {
+      toast({
+        title: isEmailRateLimitError(error) ? 'Espera un momento' : 'No se pudo reenviar',
+        description: isEmailRateLimitError(error)
+          ? 'Supabase limito temporalmente el envio. Intenta de nuevo en unos minutos.'
+          : getAuthErrorMessage(error),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResendingConfirmation(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+          setShowForgotPassword(false);
+          resetRegisterState();
+        }
+      }}
+    >
       <DialogContent className="sm:max-w-[450px] w-full max-w-[98vw] p-0 overflow-hidden">
         <div className="gradient-orange h-2"></div>
-        
-        {/* Forgot password form */}
+
         {showForgotPassword ? (
           <>
             <DialogHeader className="p-4 sm:p-6 pb-4">
               <div className="flex items-center mb-2">
-                <Button 
-                  variant="ghost" 
-                  className="h-8 w-8 p-0 mr-2" 
+                <Button
+                  variant="ghost"
+                  className="h-8 w-8 p-0 mr-2"
                   onClick={() => setShowForgotPassword(false)}
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
-                <DialogTitle className="text-xl font-bold">
-                  Recuperar contraseña
-                </DialogTitle>
+                <DialogTitle className="text-xl font-bold">Recuperar contrasena</DialogTitle>
               </div>
               <p className="text-gray-600 text-sm">
-                Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña
+                Ingresa tu correo y te enviaremos un enlace para restablecer tu contrasena.
               </p>
             </DialogHeader>
-            
+
             <div className="p-4 sm:p-6 pt-0">
               <form onSubmit={handleResetPassword} className="space-y-4">
                 <div className="space-y-2">
@@ -411,16 +395,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     )}
                   </div>
                 </div>
-                
-                <Button 
-                  type="submit" 
+
+                <Button
+                  type="submit"
                   className="w-full gradient-orange hover:opacity-90 transition-opacity"
                   disabled={isLoading}
                 >
                   {isLoading ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</>
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...
+                    </>
                   ) : (
-                    'Enviar enlace de recuperación'
+                    'Enviar enlace de recuperacion'
                   )}
                 </Button>
               </form>
@@ -430,33 +416,55 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           <>
             <DialogHeader className="p-4 sm:p-6 pb-4">
               <DialogTitle className="text-xl sm:text-2xl font-bold text-center text-green-600">
-                ¡Bienvenido a nuestra tienda!
+                {requiresEmailConfirmation ? 'Revisa tu correo' : 'Cuenta creada'}
               </DialogTitle>
             </DialogHeader>
-            
+
             <div className="p-4 sm:p-6 pt-0 text-center">
               <div className="mb-4 flex justify-center">
                 <div className="rounded-full bg-green-100 p-3">
                   <CheckCircle2 className="h-10 w-10 text-green-600" />
                 </div>
               </div>
-              <h3 className="text-lg font-medium mb-2">¡Bienvenido a nuestra tienda!</h3>
+              <h3 className="text-lg font-medium mb-2">
+                {requiresEmailConfirmation ? 'Falta confirmar el email' : 'Tu acceso ya esta listo'}
+              </h3>
               <p className="text-gray-600 mb-6">
-                Hemos enviado un correo de bienvenida a <span className="font-semibold">{registerData.email}</span>.
-                Tu cuenta ya está activa y puedes comenzar a comprar de inmediato.
+                {requiresEmailConfirmation ? (
+                  <>
+                    Enviamos un correo de confirmacion a <span className="font-semibold">{registerData.email}</span>.
+                    Revisa spam o promociones si no lo ves enseguida.
+                  </>
+                ) : (
+                  <>
+                    La cuenta de <span className="font-semibold">{registerData.email}</span> ya quedo activa.
+                  </>
+                )}
               </p>
-              <Button 
-                className="w-full gradient-orange hover:opacity-90 transition-opacity"
-                onClick={() => {
-                  onClose();
-                  setRegisterStep('personal');
-                }}
-              >
-                Comenzar a comprar
-              </Button>
-              <p className="mt-4 text-sm text-gray-500">
-                Si tienes alguna pregunta, no dudes en contactarnos a través de nuestro servicio de atención al cliente.
-              </p>
+
+              <div className="space-y-3">
+                {requiresEmailConfirmation && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleResendConfirmation}
+                    disabled={isResendingConfirmation}
+                  >
+                    {isResendingConfirmation ? 'Reenviando...' : 'Reenviar correo'}
+                  </Button>
+                )}
+                <Button
+                  className="w-full gradient-orange hover:opacity-90 transition-opacity"
+                  onClick={() => {
+                    onClose();
+                    resetRegisterState();
+                    navigate(requiresEmailConfirmation ? '/login' : '/');
+                  }}
+                >
+                  {requiresEmailConfirmation ? 'Ir a iniciar sesion' : 'Comenzar a comprar'}
+                </Button>
+              </div>
             </div>
           </>
         ) : (
@@ -470,15 +478,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               </p>
             </DialogHeader>
 
-            <div className="p-4 sm:px-6 pt-2" style={{maxHeight: '75vh', overflowY: 'auto'}}>
-
-              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "login" | "register")} className="w-full">
+            <div className="p-4 sm:px-6 pt-2" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
+              <Tabs
+                value={activeTab}
+                onValueChange={(value) => {
+                  setActiveTab(value as 'login' | 'register');
+                  if (value === 'register') resetRegisterState();
+                }}
+                className="w-full"
+              >
                 <TabsList className="grid w-full grid-cols-2 mb-4">
                   <TabsTrigger value="login" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-sm">
-                    Iniciar Sesión
+                    Iniciar sesion
                   </TabsTrigger>
                   <TabsTrigger value="register" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-sm">
-                    Crear Cuenta
+                    Crear cuenta
                   </TabsTrigger>
                 </TabsList>
 
@@ -501,8 +515,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                               }`}
                               value={loginData.email}
                               onChange={(e) => {
-                                setLoginData({...loginData, email: e.target.value});
-                                setErrors({...errors, loginEmail: ''});
+                                setLoginData({ ...loginData, email: e.target.value });
+                                setErrors({ ...errors, loginEmail: '' });
                               }}
                             />
                             {errors.loginEmail && (
@@ -513,72 +527,60 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                             )}
                           </div>
                         </div>
-                        
+
                         <div className="space-y-1">
                           <div className="flex items-center justify-between">
                             <Label htmlFor="login-password" className="text-sm font-medium">
-                              Contraseña
+                              Contrasena
                             </Label>
-                            <Button 
+                            <Button
                               type="button"
-                              variant="link" 
-                              className="p-0 text-orange-500 h-auto text-xs"
+                              variant="link"
+                              className="p-0 text-orange-500 h-auto text-sm"
                               onClick={() => setShowForgotPassword(true)}
                             >
-                              ¿Olvidaste tu contraseña?
+                              Olvidaste tu contrasena?
                             </Button>
                           </div>
                           <div className="relative">
                             <Lock className="absolute left-3 top-3 h-4 w-4 text-orange-400" />
                             <Input
                               id="login-password"
-                              type={showPassword ? "text" : "password"}
-                              placeholder="••••••••"
+                              type={showLoginPassword ? 'text' : 'password'}
+                              placeholder="........"
                               className={`pl-10 pr-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 w-full ${
                                 errors.loginPassword ? 'border-red-500' : ''
                               }`}
                               value={loginData.password}
                               onChange={(e) => {
-                                setLoginData({...loginData, password: e.target.value});
-                                setErrors({...errors, loginPassword: ''});
+                                setLoginData({ ...loginData, password: e.target.value });
+                                setErrors({ ...errors, loginPassword: '' });
                               }}
                             />
                             <button
                               type="button"
                               className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
-                              onClick={() => setShowPassword(!showPassword)}
+                              onClick={() => setShowLoginPassword(!showLoginPassword)}
                             >
-                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
-                            {errors.loginPassword && (
-                              <div className="text-xs text-red-500 mt-1 flex items-center">
-                                <AlertCircle className="h-3 w-3 mr-1" />
-                                {errors.loginPassword}
-                              </div>
-                            )}
                           </div>
                         </div>
 
-                        <div className="flex items-center space-x-2 mb-1">
-                          <Checkbox 
-                            id="remember-me" 
-                            checked={rememberMe} 
-                            onCheckedChange={(checked) => setRememberMe(checked === true)} 
-                          />
-                          <Label htmlFor="remember-me" className="text-sm text-gray-600">
-                            Recordar mi correo
-                          </Label>
+                        <div className="flex items-center justify-between pt-2">
+                          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                            <Checkbox checked={rememberMe} onCheckedChange={(checked) => setRememberMe(checked === true)} />
+                            Recordarme
+                          </label>
                         </div>
 
-                        <Button 
-                          type="submit" 
-                          className="w-full gradient-orange hover:opacity-90 transition-opacity"
-                          disabled={isLoading}
-                        >
+                        <Button type="submit" className="w-full gradient-orange hover:opacity-90 transition-opacity" disabled={isLoading}>
                           {isLoading ? (
-                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Iniciando sesión...</>
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Ingresando...
+                            </>
                           ) : (
-                            'Iniciar Sesión'
+                            'Iniciar sesion'
                           )}
                         </Button>
                       </form>
@@ -588,95 +590,96 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
                 <TabsContent value="register">
                   <Card className="border-0 shadow-none">
-                    <CardHeader className="px-0 pb-2 sm:pb-3">
-                      <CardTitle className="text-base sm:text-lg text-gray-800 flex items-center gap-2">
-                        {registerStep === 'personal' ? (
-                          <>Información Personal</>
-                        ) : (
-                          <>Datos de Cuenta</>
-                        )}
-                        <span className="text-xs text-gray-500 font-normal">
-                          Paso {registerStep === 'personal' ? '1/2' : '2/2'}
-                        </span>
-                      </CardTitle>
-                    </CardHeader>
                     <CardContent className="px-0 pt-0">
-                      <form onSubmit={handleRegister} className="space-y-3">
+                      <form onSubmit={handleRegister} className="space-y-4">
                         {registerStep === 'personal' ? (
                           <>
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                               <Label htmlFor="register-name" className="text-sm font-medium">
-                                Nombre Completo
+                                Nombre completo
                               </Label>
                               <div className="relative">
                                 <User className="absolute left-3 top-3 h-4 w-4 text-orange-400" />
                                 <Input
                                   id="register-name"
-                                  placeholder="Juan Pérez"
-                                  className={`pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 w-full ${
+                                  type="text"
+                                  placeholder="Tu nombre"
+                                  className={`pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 ${
                                     errors.registerName ? 'border-red-500' : ''
                                   }`}
                                   value={registerData.name}
                                   onChange={(e) => {
                                     setRegisterData({ ...registerData, name: e.target.value });
-                                    setErrors({...errors, registerName: ''});
+                                    setErrors({ ...errors, registerName: '' });
                                   }}
                                 />
-                                {errors.registerName && (
-                                  <div className="text-xs text-red-500 mt-1 flex items-center">
-                                    <AlertCircle className="h-3 w-3 mr-1" />
-                                    {errors.registerName}
-                                  </div>
-                                )}
                               </div>
+                              {errors.registerName && (
+                                <div className="text-xs text-red-500 mt-1 flex items-center">
+                                  <AlertCircle className="h-3 w-3 mr-1" />
+                                  {errors.registerName}
+                                </div>
+                              )}
                             </div>
-                            
-                            <div className="space-y-1">
+
+                            <div className="space-y-2">
                               <Label htmlFor="register-phone" className="text-sm font-medium">
-                                Teléfono
+                                Telefono
                               </Label>
                               <div className="relative">
                                 <Phone className="absolute left-3 top-3 h-4 w-4 text-orange-400" />
                                 <Input
                                   id="register-phone"
                                   type="tel"
-                                  placeholder="Ej: 3001234567"
-                                  className={`pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 w-full ${
+                                  placeholder="1234567890"
+                                  className={`pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 ${
                                     errors.registerPhone ? 'border-red-500' : ''
                                   }`}
                                   value={registerData.phone}
                                   onChange={(e) => {
-                                    // Only allow numbers
-                                    const value = e.target.value.replace(/[^0-9]/g, '');
-                                    setRegisterData({ ...registerData, phone: value });
-                                    setErrors({...errors, registerPhone: ''});
+                                    setRegisterData({ ...registerData, phone: e.target.value });
+                                    setErrors({ ...errors, registerPhone: '' });
                                   }}
                                 />
-                                {errors.registerPhone && (
-                                  <div className="text-xs text-red-500 mt-1 flex items-center">
-                                    <AlertCircle className="h-3 w-3 mr-1" />
-                                    {errors.registerPhone}
-                                  </div>
-                                )}
                               </div>
+                              {errors.registerPhone && (
+                                <div className="text-xs text-red-500 mt-1 flex items-center">
+                                  <AlertCircle className="h-3 w-3 mr-1" />
+                                  {errors.registerPhone}
+                                </div>
+                              )}
                             </div>
-                            
-                            <div className="space-y-1">
+
+                            <div className="space-y-2">
                               <Label htmlFor="register-address" className="text-sm font-medium">
-                                Dirección <span className="text-xs text-gray-500">(opcional)</span>
+                                Direccion (opcional)
                               </Label>
                               <Input
                                 id="register-address"
-                                placeholder="Calle 123 #45-67"
-                                className="border-orange-200 focus:border-orange-400 focus:ring-orange-400 w-full"
+                                type="text"
+                                placeholder="Tu direccion"
+                                className="border-orange-200 focus:border-orange-400 focus:ring-orange-400"
                                 value={registerData.address}
                                 onChange={(e) => setRegisterData({ ...registerData, address: e.target.value })}
                               />
                             </div>
+
+                            <Button type="submit" className="w-full gradient-orange hover:opacity-90 transition-opacity">
+                              Siguiente <ArrowRight className="ml-2 h-4 w-4" />
+                            </Button>
                           </>
                         ) : (
                           <>
-                            <div className="space-y-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="h-8 px-2 -ml-2"
+                              onClick={() => setRegisterStep('personal')}
+                            >
+                              <ArrowLeft className="h-4 w-4 mr-1" /> Atras
+                            </Button>
+
+                            <div className="space-y-2">
                               <Label htmlFor="register-email" className="text-sm font-medium">
                                 Email
                               </Label>
@@ -686,41 +689,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                                   id="register-email"
                                   type="email"
                                   placeholder="tu@email.com"
-                                  className={`pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 w-full ${
+                                  className={`pl-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 ${
                                     errors.registerEmail ? 'border-red-500' : ''
                                   }`}
                                   value={registerData.email}
                                   onChange={(e) => {
                                     setRegisterData({ ...registerData, email: e.target.value });
-                                    setErrors({...errors, registerEmail: ''});
+                                    setErrors({ ...errors, registerEmail: '' });
                                   }}
                                 />
-                                {errors.registerEmail && (
-                                  <div className="text-xs text-red-500 mt-1 flex items-center">
-                                    <AlertCircle className="h-3 w-3 mr-1" />
-                                    {errors.registerEmail}
-                                  </div>
-                                )}
                               </div>
+                              {errors.registerEmail && (
+                                <div className="text-xs text-red-500 mt-1 flex items-center">
+                                  <AlertCircle className="h-3 w-3 mr-1" />
+                                  {errors.registerEmail}
+                                </div>
+                              )}
                             </div>
-                            
-                            <div className="space-y-1">
+
+                            <div className="space-y-2">
                               <Label htmlFor="register-password" className="text-sm font-medium">
-                                Contraseña
+                                Contrasena
                               </Label>
                               <div className="relative">
                                 <Lock className="absolute left-3 top-3 h-4 w-4 text-orange-400" />
                                 <Input
                                   id="register-password"
-                                  type={showRegisterPassword ? "text" : "password"}
-                                  placeholder="••••••••"
-                                  className={`pl-10 pr-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 w-full ${
+                                  type={showRegisterPassword ? 'text' : 'password'}
+                                  placeholder="........"
+                                  className={`pl-10 pr-10 border-orange-200 focus:border-orange-400 focus:ring-orange-400 ${
                                     errors.registerPassword ? 'border-red-500' : ''
                                   }`}
                                   value={registerData.password}
                                   onChange={(e) => {
                                     setRegisterData({ ...registerData, password: e.target.value });
-                                    setErrors({...errors, registerPassword: ''});
+                                    setErrors({ ...errors, registerPassword: '' });
                                   }}
                                 />
                                 <button
@@ -731,73 +734,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                                   {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                 </button>
                               </div>
-                              {errors.registerPassword ? (
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="register-confirm-password" className="text-sm font-medium">
+                                Confirmar contrasena
+                              </Label>
+                              <Input
+                                id="register-confirm-password"
+                                type={showRegisterPassword ? 'text' : 'password'}
+                                placeholder="........"
+                                className="border-orange-200 focus:border-orange-400 focus:ring-orange-400"
+                                value={registerData.confirmPassword}
+                                onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
+                              />
+                              {errors.registerPassword && (
                                 <div className="text-xs text-red-500 mt-1 flex items-center">
                                   <AlertCircle className="h-3 w-3 mr-1" />
                                   {errors.registerPassword}
                                 </div>
-                              ) : (
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Debe contener al menos 8 caracteres, una mayúscula, una minúscula y un número
-                                </p>
                               )}
                             </div>
-                            
-                            <div className="space-y-1">
-                              <Label htmlFor="register-confirm-password" className="text-sm font-medium">
-                                Confirmar Contraseña
-                              </Label>
-                              <Input
-                                id="register-confirm-password"
-                                type={showRegisterPassword ? "text" : "password"}
-                                placeholder="••••••••"
-                                className="border-orange-200 focus:border-orange-400 focus:ring-orange-400 w-full"
-                                value={registerData.confirmPassword}
-                                onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                              />
-                            </div>
-                            
-                            <div className="flex items-center space-x-2 mb-1">
-                              <Checkbox 
-                                id="accept-terms" 
-                                checked={registerData.acceptTerms} 
-                                onCheckedChange={(checked) => 
+
+                            <label className="flex items-start gap-2 text-sm text-gray-600 cursor-pointer">
+                              <Checkbox
+                                checked={registerData.acceptTerms}
+                                onCheckedChange={(checked) =>
                                   setRegisterData({ ...registerData, acceptTerms: checked === true })
-                                } 
+                                }
                               />
-                              <Label htmlFor="accept-terms" className="text-sm text-gray-600">
-                                Acepto los <a href="#" className="text-orange-500 hover:underline">términos y condiciones</a>
-                              </Label>
-                            </div>
+                              <span>Acepto los terminos y condiciones.</span>
+                            </label>
+
+                            <Button type="submit" className="w-full gradient-orange hover:opacity-90 transition-opacity" disabled={isLoading}>
+                              {isLoading ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creando cuenta...
+                                </>
+                              ) : (
+                                'Crear cuenta'
+                              )}
+                            </Button>
                           </>
                         )}
-
-                        <div className="flex gap-3 justify-between pt-2">
-                          {registerStep === 'account' && (
-                            <Button 
-                              type="button" 
-                              variant="outline"
-                              className="flex-1"
-                              onClick={() => setRegisterStep('personal')}
-                            >
-                              <ArrowLeft className="h-4 w-4 mr-1" /> Atrás
-                            </Button>
-                          )}
-                          
-                          <Button 
-                            type="submit" 
-                            className={`gradient-orange hover:opacity-90 transition-opacity ${registerStep === 'personal' ? 'flex-1' : 'flex-1'}`}
-                            disabled={isLoading}
-                          >
-                            {isLoading ? (
-                              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Procesando...</>
-                            ) : registerStep === 'personal' ? (
-                              <>Siguiente <ArrowRight className="h-4 w-4 ml-1" /></>
-                            ) : (
-                              'Crear Cuenta'
-                            )}
-                          </Button>
-                        </div>
                       </form>
                     </CardContent>
                   </Card>

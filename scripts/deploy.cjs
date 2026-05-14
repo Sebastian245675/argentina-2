@@ -2,7 +2,7 @@
  * Script de despliegue automático para VISFUM
  * Sube la carpeta dist/ al servidor via SFTP
  * 
- * Uso: node deploy.cjs
+ * Uso: node scripts/deploy.cjs
  */
 
 const { Client } = require('ssh2');
@@ -19,7 +19,8 @@ const SERVER = {
   password: process.env.SSH_PASSWORD || 'jjhdaA*wedsdqw34',
 };
 
-const LOCAL_DIST = path.join(__dirname, 'dist');
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+const LOCAL_DIST = path.join(PROJECT_ROOT, 'dist');
 
 // Rutas posibles del web root en Hostinger
 const POSSIBLE_ROOTS = [

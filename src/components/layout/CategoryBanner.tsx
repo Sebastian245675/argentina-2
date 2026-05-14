@@ -84,7 +84,6 @@ export const CategoryBanner: React.FC<CategoryBannerProps> = ({ name }) => {
         height="900"
         className="absolute inset-0 w-full h-full object-cover"
         loading="eager"
-        fetchPriority="high"
       />
 
 

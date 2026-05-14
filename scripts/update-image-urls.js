@@ -4,6 +4,7 @@
 const admin = require('firebase-admin');
 const fs = require('fs');
 const path = require('path');
+const PROJECT_ROOT = path.resolve(__dirname, '..');
 
 // Configuraciones
 const OLD_BASE_URL = 'https://res.cloudinary.com/djyrschvm/image/upload/v1754395448/';
@@ -14,7 +15,7 @@ const DRY_RUN = false; // Cambiar a false para realizar las actualizaciones real
 try {
   // Necesitarás crear un archivo serviceAccountKey.json desde Firebase Console
   // Proyecto > Configuración > Cuentas de servicio > Generar nueva clave privada
-  const serviceAccount = require('./serviceAccountKey.json');
+  const serviceAccount = require(path.join(PROJECT_ROOT, 'serviceAccountKey.json'));
   
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)

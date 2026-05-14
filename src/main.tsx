@@ -13,8 +13,8 @@ initMercadoPago(MP_PUBLIC_KEY, { locale: 'es-AR' });
 // Prevenir traducción automática para evitar problemas de UI
 preventAutomaticTranslation();
 
-// Registrar Service Worker para mejoras de rendimiento
-if ('serviceWorker' in navigator) {
+// Registrar Service Worker solo en produccion para evitar ruido local por SSL.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js')
       .then(registration => {

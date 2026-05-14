@@ -51,42 +51,26 @@ export const HeroBanner: React.FC = () => {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* ── LCP: primera imagen renderizada directamente en el HTML (no lazy) ── */}
+      {/* ── LCP ── */}
       {SLIDES.map((slide, idx) => (
         <div
           key={slide.img}
           className="absolute inset-0 w-full h-full transition-opacity duration-700"
           style={{ opacity: current === idx ? 1 : 0, zIndex: current === idx ? 1 : 0 }}
         >
-          {idx === 0 ? (
-            // Primer slide: fetchpriority high, eager — crítico para LCP
-            <img
-              src={slide.img}
-              alt={slide.alt}
-              width="1600"
-              height="900"
-              className="w-full h-full object-cover"
-              draggable={false}
-              loading="eager"
-              fetchPriority="high"
-            />
-          ) : (
-            <img
-              src={slide.img}
-              alt={slide.alt}
-              width="1600"
-              height="900"
-              className="w-full h-full object-cover"
-              draggable={false}
-              loading="lazy"
-            />
-          )}
+          <img
+            src={slide.img}
+            alt={slide.alt}
+            width="1600"
+            height="900"
+            className="w-full h-full object-cover"
+            draggable={false}
+            loading={idx === 0 ? "eager" : "lazy"}
+          />
         </div>
       ))}
 
-
-
-      {/* ── Texto superpuesto — responsive y legible en móvil ── */}
+      {/* ── Texto superpuesto ── */}
       <div
         className="absolute inset-0 flex flex-col justify-center z-20 pointer-events-none"
         style={{ padding: 'clamp(0.75rem,3vw,3rem) 0 clamp(3rem,5vw,3.5rem) clamp(0.75rem,3vw,3rem)' }}
@@ -121,7 +105,7 @@ export const HeroBanner: React.FC = () => {
           ENVÍO GRATIS
         </p>
 
-        {/* Subtítulo solo en md+ */}
+        {/* Subtítulo */}
         <p className="hidden sm:block" style={{
           color: '#3d3d3d',
           fontSize: 'clamp(0.65rem, 1vw, 0.8rem)',
@@ -134,22 +118,7 @@ export const HeroBanner: React.FC = () => {
         </p>
       </div>
 
-      {/* ── Barra promocional inferior ── */}
-      <div
-        className="absolute bottom-0 left-0 right-0 bg-gray-900/90 text-white py-2 md:py-2.5 px-3 md:px-6 flex flex-nowrap items-center md:justify-center gap-3 md:gap-6 font-medium z-20 overflow-x-auto touch-pan-x"
-        style={{ scrollbarWidth: 'none', fontSize: 'clamp(8px, 2vw, 13px)' }}
-      >
-        <span className="flex items-center gap-1.5 shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          PROMOS
-        </span>
-        <span className="text-white/40 shrink-0">|</span>
-        <span className="shrink-0">3 DECANTS x $25.000</span>
-        <span className="text-white/40 shrink-0">|</span>
-        <span className="shrink-0">3 CUOTAS</span>
-      </div>
-
-      {/* ── Flechas (ocultas en móvil muy pequeño) ── */}
+      {/* ── Flechas ── */}
       <button
         type="button"
         onClick={goPrev}
@@ -168,17 +137,16 @@ export const HeroBanner: React.FC = () => {
       </button>
 
       {/* ── Dots ── */}
-      <div className="absolute bottom-10 md:bottom-12 left-1/2 -translate-x-1/2 flex gap-1.5 z-30">
+      <div className="absolute bottom-6 md:bottom-8 left-1/2 -translate-x-1/2 flex gap-1.5 z-30">
         {SLIDES.map((_, idx) => (
           <button
             key={idx}
             type="button"
             onClick={() => setCurrent(idx)}
-            className={`rounded-full border-2 transition-all ${
-              current === idx
+            className={`rounded-full border-2 transition-all ${current === idx
                 ? 'w-5 h-2.5 bg-amber-600 border-amber-600'
                 : 'w-2.5 h-2.5 bg-white/50 border-white/50 hover:bg-white/80'
-            }`}
+              }`}
             aria-label={`Ir a imagen ${idx + 1}`}
           />
         ))}

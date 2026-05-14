@@ -26,7 +26,7 @@ Este método es más confiable para grandes cantidades de imágenes.
    - Selecciona tu proyecto
    - Ve a Configuración del proyecto > Cuentas de servicio
    - Haz clic en "Generar nueva clave privada"
-   - Guarda el archivo JSON descargado como `serviceAccountKey.json` en la misma carpeta que el script
+   - Guarda el archivo JSON descargado como `serviceAccountKey.json` en la raiz del proyecto
 
 2. **Instalar dependencias:**
    ```bash
@@ -35,7 +35,7 @@ Este método es más confiable para grandes cantidades de imágenes.
 
 3. **Ejecutar el script:**
    ```bash
-   node download-images.js
+   node scripts/download-images.js
    ```
 
 4. **Resultados:**

@@ -8,7 +8,7 @@ class SimulatedDB {
 
   private constructor() {
     this.collections = {
-      products: {}, 
+      products: {},
       users: {},
       categories: {},
       orders: {},
@@ -24,7 +24,7 @@ class SimulatedDB {
 
   setSimulationMode(isSimulated: boolean) {
     this.isSimulated = isSimulated;
-    
+
     if (isSimulated) {
       // Datos de ejemplo
       this.addData("categories", {
@@ -39,7 +39,7 @@ class SimulatedDB {
         image: "https://via.placeholder.com/150",
         parent: "electrodomesticos"
       });
-      
+
       // Productos de ejemplo
       this.addData("products", {
         id: "producto1",
@@ -50,7 +50,7 @@ class SimulatedDB {
         image: "https://via.placeholder.com/300",
         stock: 10
       });
-      
+
       this.addData("products", {
         id: "producto2",
         name: "Microondas Digital",
@@ -60,7 +60,7 @@ class SimulatedDB {
         image: "https://via.placeholder.com/300",
         stock: 5
       });
-      
+
       // Usuario admin
       this.addData("users", {
         id: "admin-id",

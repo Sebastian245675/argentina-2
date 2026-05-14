@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { TopPromoBar } from "@/components/layout/TopPromoBar";
 import { AdvancedHeader } from "@/components/layout/AdvancedHeader";
 import { HeroBanner } from "@/components/layout/HeroBanner";
+import { PromoBanner } from "@/components/layout/PromoBanner";
+import { CategoryCards } from "@/components/layout/CategoryCards";
 import { StoreStructuredData } from "@/components/seo/StructuredData";
 import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { useCategories } from "@/hooks/use-categories";
@@ -76,6 +78,10 @@ const AdvancedIndex = () => {
       />
 
       <HeroBanner />
+      
+      <PromoBanner />
+
+      <CategoryCards />
 
       <main className="relative z-10 w-full pt-4">
         <React.Suspense fallback={<div className="h-96 flex items-center justify-center">Cargando productos...</div>}>

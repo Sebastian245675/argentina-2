@@ -78,11 +78,10 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) 
     >
       {/* Image Container */}
       <div className="relative overflow-hidden bg-[#FAFAFA] aspect-[4/5] flex items-center justify-center border-b border-gray-200">
-        {/* Discount Badge - Modern Design */}
+        {/* Discount Badge - Modern Design (Match image) */}
         {discountPercentage > 0 && (
-          <div className="absolute top-3 left-3 z-20 flex items-center gap-1 bg-gradient-to-r from-red-600 to-red-700 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-xl ring-2 ring-white/50">
-            <Sparkles className="w-3 h-3" />
-            <span>{discountPercentage}% OFF</span>
+          <div className="absolute top-0 right-0 z-20 bg-[#FF6B00] text-black text-[12px] font-black px-4 py-1.5 rounded-bl-xl shadow-md uppercase tracking-tighter">
+            {discountPercentage}% OFF
           </div>
         )}
 

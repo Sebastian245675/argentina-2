@@ -97,7 +97,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
       {/* Top Header - Black Theme */}
       <header className="bg-black text-white w-full border-b border-white/10 overflow-visible relative z-[60]">
         <div className="w-full max-w-[1300px] mx-auto px-4 md:px-8 py-3 flex items-center justify-between overflow-visible">
-          
+
           {/* Mobile Menu Toggle (Left on mobile) */}
           <div className="md:hidden flex items-center justify-start flex-1">
             <button
@@ -149,7 +149,6 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 width="120"
                 height="60"
                 loading="eager"
-                fetchPriority="high"
                 className="h-[50px] md:h-[60px] w-auto object-contain"
                 style={{ filter: 'brightness(0) invert(1)' }}
               />

@@ -52,7 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const sessionPromise = auth.getSession()
       .then(({ data: { session } }) => session?.user || null)
       .catch(() => null);
-    
+
     sessionPromise.then((user) => {
       if (mounted) applySession(user);
     });
@@ -95,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .then(({ data }: any) => {
             if (data) setUser(prev => prev ? { ...prev, subCuenta: prev.subCuenta || data?.sub_cuenta, liberta: data?.liberta } : prev);
           })
-          .catch(() => {});
+          .catch(() => { });
       }
     } else {
       setUser(null);
@@ -111,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email,
         password
       });
-      
+
       console.log("AuthContext:login:result", { userId: data?.user?.id, hasSession: !!data?.session, error });
       if (error) throw error;
       return !!data.user;
@@ -133,10 +133,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       });
-      
+
       if (signupError) throw signupError;
       if (!data.user) throw new Error('No user returned from signup');
-      
+
       // Send welcome email (no DB insert to avoid RLS issues)
       try {
         await sendWelcomeEmail(
@@ -148,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error("Error sending welcome email:", emailError);
         // Don't interrupt registration if email fails
       }
-      
+
       return true;
     } catch (error) {
       console.error("Registration error:", error);
@@ -159,10 +159,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Actualizar datos del usuario
   const updateUser = (userData: Partial<User>) => {
     if (!user || !user.id) return;
-    
+
     // Actualizar en Firestore
     updateDocument("users", user.id, userData);
-    
+
     // Actualizar estado local
     setUser({
       ...user,

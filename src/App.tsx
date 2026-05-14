@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { Suspense, lazy, useEffect } from "react";
@@ -26,7 +26,6 @@ const Testimonios = lazy(() => import("./pages/Testimonios"));
 const Envios = lazy(() => import("./pages/Envios"));
 const FAQPage = lazy(() => import("./pages/FAQPage"));
 const CategoryViewPage = lazy(() => import("./pages/CategoryViewPage"));
-const AuthPage = lazy(() => import("./pages/AuthPage").then(module => ({ default: module.AuthPage })));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const CartPage = lazy(() => import("./pages/CartPage").then(m => ({ default: m.CartPage })));
@@ -96,7 +95,7 @@ const App = () => {
                   <Routes>
                     <Route path="/" element={<AdvancedIndex />} />
                     <Route path="/categoria/:categorySlug" element={<CategoryViewPage />} />
-                    <Route path="/auth" element={<AuthPage />} />
+                    <Route path="/auth" element={<Navigate to="/login" replace />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
                     <Route path="/cart" element={<CartPage />} />
