@@ -94,8 +94,8 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
   return (
     <div className="w-full font-sans selection:bg-blue-800 selection:text-white">
-      {/* Top Header - Blue Theme */}
-      <header className="bg-[hsl(214,100%,38%)] text-white w-full border-b border-[hsl(214,80%,28%)] overflow-visible relative z-[60]">
+      {/* Top Header - Black Theme */}
+      <header className="bg-black text-white w-full border-b border-white/10 overflow-visible relative z-[60]">
         <div className="w-full max-w-[1300px] mx-auto px-4 md:px-8 py-3 flex items-center justify-between overflow-visible">
           
           {/* Mobile Menu Toggle (Left on mobile) */}
@@ -151,6 +151,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                 loading="eager"
                 fetchPriority="high"
                 className="h-[50px] md:h-[60px] w-auto object-contain"
+                style={{ filter: 'brightness(0) invert(1)' }}
               />
             </div>
           </div>
@@ -285,7 +286,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
       {/* Navigation Bar - Desktop only */}
       <nav
-        className="relative hidden md:block bg-[hsl(214,100%,38%)] border-b border-[hsl(214,80%,28%)] z-50"
+        className="relative hidden md:block bg-black border-b border-white/10 z-50"
         onMouseLeave={() => {
           categoryDropdownTimer.current = setTimeout(() => setOpenCategoryDropdown(null), 100);
         }}
@@ -358,14 +359,14 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
           </ul>
         </div>
 
-        {/* Dropdown Categorías (Mega-Menu) - Blue Theme */}
+        {/* Dropdown Categorías (Mega-Menu) - Black Theme */}
         {openCategoryDropdown && (() => {
           const subs = getSubsForMain(openCategoryDropdown);
           if (subs.length === 0) return null;
 
           return (
             <div
-              className="absolute left-0 right-0 top-full w-full bg-[hsl(214,100%,38%)] text-white shadow-[0_20px_60px_rgba(0,0,0,0.3)] z-50 border-t border-white/10 border-b border-[hsl(214,80%,28%)]"
+              className="absolute left-0 right-0 top-full w-full bg-black text-white shadow-[0_20px_60px_rgba(0,0,0,0.5)] z-50 border-t border-white/10"
               onMouseEnter={() => {
                 if (categoryDropdownTimer.current) clearTimeout(categoryDropdownTimer.current);
                 setOpenCategoryDropdown(openCategoryDropdown);
@@ -426,7 +427,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
       {/* Mobile Sidebar Overlay */}
       {isMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-[100] md:hidden transition-opacity duration-300 backdrop-blur-sm"
+          className="fixed inset-0 bg-black/80 z-[100] md:hidden transition-opacity duration-300 backdrop-blur-sm"
           onClick={() => setIsMenuOpen(false)}
           aria-hidden="true"
         />
@@ -434,11 +435,11 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
 
       {/* Mobile Sidebar */}
       <div
-        className={`fixed top-0 left-0 h-full w-[280px] bg-[hsl(214,100%,38%)] z-[101] md:hidden transform transition-transform duration-300 ease-in-out shadow-2xl flex flex-col ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`fixed top-0 left-0 h-full w-[280px] bg-[#0a0a0a] z-[101] md:hidden transform transition-transform duration-300 ease-in-out shadow-2xl flex flex-col ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Sidebar Header */}
-        <div className="p-5 border-b border-white/10 flex justify-between items-center bg-[hsl(214,100%,30%)]">
-          <img src="/logo%20vifum.png" alt="VISFUM" width="80" height="32" loading="lazy" className="h-8 w-auto object-contain" />
+        <div className="p-5 border-b border-white/10 flex justify-between items-center bg-black">
+          <img src="/logo%20vifum.png" alt="VISFUM" width="80" height="32" loading="lazy" className="h-8 w-auto object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
           <button
             onClick={() => setIsMenuOpen(false)}
             className="text-white p-2 hover:bg-white/10 rounded-full transition-colors"
@@ -449,14 +450,14 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
         </div>
 
         {/* Sidebar Search */}
-        <div className="p-4 bg-[hsl(214,100%,35%)]">
+        <div className="p-4 bg-[#111]">
           <form className="relative" onSubmit={handleSearchSubmit}>
             <input
               type="text"
               placeholder="¿Qué estás buscando?"
               value={localSearchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full py-2.5 px-4 pr-10 text-sm text-white bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-white/40 placeholder:text-white/40"
+              className="w-full py-2.5 px-4 pr-10 text-sm text-white bg-black border border-white/20 rounded-lg focus:outline-none focus:border-white/40 placeholder:text-white/40"
             />
             <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2">
               <Search className="w-4 h-4 text-white/60" />
