@@ -523,7 +523,7 @@ export const RegisterPage: React.FC = () => {
                 </div>
               )}
             </>
-          )
+          )}
           </div>
         </div>
       </div>
