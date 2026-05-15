@@ -181,7 +181,8 @@ export const ProductFormWizard: React.FC<ProductFormWizardProps> = ({
 
   useEffect(() => {
     if (user) {
-      if (user.isAdmin || user.email === "admin@gmail.com" || user.email === "admin@tienda.com") {
+      const lowEmail = user.email?.toLowerCase();
+      if (user.isAdmin || lowEmail === "admin@gmail.com" || lowEmail === "admin@tienda.com" || lowEmail === "visfumarg@gmail.com") {
         setCurrentLiberta("si");
       } else if (user.subCuenta === "si") {
         setCurrentLiberta(user.liberta === "si" ? "si" : "no");

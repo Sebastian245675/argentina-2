@@ -62,12 +62,11 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const { data, error } = await auth.signInWithPassword({
-        email: loginData.email,
-        password: loginData.password,
-      });
+      const result = await login(loginData.email, loginData.password);
 
-      if (error) throw error;
+      if (!result.success) {
+        throw result.error;
+      }
 
       if (rememberMe) {
         localStorage.setItem('rememberedEmail', loginData.email);

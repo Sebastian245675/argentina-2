@@ -27,7 +27,7 @@ import {
   User as UserIcon, Mail, Phone, MapPin, Gift, Package, Heart,
   Edit, Save, AlertCircle, CheckCircle2, Home as HomeIcon, Truck, ChevronRight,
   Calendar as CalendarIcon, ShoppingBag, BadgeCheck, History,
-  Trash2, Star, Plus, Check, X, CreditCard, MapPinned
+  Trash2, Star, Plus, Check, X, CreditCard, MapPinned, Clock
 } from "lucide-react";
 import { CustomClock } from '@/components/ui/CustomClock';
 import { motion } from "framer-motion";
@@ -117,9 +117,68 @@ export const UserProfile: React.FC = () => {
             phone: "",
             address: "",
           }));
-          setRecentOrders([]);
-          setFavoriteProducts([]);
-          setSavedAddresses([]);
+
+          // 1. Cargar pedidos desde Supabase
+          const { data: ordersData, error: ordersErr } = await (db as any)
+            .from('orders')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+          if (!ordersErr && ordersData) {
+            setRecentOrders(ordersData.map((d: any) => ({
+              id: d.id,
+              date: new Date(d.created_at),
+              total: d.total ?? 0,
+              status: (d.status as Order['status']) || 'processing',
+              items: Array.isArray(d.items) ? d.items.length : 0,
+              trackingNumber: d.tracking_number
+            })));
+          }
+
+          // 2. Cargar favoritos desde Supabase
+          const { data: favData, error: favErr } = await (db as any)
+            .from('favorites')
+            .select('product_id')
+            .eq('user_id', user.id);
+
+          if (!favErr && favData) {
+            const productIds = favData.map((f: any) => f.product_id);
+            if (productIds.length > 0) {
+              const { data: productsData, error: prodErr } = await (db as any)
+                .from('products')
+                .select('*')
+                .in('id', productIds);
+
+              if (!prodErr && productsData) {
+                setFavoriteProducts(productsData.map((p: any) => ({
+                  id: p.id,
+                  name: p.name || "",
+                  image: p.image || (p.images && p.images[0]) || "",
+                  price: p.price ?? 0
+                })));
+              }
+            }
+          }
+
+          // 3. Cargar direcciones desde Supabase
+          const { data: addrData, error: addrErr } = await (db as any)
+            .from('user_addresses')
+            .select('*')
+            .eq('user_id', user.id);
+
+          if (!addrErr && addrData) {
+            setSavedAddresses(addrData.map((a: any) => ({
+              id: a.id,
+              name: a.name || "",
+              address: a.address || "",
+              city: a.city || "",
+              province: a.province || "",
+              postalCode: a.postal_code || "",
+              isDefault: !!a.is_default
+            })));
+          }
         } else {
           const userDoc = await getDoc(doc(db, "users", user.id));
           if (userDoc.exists()) {
@@ -400,6 +459,8 @@ export const UserProfile: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'pending': return 'bg-slate-100 text-slate-700';
+      case 'confirmed': return 'bg-emerald-100 text-emerald-800';
       case 'processing': return 'bg-blue-100 text-blue-800';
       case 'shipped': return 'bg-amber-100 text-amber-800';
       case 'delivered': return 'bg-green-100 text-green-800';
@@ -410,6 +471,8 @@ export const UserProfile: React.FC = () => {
 
   const getStatusText = (status: string) => {
     switch (status) {
+      case 'pending': return 'Pendiente';
+      case 'confirmed': return 'Confirmado';
       case 'processing': return 'Procesando';
       case 'shipped': return 'Enviado';
       case 'delivered': return 'Entregado';
@@ -420,6 +483,8 @@ export const UserProfile: React.FC = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
+      case 'pending': return <Clock className="h-4 w-4" />;
+      case 'confirmed': return <CheckCircle2 className="h-4 w-4" />;
       case 'processing': return <CustomClock className="h-4 w-4" />;
       case 'shipped': return <Truck className="h-4 w-4" />;
       case 'delivered': return <CheckCircle2 className="h-4 w-4" />;

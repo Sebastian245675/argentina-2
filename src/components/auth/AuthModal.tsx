@@ -41,7 +41,7 @@ type RegisterStep = 'personal' | 'account' | 'verification';
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, login } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -135,12 +135,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setIsLoading(true);
 
     try {
-      const { data, error } = await auth.signInWithPassword({
-        email: loginData.email,
-        password: loginData.password,
-      });
+      const result = await login(loginData.email, loginData.password);
 
-      if (error) throw error;
+      if (!result.success) {
+        throw result.error;
+      }
 
       if (rememberMe) {
         localStorage.setItem('rememberedEmail', loginData.email);
@@ -153,7 +152,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         description: 'Has iniciado sesion correctamente.',
       });
 
-      if (data.user) {
+      if (true) { // User is logged in if success
         setTimeout(() => onClose(), 250);
       }
     } catch (error) {

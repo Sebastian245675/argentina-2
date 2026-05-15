@@ -52,6 +52,7 @@ export const MercadoPagoButton: React.FC<MercadoPagoButtonProps> = ({ items, pay
             console.log('[MercadoPago] Pedido guardado en localStorage antes de redirigir:', pendingOrder);
 
             // PASO 2: También guardar la orden en Supabase como 'pending' inmediatamente
+            const externalRef = `ORDER-${Date.now()}`;
             const isSupabase = typeof (db as any)?.from === 'function';
             if (isSupabase && user?.id) {
                 const { error } = await (db as any).from('orders').insert([{
@@ -63,13 +64,13 @@ export const MercadoPagoButton: React.FC<MercadoPagoButtonProps> = ({ items, pay
                     delivery_fee: deliveryFee,
                     status: 'pending',
                     order_type: 'online',
-                    order_notes: 'Pago con Mercado Pago (pendiente de confirmación)',
+                    order_notes: `Pago con Mercado Pago (pendiente) | Ref: ${externalRef}`,
                 }]);
                 if (error) {
                     console.error('[MercadoPago] Error pre-saving order:', error);
                     // No bloqueamos el flujo, el pedido se guardará al volver de MP
                 } else {
-                    console.log('[MercadoPago] Orden pre-guardada con status pending');
+                    console.log('[MercadoPago] Orden pre-guardada con status pending y ref:', externalRef);
                 }
             }
 
@@ -81,14 +82,24 @@ export const MercadoPagoButton: React.FC<MercadoPagoButtonProps> = ({ items, pay
                     'Authorization': `Bearer ${import.meta.env.VITE_MERCADOPAGO_ACCESS_TOKEN || 'APP_USR-8082943511700817-030508-69f017ff1dbb9cfd758e54290ba6953f-439164010'}`
                 },
                 body: JSON.stringify({
-                    items: items.map(item => ({
-                        id: item.id,
-                        title: item.name,
-                        unit_price: Number(item.price),
-                        quantity: Number(item.quantity),
-                        currency_id: 'ARS',
-                        picture_url: item.image
-                    })),
+                    items: [
+                        ...items.map(item => ({
+                            id: item.id,
+                            title: item.name,
+                            unit_price: Number(item.price),
+                            quantity: Number(item.quantity),
+                            currency_id: 'ARS',
+                            picture_url: item.image
+                        })),
+                        // Agregar el costo de envío como un item si existe
+                        ...(deliveryFee > 0 ? [{
+                            id: 'shipping-fee',
+                            title: 'Costo de Envío',
+                            unit_price: Number(deliveryFee),
+                            quantity: 1,
+                            currency_id: 'ARS'
+                        }] : [])
+                    ],
                     payer: payer ? {
                         email: payer.email,
                         first_name: payer.name?.split(' ')[0] || '',
@@ -99,7 +110,7 @@ export const MercadoPagoButton: React.FC<MercadoPagoButtonProps> = ({ items, pay
                         failure: `${window.location.origin}/cart`,
                         pending: `${window.location.origin}/cart`
                     },
-                    external_reference: `ORDER-${Date.now()}`,
+                    external_reference: externalRef,
                 }),
             });
 

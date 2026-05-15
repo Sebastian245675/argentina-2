@@ -259,7 +259,10 @@ export const AdminPanel: React.FC = () => {
 
   useEffect(() => {
     if (isSupabase) {
-      const isUserAdmin = user?.email === "admin@gmail.com" || user?.email === "admin@tienda.com";
+      const isUserAdmin = user?.email?.toLowerCase() === "admin@gmail.com" || 
+                         user?.email?.toLowerCase() === "admin@gmaill.com" ||
+                         user?.email?.toLowerCase() === "admin@tienda.com" ||
+                         user?.email?.toLowerCase() === "visfumarg@gmail.com";
       setIsAdmin(isUserAdmin);
       setIsSubAdmin(user?.subCuenta === "si");
       
@@ -287,7 +290,8 @@ export const AdminPanel: React.FC = () => {
         try {
           const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
           const userData = userDoc.data();
-          if (firebaseUser.email === "admin@gmail.com") {
+          const lowEmail = firebaseUser.email?.toLowerCase();
+          if (lowEmail === "admin@gmail.com" || lowEmail === "admin@gmaill.com" || lowEmail === "admin@tienda.com" || lowEmail === "visfumarg@gmail.com") {
             setIsAdmin(true);
             setIsSubAdmin(false);
           } else if (userData?.subCuenta === "si") {

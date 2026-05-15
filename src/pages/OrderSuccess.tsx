@@ -100,32 +100,70 @@ export const OrderSuccess = () => {
             try {
                 const isSupabase = typeof (db as any)?.from === 'function';
                 if (isSupabase) {
-                    // Primero intentar actualizar la orden pendiente que ya fue pre-guardada por MercadoPagoButton
-                    const { data: existingOrders, error: findErr } = await (db as any)
-                        .from('orders')
-                        .select('id')
-                        .eq('user_id', orderUserId)
-                        .eq('status', 'pending')
-                        .order('created_at', { ascending: false })
-                        .limit(1);
+                    // 1. Verificación de seguridad: ¿Ya existe una orden con este paymentId?
+                    if (paymentId) {
+                        const { data: existingWithPayment } = await (db as any)
+                            .from('orders')
+                            .select('id')
+                            .ilike('order_notes', `%ID Pago: ${paymentId}%`)
+                            .limit(1);
+                        
+                        if (existingWithPayment && existingWithPayment.length > 0) {
+                            console.log('[OrderSuccess] Pago ya registrado anteriormente:', existingWithPayment[0].id);
+                            setOrderSaved(true);
+                            setIsSaving(false);
+                            clearCart();
+                            localStorage.removeItem('pending_mp_order');
+                            return;
+                        }
+                    }
+
+                    // 2. Intentar encontrar la orden por external_reference primero, o por status 'pending'
+                    let existingOrderId = null;
                     
-                    if (!findErr && existingOrders && existingOrders.length > 0) {
-                        // Actualizar la orden pendiente existente a confirmada
+                    if (externalReference) {
+                        const { data: ordersWithRef } = await (db as any)
+                            .from('orders')
+                            .select('id')
+                            .ilike('order_notes', `%Ref: ${externalReference}%`)
+                            .limit(1);
+                        
+                        if (ordersWithRef && ordersWithRef.length > 0) {
+                            existingOrderId = ordersWithRef[0].id;
+                        }
+                    }
+
+                    if (!existingOrderId) {
+                        const { data: pendingOrders } = await (db as any)
+                            .from('orders')
+                            .select('id')
+                            .eq('user_id', orderUserId)
+                            .eq('status', 'pending')
+                            .order('created_at', { ascending: false })
+                            .limit(1);
+                        
+                        if (pendingOrders && pendingOrders.length > 0) {
+                            existingOrderId = pendingOrders[0].id;
+                        }
+                    }
+                    
+                    if (existingOrderId) {
+                        // Actualizar la orden existente (sea por Ref o la última pending)
                         const { error: updateErr } = await (db as any)
                             .from('orders')
                             .update({
                                 status: 'confirmed',
                                 order_notes: `Pasarela MP | ID Pago: ${paymentId || 'N/A'} | Ref: ${externalReference || 'N/A'}`,
                             })
-                            .eq('id', existingOrders[0].id);
+                            .eq('id', existingOrderId);
                         
                         if (updateErr) {
                             console.error('[OrderSuccess] Update error:', updateErr);
                             throw updateErr;
                         }
-                        console.log('[OrderSuccess] Orden pendiente actualizada a confirmed:', existingOrders[0].id);
+                        console.log('[OrderSuccess] Orden actualizada a confirmed:', existingOrderId);
                     } else {
-                        // No hay orden pendiente, crear una nueva
+                        // No se encontró ninguna orden para actualizar, crear una nueva
                         const { error } = await (db as any).from('orders').insert([{
                             user_id: orderUserId,
                             user_name: orderUserName,

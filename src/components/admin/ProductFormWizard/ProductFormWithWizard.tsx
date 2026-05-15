@@ -72,7 +72,8 @@ export const ProductFormWithWizard: React.FC<ProductFormWithWizardProps> = ({
 
   useEffect(() => {
     if (user) {
-      if (user.isAdmin || user.email === "admin@gmail.com" || user.email === "admin@tienda.com") {
+      const lowEmail = user.email?.toLowerCase();
+      if (user.isAdmin || lowEmail === "admin@gmail.com" || lowEmail === "admin@tienda.com" || lowEmail === "visfumarg@gmail.com") {
         setLiberta("si");
       } else if (user.subCuenta === "si") {
         setLiberta(user.liberta === "si" ? "si" : "no");

@@ -70,7 +70,8 @@ export const InfoManager: React.FC = () => {
     const fetchLiberta = async () => {
       if (user && (user as any).email) {
         // Verificamos si es el usuario admin principal
-        if ((user as any).email === "admin@gmail.com" || (user as any).email === "admin@tienda.com" || (user as any).isAdmin === true) {
+        const lowEmail = (user as any).email?.toLowerCase();
+        if (lowEmail === "admin@gmail.com" || lowEmail === "admin@tienda.com" || lowEmail === "visfumarg@gmail.com" || (user as any).isAdmin === true) {
           setLiberta("si"); // El admin siempre tiene permisos
           console.log("Usuario identificado como administrador, tiene permisos completos");
           return;

