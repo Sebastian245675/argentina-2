@@ -5,14 +5,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
-import { User, Mail, Lock, Phone, Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
-import { auth, db } from "@/firebase";
+import { User, Mail, Lock, Phone, Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle2, MailCheck } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 type RegisterStep = 'personal' | 'account' | 'verification';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user, register, resendVerificationEmail } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  // Redirigir si ya está logueado
+  React.useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
+  const [resendLoading, setResendLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [registerStep, setRegisterStep] = useState<RegisterStep>('personal');
   
@@ -111,24 +121,27 @@ export const RegisterPage: React.FC = () => {
     
     setIsLoading(true);
     try {
-      // Create user with Supabase auth
-      const { data: authData, error: authError } = await auth.signUp({
+      const result = await register({
         email: registerData.email,
-        password: registerData.password
+        password: registerData.password,
+        name: registerData.name,
+        phone: registerData.phone,
+        address: registerData.address,
+        departmentNumber: "" // Requerido por la interfaz User
       });
       
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('No user returned from signup');
+      if (!result.success) throw new Error(result.error);
       
-      // Opcional: omitir creación en tabla users para evitar RLS 406
+      setIsSuccess(true);
       toast({
-        title: "¡Registro exitoso!",
-        description: "Verifica tu email para activar tu cuenta",
+        title: "¡Bienvenido!",
+        description: "Tu cuenta ha sido creada exitosamente.",
       });
-      
+
+      // Redirigir automáticamente después de 2 segundos
       setTimeout(() => {
         navigate('/');
-      }, 500);
+      }, 2000);
     } catch (error: any) {
       toast({
         title: "Error en el registro",
@@ -137,6 +150,27 @@ export const RegisterPage: React.FC = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    setResendLoading(true);
+    try {
+      const result = await resendVerificationEmail(registerData.email);
+      if (!result.success) throw new Error(result.error);
+      
+      toast({
+        title: "Correo enviado",
+        description: "Hemos reenviado el enlace de verificación",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo enviar el correo",
+        variant: "destructive",
+      });
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -208,265 +242,291 @@ export const RegisterPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-black mb-2">Registrarse</h1>
-            <p className="text-gray-600">
-              {registerStep === 'personal' && 'Información personal'}
-              {registerStep === 'account' && 'Crear cuenta'}
-              {registerStep === 'verification' && 'Terminos y condiciones'}
-            </p>
-          </div>
-
-          <form onSubmit={registerStep === 'verification' ? handleRegister : handleNextStep} className="space-y-4">
-            
-            {/* Step 1: Personal Info */}
-            {registerStep === 'personal' && (
-              <>
-                {/* Name */}
-                <div>
-                  <Label htmlFor="name" className="text-sm font-semibold text-black mb-2 block">
-                    Nombre completo
-                  </Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                    <Input
-                      id="name"
-                      type="text"
-                      placeholder="Tu nombre"
-                      value={registerData.name}
-                      onChange={(e) => {
-                        setRegisterData({ ...registerData, name: e.target.value });
-                        setErrors({ ...errors, name: '' });
-                      }}
-                      className="pl-10 py-2.5 border-gray-300 rounded-none focus:border-black focus:ring-0"
-                    />
-                  </div>
-                  {errors.name && (
-                    <p className="text-red-600 text-xs mt-1">{errors.name}</p>
-                  )}
+          {isSuccess ? (
+            <div className="text-center animate-in fade-in zoom-in duration-500">
+              <div className="flex justify-center mb-6">
+                <div className="bg-green-100 p-4 rounded-full animate-bounce">
+                  <CheckCircle2 className="w-16 h-16 text-green-600" />
                 </div>
+              </div>
+              <h1 className="text-3xl font-bold text-black mb-4">¡Registro Exitoso!</h1>
+              <p className="text-gray-600 mb-8 text-lg">
+                Bienvenido a nuestra tienda, <span className="font-semibold text-black">{registerData.name}</span>. 
+                Estamos preparando todo para que empieces a comprar.
+              </p>
+              
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-12 h-12 border-4 border-black border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sm text-gray-500 italic">Redirigiendo a la tienda...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="mb-8">
+                <h1 className="text-3xl font-bold text-black mb-2">Registrarse</h1>
+                <p className="text-gray-600">
+                  {registerStep === 'personal' && 'Información personal'}
+                  {registerStep === 'account' && 'Crear cuenta'}
+                  {registerStep === 'verification' && 'Terminos y condiciones'}
+                </p>
+              </div>
 
-                {/* Email */}
-                <div>
-                  <Label htmlFor="email" className="text-sm font-semibold text-black mb-2 block">
-                    Email
-                  </Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="tu@email.com"
-                      value={registerData.email}
-                      onChange={(e) => {
-                        setRegisterData({ ...registerData, email: e.target.value });
-                        setErrors({ ...errors, email: '' });
-                      }}
-                      className="pl-10 py-2.5 border-gray-300 rounded-none focus:border-black focus:ring-0"
-                    />
-                  </div>
-                  {errors.email && (
-                    <p className="text-red-600 text-xs mt-1">{errors.email}</p>
-                  )}
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <Label htmlFor="phone" className="text-sm font-semibold text-black mb-2 block">
-                    Teléfono
-                  </Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="1234567890"
-                      value={registerData.phone}
-                      onChange={(e) => {
-                        setRegisterData({ ...registerData, phone: e.target.value });
-                        setErrors({ ...errors, phone: '' });
-                      }}
-                      className="pl-10 py-2.5 border-gray-300 rounded-none focus:border-black focus:ring-0"
-                    />
-                  </div>
-                  {errors.phone && (
-                    <p className="text-red-600 text-xs mt-1">{errors.phone}</p>
-                  )}
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full bg-black hover:bg-gray-800 text-white font-semibold py-2.5 rounded-none mt-6 flex items-center justify-center gap-2"
-                >
-                  Siguiente <ArrowRight className="w-4 h-4" />
-                </Button>
-              </>
-            )}
-
-            {/* Step 2: Account */}
-            {registerStep === 'account' && (
-              <>
-                {/* Password */}
-                <div>
-                  <Label htmlFor="password" className="text-sm font-semibold text-black mb-2 block">
-                    Contraseña
-                  </Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                    <Input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={registerData.password}
-                      onChange={(e) => {
-                        setRegisterData({ ...registerData, password: e.target.value });
-                        setErrors({ ...errors, password: '' });
-                      }}
-                      className="pl-10 pr-10 py-2.5 border-gray-300 rounded-none focus:border-black focus:ring-0"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-5 h-5" />
-                      ) : (
-                        <Eye className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
-                  {errors.password && (
-                    <p className="text-red-600 text-xs mt-1">{errors.password}</p>
-                  )}
-                </div>
-
-                {/* Confirm Password */}
-                <div>
-                  <Label htmlFor="confirm-password" className="text-sm font-semibold text-black mb-2 block">
-                    Confirmar contraseña
-                  </Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                    <Input
-                      id="confirm-password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={registerData.confirmPassword}
-                      onChange={(e) => {
-                        setRegisterData({ ...registerData, confirmPassword: e.target.value });
-                        setErrors({ ...errors, confirmPassword: '' });
-                      }}
-                      className="pl-10 pr-10 py-2.5 border-gray-300 rounded-none focus:border-black focus:ring-0"
-                    />
-                  </div>
-                  {errors.confirmPassword && (
-                    <p className="text-red-600 text-xs mt-1">{errors.confirmPassword}</p>
-                  )}
-                </div>
-
-                {/* Address */}
-                <div>
-                  <Label htmlFor="address" className="text-sm font-semibold text-black mb-2 block">
-                    Dirección (opcional)
-                  </Label>
-                  <Input
-                    id="address"
-                    type="text"
-                    placeholder="Tu dirección"
-                    value={registerData.address}
-                    onChange={(e) => setRegisterData({ ...registerData, address: e.target.value })}
-                    className="py-2.5 border-gray-300 rounded-none focus:border-black focus:ring-0"
-                  />
-                </div>
-
-                <div className="flex gap-2 mt-6">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setRegisterStep('personal')}
-                    className="flex-1 border-gray-300 hover:bg-gray-100 py-2.5 rounded-none"
-                  >
-                    Atrás
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="flex-1 bg-black hover:bg-gray-800 text-white font-semibold py-2.5 rounded-none flex items-center justify-center gap-2"
-                  >
-                    Siguiente <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </>
-            )}
-
-            {/* Step 3: Verification */}
-            {registerStep === 'verification' && (
-              <>
-                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 mb-6">
-                  <div className="flex gap-4">
-                    <CheckCircle2 className="w-6 h-6 text-black flex-shrink-0" />
+              <form onSubmit={registerStep === 'verification' ? handleRegister : handleNextStep} className="space-y-4">
+                
+                {/* Step 1: Personal Info */}
+                {registerStep === 'personal' && (
+                  <>
+                    {/* Name */}
                     <div>
-                      <h3 className="font-semibold text-black mb-2">Resumen de registro</h3>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <p><strong>Nombre:</strong> {registerData.name}</p>
-                        <p><strong>Email:</strong> {registerData.email}</p>
-                        <p><strong>Teléfono:</strong> {registerData.phone}</p>
+                      <Label htmlFor="name" className="text-sm font-semibold text-black mb-2 block">
+                        Nombre completo
+                      </Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                        <Input
+                          id="name"
+                          type="text"
+                          placeholder="Tu nombre"
+                          value={registerData.name}
+                          onChange={(e) => {
+                            setRegisterData({ ...registerData, name: e.target.value });
+                            setErrors({ ...errors, name: '' });
+                          }}
+                          className="pl-10 py-2.5 border-gray-300 rounded-none focus:border-black focus:ring-0"
+                        />
                       </div>
+                      {errors.name && (
+                        <p className="text-red-600 text-xs mt-1">{errors.name}</p>
+                      )}
                     </div>
-                  </div>
-                </div>
 
-                <label className="flex items-start gap-3 cursor-pointer mb-6">
-                  <Checkbox
-                    checked={registerData.acceptTerms}
-                    onCheckedChange={(checked) => {
-                      setRegisterData({ ...registerData, acceptTerms: checked as boolean });
-                      setErrors({ ...errors, acceptTerms: '' });
-                    }}
-                    className="mt-1"
-                  />
-                  <span className="text-sm text-gray-600">
-                    Acepto los términos y condiciones y la política de privacidad
-                  </span>
-                </label>
-                {errors.acceptTerms && (
-                  <p className="text-red-600 text-xs -mt-4 mb-4">{errors.acceptTerms}</p>
+                    {/* Email */}
+                    <div>
+                      <Label htmlFor="email" className="text-sm font-semibold text-black mb-2 block">
+                        Email
+                      </Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="tu@email.com"
+                          value={registerData.email}
+                          onChange={(e) => {
+                            setRegisterData({ ...registerData, email: e.target.value });
+                            setErrors({ ...errors, email: '' });
+                          }}
+                          className="pl-10 py-2.5 border-gray-300 rounded-none focus:border-black focus:ring-0"
+                        />
+                      </div>
+                      {errors.email && (
+                        <p className="text-red-600 text-xs mt-1">{errors.email}</p>
+                      )}
+                    </div>
+
+                    {/* Phone */}
+                    <div>
+                      <Label htmlFor="phone" className="text-sm font-semibold text-black mb-2 block">
+                        Teléfono
+                      </Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                        <Input
+                          id="phone"
+                          type="tel"
+                          placeholder="1234567890"
+                          value={registerData.phone}
+                          onChange={(e) => {
+                            setRegisterData({ ...registerData, phone: e.target.value });
+                            setErrors({ ...errors, phone: '' });
+                          }}
+                          className="pl-10 py-2.5 border-gray-300 rounded-none focus:border-black focus:ring-0"
+                        />
+                      </div>
+                      {errors.phone && (
+                        <p className="text-red-600 text-xs mt-1">{errors.phone}</p>
+                      )}
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-full bg-black hover:bg-gray-800 text-white font-semibold py-2.5 rounded-none mt-6 flex items-center justify-center gap-2"
+                    >
+                      Siguiente <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </>
                 )}
 
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setRegisterStep('account')}
-                    className="flex-1 border-gray-300 hover:bg-gray-100 py-2.5 rounded-none"
-                  >
-                    Atrás
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={isLoading}
-                    className="flex-1 bg-black hover:bg-gray-800 text-white font-semibold py-2.5 rounded-none"
-                  >
-                    {isLoading ? 'Registrando...' : 'Completar registro'}
-                  </Button>
-                </div>
-              </>
-            )}
-          </form>
+                {/* Step 2: Account */}
+                {registerStep === 'account' && (
+                  <>
+                    {/* Password */}
+                    <div>
+                      <Label htmlFor="password" className="text-sm font-semibold text-black mb-2 block">
+                        Contraseña
+                      </Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                        <Input
+                          id="password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          value={registerData.password}
+                          onChange={(e) => {
+                            setRegisterData({ ...registerData, password: e.target.value });
+                            setErrors({ ...errors, password: '' });
+                          }}
+                          className="pl-10 pr-10 py-2.5 border-gray-300 rounded-none focus:border-black focus:ring-0"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="w-5 h-5" />
+                          ) : (
+                            <Eye className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+                      {errors.password && (
+                        <p className="text-red-600 text-xs mt-1">{errors.password}</p>
+                      )}
+                    </div>
 
-          {/* Login Link */}
-          {registerStep === 'personal' && (
-            <div className="mt-6 text-center border-t border-gray-200 pt-6">
-              <p className="text-gray-600 text-sm">
-                ¿Ya tienes cuenta?{' '}
-                <button
-                  onClick={() => navigate('/login')}
-                  className="text-black font-semibold hover:underline"
-                >
-                  Ingresa aquí
-                </button>
-              </p>
-            </div>
+                    {/* Confirm Password */}
+                    <div>
+                      <Label htmlFor="confirm-password" className="text-sm font-semibold text-black mb-2 block">
+                        Confirmar contraseña
+                      </Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                        <Input
+                          id="confirm-password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          value={registerData.confirmPassword}
+                          onChange={(e) => {
+                            setRegisterData({ ...registerData, confirmPassword: e.target.value });
+                            setErrors({ ...errors, confirmPassword: '' });
+                          }}
+                          className="pl-10 pr-10 py-2.5 border-gray-300 rounded-none focus:border-black focus:ring-0"
+                        />
+                      </div>
+                      {errors.confirmPassword && (
+                        <p className="text-red-600 text-xs mt-1">{errors.confirmPassword}</p>
+                      )}
+                    </div>
+
+                    {/* Address */}
+                    <div>
+                      <Label htmlFor="address" className="text-sm font-semibold text-black mb-2 block">
+                        Dirección (opcional)
+                      </Label>
+                      <Input
+                        id="address"
+                        type="text"
+                        placeholder="Tu dirección"
+                        value={registerData.address}
+                        onChange={(e) => setRegisterData({ ...registerData, address: e.target.value })}
+                        className="py-2.5 border-gray-300 rounded-none focus:border-black focus:ring-0"
+                      />
+                    </div>
+
+                    <div className="flex gap-2 mt-6">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setRegisterStep('personal')}
+                        className="flex-1 border-gray-300 hover:bg-gray-100 py-2.5 rounded-none"
+                      >
+                        Atrás
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="flex-1 bg-black hover:bg-gray-800 text-white font-semibold py-2.5 rounded-none flex items-center justify-center gap-2"
+                      >
+                        Siguiente <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </>
+                )}
+
+                {/* Step 3: Verification */}
+                {registerStep === 'verification' && (
+                  <>
+                    <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 mb-6">
+                      <div className="flex gap-4">
+                        <CheckCircle2 className="w-6 h-6 text-black flex-shrink-0" />
+                        <div>
+                          <h3 className="font-semibold text-black mb-2">Resumen de registro</h3>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <p><strong>Nombre:</strong> {registerData.name}</p>
+                            <p><strong>Email:</strong> {registerData.email}</p>
+                            <p><strong>Teléfono:</strong> {registerData.phone}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <label className="flex items-start gap-3 cursor-pointer mb-6">
+                      <Checkbox
+                        checked={registerData.acceptTerms}
+                        onCheckedChange={(checked) => {
+                          setRegisterData({ ...registerData, acceptTerms: checked as boolean });
+                          setErrors({ ...errors, acceptTerms: '' });
+                        }}
+                        className="mt-1"
+                      />
+                      <span className="text-sm text-gray-600">
+                        Acepto los términos y condiciones y la política de privacidad
+                      </span>
+                    </label>
+                    {errors.acceptTerms && (
+                      <p className="text-red-600 text-xs -mt-4 mb-4">{errors.acceptTerms}</p>
+                    )}
+
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setRegisterStep('account')}
+                        className="flex-1 border-gray-300 hover:bg-gray-100 py-2.5 rounded-none"
+                      >
+                        Atrás
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={isLoading}
+                        className="flex-1 bg-black hover:bg-gray-800 text-white font-semibold py-2.5 rounded-none"
+                      >
+                        {isLoading ? 'Registrando...' : 'Completar registro'}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </form>
+
+              {/* Login Link */}
+              {registerStep === 'personal' && (
+                <div className="mt-6 text-center border-t border-gray-200 pt-6">
+                  <p className="text-gray-600 text-sm">
+                    ¿Ya tienes cuenta?{' '}
+                    <button
+                      onClick={() => navigate('/login')}
+                      className="text-black font-semibold hover:underline"
+                    >
+                      Ingresa aquí
+                    </button>
+                  </p>
+                  {/* Solo mostrar Panel Admin si el usuario tiene permisos */}
+                  {user?.isAdmin && (
+                    <button onClick={() => { navigate('/admin'); }} className="w-full text-left px-5 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 text-blue-600 font-bold uppercase tracking-wider text-[11px]">Panel Admin</button>
+                  )}
+                </div>
+              )}
+            </>
           )}
           </div>
         </div>

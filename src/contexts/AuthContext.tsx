@@ -18,7 +18,8 @@ interface AuthContextType {
   user: User | null;
   currentUser: any; // Firebase user object
   login: (email: string, password: string) => Promise<boolean>;
-  register: (userData: Omit<User, 'id' | 'isAdmin'> & { password: string }) => Promise<boolean>;
+  register: (userData: Omit<User, 'id' | 'isAdmin'> & { password: string }) => Promise<{ success: boolean; error?: string; session?: any }>;
+  resendVerificationEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
   isAuthenticated: boolean;
@@ -122,37 +123,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Registro con Supabase
-  const register = async (userData: Omit<User, 'id' | 'isAdmin'> & { password: string }): Promise<boolean> => {
+  const register = async (userData: Omit<User, 'id' | 'isAdmin'> & { password: string }): Promise<{ success: boolean; error?: string }> => {
     try {
+      console.log("AuthContext:register:start", { email: userData.email });
       const { data, error: signupError } = await auth.signUp({
         email: userData.email,
         password: userData.password,
         options: {
           data: {
-            name: userData.name
-          }
+            full_name: userData.name,
+            phone: userData.phone,
+            address: userData.address || ""
+          },
+          emailRedirectTo: `${window.location.origin}/`
         }
       });
       
       if (signupError) throw signupError;
-      if (!data.user) throw new Error('No user returned from signup');
       
-      // Send welcome email (no DB insert to avoid RLS issues)
-      try {
-        await sendWelcomeEmail(
-          userData.email,
-          userData.name || userData.email.split('@')[0]
-        );
-        console.log("Welcome email sent to:", userData.email);
-      } catch (emailError) {
-        console.error("Error sending welcome email:", emailError);
-        // Don't interrupt registration if email fails
+      // Supabase devuelve un 200 pero sin identidades si el correo ya existe
+      // (cuando la protección de enumeración está activa)
+      if (!data.user || (data.user.identities && data.user.identities.length === 0)) {
+        return { 
+          success: false, 
+          error: "Este correo electrónico ya está registrado. Por favor, intenta iniciar sesión." 
+        };
       }
       
-      return true;
-    } catch (error) {
+      return { success: true, session: data.session };
+    } catch (error: any) {
       console.error("Registration error:", error);
-      return false;
+      return { success: false, error: error.message || "Error al registrar usuario" };
+    }
+  };
+
+  // Reenviar correo de verificación
+  const resendVerificationEmail = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+      
+      if (error) throw error;
+      return { success: true };
+    } catch (error: any) {
+      console.error("Resend verification error:", error);
+      return { success: false, error: error.message || "Error al reenviar el correo" };
     }
   };
 
@@ -194,6 +214,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     currentUser,
     login,
     register,
+    resendVerificationEmail,
     logout,
     updateUser,
     isAuthenticated: !!user,
