@@ -5,13 +5,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
-import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, RefreshCw } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { auth } from '@/firebase';
 import { getAuthErrorMessage, isEmailConfirmationPendingError } from '@/lib/auth-email';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user, login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redirigir si ya está logueado
+  React.useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -53,7 +62,7 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await auth.signInWithPassword({
+      const { data, error } = await auth.signInWithPassword({
         email: loginData.email,
         password: loginData.password,
       });
@@ -106,10 +115,9 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await auth.resetPasswordForEmail(resetEmail, {
+      const { data, error } = await auth.resetPasswordForEmail(resetEmail, {
         redirectTo: `${window.location.origin}/login`,
       });
-
       if (error) throw error;
 
       toast({

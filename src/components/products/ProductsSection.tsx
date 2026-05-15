@@ -497,7 +497,15 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
             if (filter.options.length === 0) return null;
 
             const showAll = showAllForFilter[filter.id] || false;
-            const displayOptions = showAll ? filter.options : filter.options.slice(0, 6);
+            // Filtrar la opción específica que el usuario quiere ocultar (decan5 / 5ml)
+            const filteredOptions = filter.options.filter(opt => {
+              const name = opt.name.toLowerCase();
+              return name !== 'decan5' && name !== 'decant 5ml' && name !== '5ml';
+            });
+
+            if (filteredOptions.length === 0) return null;
+
+            const displayOptions = showAll ? filteredOptions : filteredOptions.slice(0, 6);
 
             return (
               <div key={filter.id} className="mb-6">
