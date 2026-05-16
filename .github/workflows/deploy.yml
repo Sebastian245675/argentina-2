@@ -27,7 +27,7 @@ jobs:
         run: npm run build
 
       - name: Deploy via SSH
-        run: node deploy.cjs
+        run: npm run deploy
         env:
           # Para mayor seguridad, puedes configurar SSH_PASSWORD en Settings > Secrets and variables > Actions
           SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
