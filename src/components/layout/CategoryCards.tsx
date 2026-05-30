@@ -9,14 +9,12 @@ export const CategoryCards: React.FC = () => {
       id: 'masculinas',
       title: 'MASCULINAS',
       subtitle: 'DISEÑADOR',
-      brand: 'HOT ESENZZIA',
       image: 'https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&q=80&w=800',
       path: '/categoria/Masculinos'
     },
     {
       id: 'arabes',
       title: 'ÁRABES',
-      brand: 'HOT ESENZZIA',
       image: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=800',
       path: '/categoria/Arabes'
     }
@@ -41,9 +39,6 @@ export const CategoryCards: React.FC = () => {
 
             {/* Content */}
             <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
-              <span className="text-[#FF6B00] text-xs md:text-sm font-bold tracking-[0.3em] mb-2 drop-shadow-md">
-                {cat.brand}
-              </span>
               <h2 className="text-white text-3xl md:text-5xl font-black tracking-tighter leading-none mb-1 drop-shadow-lg">
                 {cat.title}
               </h2>

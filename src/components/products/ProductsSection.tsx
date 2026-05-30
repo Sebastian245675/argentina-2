@@ -78,7 +78,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [sortBy, setSortBy] = useState('relevance');
-  const { categoriesData: categories, getCategoryByName } = useCategories();
+  const { categoriesData: categories, getCategoryByIdOrNameOrSlug } = useCategories();
   const { filters, loading: filtersLoading } = useFilters();
   const [loading, setLoading] = useState(true);
 
@@ -148,8 +148,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   const filterFn = useMemo(() => {
     const selCat = selectedCategory?.trim() || '';
     const sel = selCat.toLowerCase();
-    const byName = getCategoryByName(selCat);
-    const catIdToMatch = byName?.id;
+    const targetCategory = getCategoryByIdOrNameOrSlug(selCat);
 
     return (p: Product) => {
       // 1. Filtro de búsqueda
@@ -162,12 +161,39 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
 
       // 2. Filtro de categoría
       if (selectedCategory === 'Todos') return true;
+      
+      // Si la categoría seleccionada es "Fragancias" (Perfumes Sellados)
       if (selectedCategory === 'Fragancias') {
         const cat = String(p.categoryName || p.category || '').toLowerCase();
-        return !cat.includes('decant');
+        return !cat.includes('decant') && p.price >= 20000;
       }
 
-      const sel = selectedCategory.toLowerCase().trim();
+      // Si la categoría seleccionada es "Decants"
+      if (sel.includes('decant')) {
+        const catName = String(p.categoryName || p.category || '').toLowerCase().trim();
+        const subName = String(p.subcategoryName || p.subcategory || '').toLowerCase().trim();
+        const tercName = String(p.terceraCategoriaName || '').toLowerCase().trim();
+        return p.price < 20000 || 
+               p.isDecant === true || 
+               (p as any).is_decant === true || 
+               catName.includes('decant') || 
+               subName.includes('decant') || 
+               tercName.includes('decant');
+      }
+
+      // If we found the exact category in DB, match by ID
+      if (targetCategory && targetCategory.id) {
+        // If it's a main category (no parent)
+        if (!targetCategory.parentId || targetCategory.parentId === "") {
+          return p.category === targetCategory.id || (p as any).category_id === targetCategory.id;
+        }
+        
+        // If it's a subcategory or third level category
+        return p.subcategory === targetCategory.id || (p as any).subcategory === targetCategory.id ||
+               p.terceraCategoria === targetCategory.id || (p as any).tercera_categoria === targetCategory.id;
+      }
+
+      // Fallback to name/string matching if category not found in DB
       const catName = String(p.categoryName || p.category || '').toLowerCase().trim();
       const subName = String(p.subcategoryName || p.subcategory || '').toLowerCase().trim();
       const tercName = String(p.terceraCategoriaName || '').toLowerCase().trim();
@@ -179,7 +205,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
              subName.includes(sel) || sel.includes(subName) || 
              tercName.includes(sel);
     };
-  }, [searchTerm, selectedCategory, getCategoryByName]);
+  }, [searchTerm, selectedCategory, getCategoryByIdOrNameOrSlug]);
 
   const baseFiltered = useMemo(() => {
     return allProducts.filter(p => p.isPublished !== false).filter(filterFn);

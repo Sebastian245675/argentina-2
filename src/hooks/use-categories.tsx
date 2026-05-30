@@ -8,6 +8,7 @@ export interface Category {
   parentId?: string;
   parentName?: string;
   isMain?: boolean;
+  slug?: string;
 }
 
 export function useCategories() {
@@ -41,6 +42,7 @@ export function useCategories() {
             image: cat.image,
             parentId: cat.parent_id,
             parentName: cat.parent_name,
+            slug: cat.slug,
             // Es categoría principal si no tiene parentId o está vacío
             isMain: !cat.parent_id || cat.parent_id === ""
           }))
@@ -128,23 +130,43 @@ export function useCategories() {
     return m;
   }, [categoriesData]);
 
+  const categoriesBySlug = useMemo(() => {
+    const m: Record<string, Category> = {};
+    categoriesData.forEach((c) => {
+      if (c.slug) m[c.slug] = c;
+    });
+    return m;
+  }, [categoriesData]);
+
+  const getCategoryByIdOrNameOrSlug = useCallback((val: string) => {
+    if (!val) return undefined;
+    const lower = val.toLowerCase().trim();
+    if (categoriesById[val]) return categoriesById[val];
+    if (categoriesBySlug[val]) return categoriesBySlug[val];
+    const match = categoriesData.find(c => c.name.toLowerCase() === lower);
+    if (match) return match;
+    return undefined;
+  }, [categoriesById, categoriesBySlug, categoriesData]);
+
   const getCategoryById = useCallback((id: string) => categoriesById[id], [categoriesById]);
   const getCategoryByName = useCallback((name: string) => categoriesByName[name], [categoriesByName]);
 
   const getBreadcrumbPath = useCallback(
-    (categoryName: string): string[] => {
-      if (!categoryName || categoryName === "Todos") return [];
+    (categoryOrName: Category | string): string[] => {
+      if (!categoryOrName || categoryOrName === "Todos") return [];
       const path: string[] = [];
-      let cat = categoriesByName[categoryName];
+      let cat = typeof categoryOrName === 'string' 
+        ? getCategoryByIdOrNameOrSlug(categoryOrName)
+        : categoryOrName;
       while (cat) {
         path.unshift(cat.name);
         cat = cat.parentId ? categoriesById[cat.parentId] : undefined;
       }
       if (path.length) path.unshift("Inicio");
-      else path.push("Inicio", categoryName);
+      else path.push("Inicio", typeof categoryOrName === 'string' ? categoryOrName : categoryOrName.name);
       return path;
     },
-    [categoriesByName, categoriesById]
+    [getCategoryByIdOrNameOrSlug, categoriesById]
   );
 
   return {
@@ -155,6 +177,7 @@ export function useCategories() {
     thirdLevelBySubcategory,
     getCategoryById,
     getCategoryByName,
+    getCategoryByIdOrNameOrSlug,
     getBreadcrumbPath,
     loading,
     setCategories,

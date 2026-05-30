@@ -19,13 +19,13 @@ const CategoryViewPage = () => {
     mainCategories,
     subcategoriesByParent,
     thirdLevelBySubcategory,
-    getCategoryByName,
+    getCategoryByIdOrNameOrSlug,
     getBreadcrumbPath,
   } = useCategories();
 
   const categoryName = categorySlug ? decodeURIComponent(categorySlug) : "";
-  const currentCategory = categoryName ? getCategoryByName(categoryName) : undefined;
-  const breadcrumbPath = categoryName ? getBreadcrumbPath(categoryName) : [];
+  const currentCategory = categoryName ? getCategoryByIdOrNameOrSlug(categoryName) : undefined;
+  const breadcrumbPath = currentCategory ? getBreadcrumbPath(currentCategory) : [];
 
   const setSelectedCategory = (cat: string) => {
     if (cat === "Todos") {
@@ -44,6 +44,8 @@ const CategoryViewPage = () => {
 
   if (!categoryName) return <Navigate to="/" replace />;
 
+  const displayCategoryName = currentCategory?.name || categoryName;
+
   return (
     <div className="min-h-screen bg-white text-neutral-900 overflow-x-hidden font-sans">
       <FloatingActionButtons />
@@ -53,7 +55,7 @@ const CategoryViewPage = () => {
       </div>
       <AdvancedHeader
         categories={categories}
-        selectedCategory={categoryName}
+        selectedCategory={displayCategoryName}
         setSelectedCategory={setSelectedCategory}
         promoVisible={promoVisible}
         mainCategories={mainCategories}
@@ -61,7 +63,7 @@ const CategoryViewPage = () => {
         thirdLevelBySubcategory={thirdLevelBySubcategory}
       />
 
-      <CategoryBanner name={categoryName} image={currentCategory?.image} />
+      <CategoryBanner name={displayCategoryName} image={currentCategory?.image} />
       <CategoryBreadcrumbs path={breadcrumbPath} />
 
       <main className="relative z-10 w-full pt-4">

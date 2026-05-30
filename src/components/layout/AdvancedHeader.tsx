@@ -50,11 +50,14 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
   // Solo categorías desde la BD (sin "Todos"). Sin fallback estático.
   const mainCategoriesForNav = categories.filter((c) => c !== "Todos");
 
-  const goToCategory = (name: string) => {
+  const goToCategory = (cat: Category | string) => {
     setIsMenuOpen(false);
     setOpenCategoryDropdown(null);
     setOpenAyudaDropdown(false);
-    navigate(`/categoria/${encodeURIComponent(name)}`);
+    const identifier = typeof cat === 'string' 
+      ? cat 
+      : (cat.slug || cat.id || cat.name);
+    navigate(`/categoria/${encodeURIComponent(identifier)}`);
   };
 
   const getSubsForMain = (mainName: string) =>
@@ -391,7 +394,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                                 <button
                                   type="button"
                                   className="text-center md:text-left text-white/70 text-[13px] font-medium hover:text-white transition-colors w-full"
-                                  onClick={() => goToCategory(item.name)}
+                                  onClick={() => goToCategory(item)}
                                 >
                                   {item.name}
                                 </button>
@@ -402,7 +405,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                           <button
                             type="button"
                             className="text-center md:text-left text-white/70 text-[13px] font-medium hover:text-white transition-colors"
-                            onClick={() => goToCategory(sub.name)}
+                            onClick={() => goToCategory(sub)}
                           >
                             Ver todo {sub.name}
                           </button>
@@ -504,7 +507,7 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                       {subs.map(sub => (
                         <button
                           key={sub.id || sub.name}
-                          onClick={() => goToCategory(sub.name)}
+                          onClick={() => goToCategory(sub)}
                           className="px-10 py-3 text-white/80 text-[13px] font-medium text-left hover:bg-white/5 hover:text-white transition-all flex items-center gap-2"
                         >
                           <span className="w-1 h-1 bg-white/30 rounded-full"></span>
