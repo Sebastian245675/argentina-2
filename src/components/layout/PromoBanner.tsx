@@ -11,7 +11,7 @@ export const PromoBanner: React.FC = () => {
     {
       icon: <Package className="w-5 h-5 text-gray-700" />,
       title: '3 DECANTS x $25.000',
-      description: 'Armá tu pack ideal'
+      description: 'Armá tu pack ideal (Solo perfumes árabes)'
     },
     {
       icon: <CreditCard className="w-5 h-5 text-gray-700" />,

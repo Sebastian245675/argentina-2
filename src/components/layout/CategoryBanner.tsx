@@ -56,7 +56,7 @@ const DEFAULT_CONFIG: CategoryConfig = {
 };
 
 const PROMO_ITEMS = [
-  '3 DECANTS x $25.000',
+  '3 DECANTS x $25.000 (SOLO ÁRABES)',
   '3 CUOTAS SIN INTERÉS',
 ];
 
