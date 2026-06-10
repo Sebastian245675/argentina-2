@@ -115,7 +115,7 @@ export const LoginPage: React.FC = () => {
 
     try {
       const { data, error } = await auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/login`,
+        redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) throw error;
 

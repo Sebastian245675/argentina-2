@@ -28,6 +28,7 @@ const FAQPage = lazy(() => import("./pages/FAQPage"));
 const CategoryViewPage = lazy(() => import("./pages/CategoryViewPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPassword"));
 const CartPage = lazy(() => import("./pages/CartPage").then(m => ({ default: m.CartPage })));
 const OrderSuccess = lazy(() => import("./pages/OrderSuccess").then(m => ({ default: m.OrderSuccess })));
 
@@ -98,6 +99,7 @@ const App = () => {
                     <Route path="/auth" element={<Navigate to="/login" replace />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
+                    <Route path="/reset-password" element={<ResetPasswordPage />} />
                     <Route path="/cart" element={<CartPage />} />
                     <Route path="/order-success" element={<OrderSuccess />} />
                     <Route path="/admin" element={<AdminPanel />} />
@@ -124,7 +126,5 @@ const App = () => {
     </QueryClientProvider>
   );
 };
-
-
 
 export default App;
