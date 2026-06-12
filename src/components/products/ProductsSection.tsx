@@ -8,6 +8,7 @@ import { Product } from '@/contexts/CartContext';
 import { db } from "@/firebase";
 import { useCategories } from '@/hooks/use-categories';
 import { useFilters } from '@/hooks/use-filters';
+import { SlidersHorizontal } from 'lucide-react';
 
 interface ProductsSectionProps {
   selectedCategory: string;
@@ -450,8 +451,11 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   return (
     <section id="productos" className="py-8 bg-white w-full max-w-[1800px] mx-auto px-4 md:px-6 min-h-screen">
       <div className="flex flex-col md:flex-row gap-10">
-        <aside className="w-full md:w-64 flex-shrink-0 hidden md:block pt-2 border-r border-gray-100 pr-6 pb-8">
-          <h2 className="text-base font-bold mb-6 text-black pb-3 border-b border-gray-200">Filtrar por</h2>
+        <aside className="w-full md:w-64 flex-shrink-0 hidden md:block pt-2 border-r border-slate-100 pr-6 pb-8 md:sticky md:top-8 md:self-start md:max-h-[calc(100vh-4rem)] md:overflow-y-auto custom-scrollbar">
+          <div className="flex items-center gap-2 mb-6 pb-3 border-b border-slate-100">
+            <SlidersHorizontal className="w-4 h-4 text-[#1E40AF]" />
+            <h2 className="text-base font-extrabold text-slate-900 tracking-tight">Filtrar por</h2>
+          </div>
 
           {/* Filtros Dinámicos desde la Base de Datos */}
           {!filtersLoading && filters.map((filter) => {
@@ -460,7 +464,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
               // Filtro de Marca (usar lógica existente)
               return (
                 <div key={filter.id} className="mb-6">
-                  <h3 className="font-semibold text-sm mb-3 text-black">{filter.name}</h3>
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-3">{filter.name}</h3>
                   <div className="space-y-2 pr-1">
                     {uniqueBrands.slice(0, showAllBrands ? uniqueBrands.length : 8).map((brand) => (
                       <label key={brand} className="flex items-center gap-2 cursor-pointer group">
@@ -468,10 +472,10 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                           type="checkbox"
                           checked={selectedBrands.includes(brand)}
                           onChange={() => toggleBrand(brand)}
-                          className="h-3.5 w-3.5 rounded border-gray-300 text-black focus:ring-black"
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-[#1E40AF] focus:ring-[#1E40AF]"
                         />
-                        <span className="text-sm text-gray-700 group-hover:text-black capitalize truncate">
-                          {brand} <span className="text-gray-400 text-xs">({brandCounts[brand] ?? 0})</span>
+                        <span className="text-sm text-slate-600 group-hover:text-slate-900 capitalize truncate transition-colors">
+                          {brand} <span className="text-slate-400 text-xs font-semibold">({brandCounts[brand] ?? 0})</span>
                         </span>
                       </label>
                     ))}
@@ -479,7 +483,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                   {uniqueBrands.length > 8 && (
                     <button
                       type="button"
-                      className="text-xs text-black underline mt-1 hover:no-underline"
+                      className="text-xs text-[#1E40AF] font-bold hover:underline mt-2 transition-all"
                       onClick={() => setShowAllBrands((v) => !v)}
                     >
                       {showAllBrands ? 'Ver menos' : 'Ver todos'}
@@ -493,7 +497,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
               // Filtro de Precio (usar lógica existente)
               return (
                 <div key={filter.id} className="mb-6">
-                  <h3 className="font-semibold text-sm mb-3 text-black">{filter.name}</h3>
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-3">{filter.name}</h3>
                   <div className="flex flex-wrap items-center gap-2">
                     <Input
                       placeholder="Desde"
@@ -501,7 +505,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                       onChange={(e) => setPriceFrom(e.target.value)}
                       type="number"
                       min={0}
-                      className="w-24 h-9 text-sm rounded border-gray-300"
+                      className="w-24 h-9 text-sm rounded-xl border-slate-200 text-slate-800 focus-visible:ring-1 focus-visible:ring-[#1E40AF]"
                     />
                     <Input
                       placeholder="Hasta"
@@ -509,9 +513,14 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                       onChange={(e) => setPriceTo(e.target.value)}
                       type="number"
                       min={0}
-                      className="w-24 h-9 text-sm rounded border-gray-300"
+                      className="w-24 h-9 text-sm rounded-xl border-slate-200 text-slate-800 focus-visible:ring-1 focus-visible:ring-[#1E40AF]"
                     />
-                    <Button type="button" size="sm" className="h-9 rounded" onClick={applyPrice}>
+                    <Button 
+                      type="button" 
+                      size="sm" 
+                      className="h-9 rounded-xl bg-[#1E40AF] hover:bg-[#1A368F] text-white transition-all font-semibold shadow-sm px-4" 
+                      onClick={applyPrice}
+                    >
                       Aplicar
                     </Button>
                   </div>
@@ -535,7 +544,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
 
             return (
               <div key={filter.id} className="mb-6">
-                <h3 className="font-semibold text-sm mb-3 text-black">{filter.name}</h3>
+                <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-3">{filter.name}</h3>
                 <div className="space-y-2">
                   {displayOptions.map((option) => (
                     <label key={option.id} className="flex items-center gap-2 cursor-pointer group">
@@ -543,10 +552,10 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                         type="checkbox"
                         checked={(selectedFilterOptions[filter.id] || []).includes(option.id)}
                         onChange={() => toggleFilterOption(filter.id, option.id)}
-                        className="h-3.5 w-3.5 rounded border-gray-300 text-black focus:ring-black"
+                        className="h-3.5 w-3.5 rounded border-gray-300 text-[#1E40AF] focus:ring-[#1E40AF]"
                       />
-                      <span className="text-sm text-gray-700 group-hover:text-black">
-                        {option.name} <span className="text-gray-400 text-xs">({filterOptionCounts[filter.id]?.[option.id] ?? 0})</span>
+                      <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
+                        {option.name} <span className="text-slate-400 text-xs font-semibold">({filterOptionCounts[filter.id]?.[option.id] ?? 0})</span>
                       </span>
                     </label>
                   ))}
@@ -554,7 +563,7 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
                 {filter.options.length > 6 && (
                   <button
                     type="button"
-                    className="text-xs text-black underline mt-1 hover:no-underline"
+                    className="text-xs text-[#1E40AF] font-bold hover:underline mt-2 transition-all"
                     onClick={() => setShowAllForFilter((prev) => ({ ...prev, [filter.id]: !showAll }))}
                   >
                     {showAll ? 'Ver menos' : 'Ver todos'}
@@ -563,24 +572,79 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
               </div>
             );
           })}
+
+          {/* Banners Publicitarios */}
+          <div className="mt-8 space-y-6 pt-6 border-t border-slate-100">
+            {/* Banner 1 - Decants */}
+            <div 
+              className="relative group overflow-hidden rounded-2xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] bg-slate-50 cursor-pointer transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
+              onClick={() => setSelectedCategory('Decants')}
+            >
+              <div className="aspect-[4/5] w-full overflow-hidden relative">
+                <img 
+                  src="/decants_banner.webp" 
+                  alt="Decants de Lujo" 
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent flex flex-col justify-end p-4">
+                  <span className="text-[9px] font-extrabold text-[#FF6B00] tracking-widest uppercase mb-1">PROBÁ ANTES DE COMPRAR</span>
+                  <h4 className="text-white font-black text-sm leading-tight mb-1">Decants de Lujo</h4>
+                  <p className="text-white/80 text-[10px] font-medium leading-relaxed mb-3">
+                    Explorá fragancias exclusivas en dosis de 2.5ml, 5ml y 10ml.
+                  </p>
+                  <span className="text-[10px] text-white font-bold bg-[#1E40AF] hover:bg-[#1A368F] transition-all px-3 py-1.5 rounded-lg w-max shadow-sm">
+                    Ver Decants
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Banner 2 - Fragancias Árabes */}
+            <div 
+              className="relative group overflow-hidden rounded-2xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] bg-slate-50 cursor-pointer transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
+              onClick={() => setSelectedCategory('Fragancias')}
+            >
+              <div className="aspect-[4/5] w-full overflow-hidden relative">
+                <img 
+                  src="/arabe_banner.webp" 
+                  alt="Fragancias Árabes" 
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent flex flex-col justify-end p-4">
+                  <span className="text-[9px] font-extrabold text-[#FF6B00] tracking-widest uppercase mb-1">EXÓTICO & INTENSO</span>
+                  <h4 className="text-white font-black text-sm leading-tight mb-1">Perfumes Árabes</h4>
+                  <p className="text-white/80 text-[10px] font-medium leading-relaxed mb-3">
+                    Fragancias con notas exóticas y máxima persistencia.
+                  </p>
+                  <span className="text-[10px] text-white font-bold bg-[#1E40AF] hover:bg-[#1A368F] transition-all px-3 py-1.5 rounded-lg w-max shadow-sm">
+                    Explorar Colección
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </aside>
 
         <div className="flex-1">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-4 border-b border-gray-200">
-            <div className="w-full md:w-auto mb-4 md:mb-0">
-              <h2 className="text-2xl font-bold text-black mb-1">Resultados de búsqueda</h2>
-              <p className="text-sm text-gray-500">{filteredAndSortedProducts.length} productos encontrados</p>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-5 border-b border-slate-100">
+            <div>
+              <h2 className="text-2xl font-black text-slate-900 mb-1 tracking-tight">Resultados de búsqueda</h2>
+              <p className="text-sm text-slate-500 font-medium">
+                Hemos encontrado <span className="font-extrabold text-[#1E40AF]">{filteredAndSortedProducts.length}</span> productos exclusivos para ti.
+              </p>
             </div>
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <span className="text-sm text-gray-600">Ordenar por:</span>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <span className="text-sm text-slate-600 font-semibold shrink-0">Ordenar por:</span>
               <Select value={sortBy} onValueChange={(v) => setSortBy(v)}>
                 <SelectTrigger
-                  className="w-[180px] border-gray-300 border rounded-none h-10 text-sm ring-0 focus:ring-0"
+                  className="w-full sm:w-[180px] bg-white border-gray-200 rounded-xl h-10 text-sm focus:ring-0 focus:ring-offset-0 focus:border-[#1E40AF] transition-all font-medium text-slate-700 shadow-sm"
                   aria-label="Ordenar productos por"
                 >
                   <SelectValue placeholder="Relevancia" />
                 </SelectTrigger>
-                <SelectContent className="rounded-none border-gray-300">
+                <SelectContent className="rounded-xl border-gray-100 shadow-xl">
                   <SelectItem value="relevance">Relevancia</SelectItem>
                   <SelectItem value="name">Nombre (A-Z)</SelectItem>
                   <SelectItem value="price-asc">Menor precio</SelectItem>
@@ -590,63 +654,69 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
             </div>
           </div>
 
+          {/* Filtros Activos - Badges de Limpieza */}
           {hasActiveFilters && (
-            <div className="flex flex-wrap gap-2 mb-6">
+            <div className="flex flex-wrap gap-2.5 mb-8 bg-white border border-slate-100 rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] items-center">
               {selectedBrands.map((b) => (
-                <div key={b} className="flex items-center bg-gray-100 px-3 py-1 text-sm rounded-full text-black">
+                <div key={b} className="flex items-center bg-blue-50 border border-blue-100 text-blue-900 px-3.5 py-1 text-xs font-bold rounded-full shadow-sm transition-all hover:bg-blue-100/80">
                   {b}
-                  <button type="button" onClick={() => toggleBrand(b)} className="ml-2 text-gray-500 hover:text-black">×</button>
+                  <button type="button" onClick={() => toggleBrand(b)} className="ml-2 text-blue-500 hover:text-blue-900 font-extrabold text-sm">×</button>
                 </div>
               ))}
               {selectedMililitros.map((ml) => (
-                <div key={ml} className="flex items-center bg-gray-100 px-3 py-1 text-sm rounded-full text-black">
+                <div key={ml} className="flex items-center bg-blue-50 border border-blue-100 text-blue-900 px-3.5 py-1 text-xs font-bold rounded-full shadow-sm transition-all hover:bg-blue-100/80">
                   {ml === 2.5 ? '2,5' : ml} ml
-                  <button type="button" onClick={() => toggleMl(ml)} className="ml-2 text-gray-500 hover:text-black">×</button>
+                  <button type="button" onClick={() => toggleMl(ml)} className="ml-2 text-blue-500 hover:text-blue-900 font-extrabold text-sm">×</button>
                 </div>
               ))}
               {priceApplied != null && (
-                <div className="flex items-center bg-gray-100 px-3 py-1 text-sm rounded-full text-black">
-                  ${priceApplied.from} – ${priceApplied.to}
+                <div className="flex items-center bg-blue-50 border border-blue-100 text-blue-900 px-3.5 py-1 text-xs font-bold rounded-full shadow-sm transition-all hover:bg-blue-100/80">
+                  ${priceApplied.from.toLocaleString('es-AR')} – ${priceApplied.to.toLocaleString('es-AR')}
                   <button
                     type="button"
                     onClick={() => { setPriceFrom(''); setPriceTo(''); setPriceApplied(null); }}
-                    className="ml-2 text-gray-500 hover:text-black"
+                    className="ml-2 text-blue-500 hover:text-blue-900 font-extrabold text-sm"
                   >
                     ×
                   </button>
                 </div>
               )}
               {selectedNotas.map((n) => (
-                <div key={n} className="flex items-center bg-gray-100 px-3 py-1 text-sm rounded-full text-black">
+                <div key={n} className="flex items-center bg-orange-50 border border-orange-200 text-orange-900 px-3.5 py-1 text-xs font-bold rounded-full shadow-sm transition-all hover:bg-orange-100/80">
                   {n}
-                  <button type="button" onClick={() => toggleNotas(n)} className="ml-2 text-gray-500 hover:text-black">×</button>
+                  <button type="button" onClick={() => toggleNotas(n)} className="ml-2 text-orange-500 hover:text-orange-900 font-extrabold text-sm">×</button>
                 </div>
               ))}
               {selectedOcasion.map((o) => (
-                <div key={o} className="flex items-center bg-gray-100 px-3 py-1 text-sm rounded-full text-black">
+                <div key={o} className="flex items-center bg-blue-50 border border-blue-100 text-blue-900 px-3.5 py-1 text-xs font-bold rounded-full shadow-sm transition-all hover:bg-blue-100/80">
                   {o}
-                  <button type="button" onClick={() => toggleOcasion(o)} className="ml-2 text-gray-500 hover:text-black">×</button>
+                  <button type="button" onClick={() => toggleOcasion(o)} className="ml-2 text-blue-500 hover:text-blue-900 font-extrabold text-sm">×</button>
                 </div>
               ))}
               {selectedEstacionalidad.map((e) => (
-                <div key={e} className="flex items-center bg-gray-100 px-3 py-1 text-sm rounded-full text-black">
+                <div key={e} className="flex items-center bg-blue-50 border border-blue-100 text-blue-900 px-3.5 py-1 text-xs font-bold rounded-full shadow-sm transition-all hover:bg-blue-100/80">
                   {e}
-                  <button type="button" onClick={() => toggleEstacionalidad(e)} className="ml-2 text-gray-500 hover:text-black">×</button>
+                  <button type="button" onClick={() => toggleEstacionalidad(e)} className="ml-2 text-blue-500 hover:text-blue-900 font-extrabold text-sm">×</button>
                 </div>
               ))}
-              <button type="button" onClick={clearAllFilters} className="text-sm text-black underline ml-2">
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="text-xs text-[#FF6B00] font-bold hover:underline py-1 px-2.5 transition-colors ml-auto"
+              >
                 Limpiar todos
               </button>
             </div>
           )}
 
+          {/* Grid de Productos */}
           {loading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-8 gap-y-12">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="flex flex-col h-full">
-                  <div className="bg-gray-100 animate-pulse aspect-[3/4] w-full mb-3" />
-                  <div className="h-3 bg-gray-100 w-3/4 mb-2" />
-                  <div className="h-3 bg-gray-100 w-1/2" />
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="flex flex-col h-full bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                  <div className="bg-slate-100 animate-pulse aspect-[3/4] w-full rounded-xl mb-4" />
+                  <div className="h-4 bg-slate-100 w-3/4 mb-3 rounded" />
+                  <div className="h-4 bg-slate-100 w-1/2 rounded" />
                 </div>
               ))}
             </div>
@@ -655,17 +725,17 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-8 gap-y-12">
                 {paginatedProducts.length > 0 ? (
                   paginatedProducts.map((product) => (
-                    <div key={product.id} className="w-full">
+                    <div key={product.id} className="w-full transition-transform duration-300 hover:scale-[1.02] hover:-translate-y-1">
                       <ProductCard product={{ ...product, price: product.price, originalPrice: product.originalPrice }} />
                     </div>
                   ))
                 ) : (
-                  <div className="col-span-full py-24 text-center">
-                    <h3 className="text-xl font-semibold text-black mb-2">No se encontraron productos</h3>
-                    <p className="text-gray-500 mb-6">Intenta modificar los filtros o términos de búsqueda</p>
+                  <div className="col-span-full py-24 text-center bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+                    <h3 className="text-xl font-bold text-slate-800 mb-2">No se encontraron productos</h3>
+                    <p className="text-slate-500 mb-6 font-medium">Intenta modificar los filtros o los términos de tu búsqueda</p>
                     <Button
                       variant="outline"
-                      className="rounded-none border-black hover:bg-black hover:text-white px-6"
+                      className="rounded-xl border-[#1E40AF] text-[#1E40AF] hover:bg-[#1E40AF] hover:text-white px-8 h-11 transition-all font-semibold"
                       onClick={clearAllFilters}
                     >
                       Limpiar todos los filtros
@@ -675,10 +745,10 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
               </div>
 
               {displayLimit < filteredAndSortedProducts.length && !searchTerm && (
-                <div className="flex justify-center pt-8 border-t border-gray-100">
+                <div className="flex justify-center pt-8 border-t border-slate-100">
                   <Button
                     variant="outline"
-                    className="h-12 px-12 border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white font-black uppercase tracking-widest transition-all rounded-full shadow-lg"
+                    className="h-12 px-12 bg-gradient-to-r from-[#1E40AF] to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold uppercase tracking-widest transition-all rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] border-0"
                     onClick={() => setDisplayLimit(prev => prev + PAGE_SIZE)}
                   >
                     Ver más productos

@@ -47,7 +47,7 @@ const CategoryViewPage = () => {
   const displayCategoryName = currentCategory?.name || categoryName;
 
   return (
-    <div className="min-h-screen bg-white text-neutral-900 overflow-x-hidden font-sans">
+    <div className="min-h-screen bg-white text-neutral-900 overflow-x-clip font-sans">
       <FloatingActionButtons />
 
       <div className="w-full">

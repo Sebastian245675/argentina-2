@@ -50,7 +50,7 @@ const AdvancedIndex = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white text-neutral-900 overflow-x-hidden font-sans">
+    <div className="min-h-screen bg-white text-neutral-900 overflow-x-clip font-sans">
       <StoreStructuredData
         name="VISFUM"
         description="Tienda online de perfumería, regalería y perfumes importados con envíos a todo el país."
