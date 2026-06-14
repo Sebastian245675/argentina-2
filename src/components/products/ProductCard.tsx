@@ -142,9 +142,9 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) 
       </div>
 
       {/* Content Section */}
-      <div className="flex flex-col flex-grow p-6 bg-white shrink-0">
+      <div className="flex flex-col flex-grow p-6 bg-black shrink-0">
         {/* Product Name */}
-        <h3 className="font-serif tracking-wide text-sm text-gray-900 mb-4 group-hover:text-black line-clamp-2 leading-relaxed transition-colors duration-200 min-h-[2.5rem] uppercase">
+        <h3 className="font-serif tracking-wide text-sm text-white mb-4 group-hover:text-gray-300 line-clamp-2 leading-relaxed transition-colors duration-200 min-h-[2.5rem] uppercase">
           {product.name}
         </h3>
 
@@ -152,18 +152,18 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onClick }) 
         <div className="mt-auto flex flex-col items-start gap-1.5 pt-2">
           {product.originalPrice && product.originalPrice > product.price && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-600 font-medium line-through">
+              <span className="text-xs text-gray-400 font-medium line-through">
                 ${product.originalPrice.toLocaleString('es-AR')}
               </span>
               {discountPercentage > 0 && (
-                <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded">
+                <span className="text-xs font-semibold text-red-400 bg-red-500/10 px-2 py-0.5 rounded">
                   -{discountPercentage}%
                 </span>
               )}
             </div>
           )}
           <div className="flex items-baseline gap-2">
-            <span className="text-base font-light tracking-widest text-gray-900">
+            <span className="text-base font-light tracking-widest text-white">
               ${product.price ? product.price.toLocaleString('es-AR') : 'Consultar'}
             </span>
           </div>

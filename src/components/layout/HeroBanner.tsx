@@ -3,15 +3,15 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const SLIDES = [
   {
-    img: '/chanel_hero.png',
+    img: '/arabe_hero.webp',
     alt: 'Fragancias Árabes Premium',
   },
   {
-    img: '/nicho_carousel.png',
+    img: '/nicho_hero.webp',
     alt: 'Fragancias de Nicho',
   },
   {
-    img: '/decants_banner.png',
+    img: '/decants_hero.webp',
     alt: 'Decants de Lujo',
   },
 ];
