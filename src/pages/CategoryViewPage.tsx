@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { useParams, useNavigate, Navigate } from "react-router-dom";
+import { useParams, useNavigate, Navigate, useLocation } from "react-router-dom";
 import { TopPromoBar } from "@/components/layout/TopPromoBar";
 import { AdvancedHeader } from "@/components/layout/AdvancedHeader";
 import { CategoryBanner } from "@/components/layout/CategoryBanner";
@@ -12,6 +12,7 @@ import { useCategories } from "@/hooks/use-categories";
 const CategoryViewPage = () => {
   const { categorySlug } = useParams<{ categorySlug: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [promoVisible, setPromoVisible] = React.useState(true);
   const {
     categories,
@@ -25,7 +26,21 @@ const CategoryViewPage = () => {
 
   const categoryName = categorySlug ? decodeURIComponent(categorySlug) : "";
   const currentCategory = categoryName ? getCategoryByIdOrNameOrSlug(categoryName) : undefined;
-  const breadcrumbPath = currentCategory ? getBreadcrumbPath(currentCategory) : [];
+  
+  const searchParams = new URLSearchParams(location.search);
+  const genderParam = searchParams.get('genero') || searchParams.get('gender');
+
+  let displayCategoryName = currentCategory?.name || categoryName;
+  if (genderParam) {
+    const formattedGender = genderParam.toLowerCase().includes('masc') ? 'Masculino' : 'Femenino';
+    displayCategoryName = `${displayCategoryName} - ${formattedGender}`;
+  }
+
+  let breadcrumbPath = currentCategory ? getBreadcrumbPath(currentCategory) : [];
+  if (genderParam) {
+    const formattedGender = genderParam.toLowerCase().includes('masc') ? 'Masculino' : 'Femenino';
+    breadcrumbPath = [...breadcrumbPath, formattedGender];
+  }
 
   const setSelectedCategory = (cat: string) => {
     if (cat === "Todos") {
@@ -43,8 +58,6 @@ const CategoryViewPage = () => {
   const whatsappUrl = `https://wa.me/${whatsappNumber.replace(/\D/g, "")}`;
 
   if (!categoryName) return <Navigate to="/" replace />;
-
-  const displayCategoryName = currentCategory?.name || categoryName;
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 overflow-x-clip font-sans">

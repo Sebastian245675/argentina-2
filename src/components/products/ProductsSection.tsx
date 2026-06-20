@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ProductCard } from './ProductCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -77,11 +77,16 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
   initialSearchTerm = '',
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [sortBy, setSortBy] = useState('relevance');
   const { categoriesData: categories, getCategoryByIdOrNameOrSlug } = useCategories();
   const { filters, loading: filtersLoading } = useFilters();
   const [loading, setLoading] = useState(true);
+
+  // Obtener parámetro de género de la URL
+  const queryParams = new URLSearchParams(location.search);
+  const genderParam = queryParams.get('genero') || queryParams.get('gender');
 
   const [selectedMililitros, setSelectedMililitros] = useState<number[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
@@ -161,52 +166,55 @@ export const ProductsSection: React.FC<ProductsSectionProps> = ({
       }
 
       // 2. Filtro de categoría
-      if (selectedCategory === 'Todos') return true;
-      
-      // Si la categoría seleccionada es "Fragancias" (Perfumes Sellados)
-      if (selectedCategory === 'Fragancias') {
+      let categoryMatches = false;
+      if (selectedCategory === 'Todos') {
+        categoryMatches = true;
+      } else if (selectedCategory === 'Fragancias') {
         const cat = String(p.categoryName || p.category || '').toLowerCase();
-        return !cat.includes('decant') && p.price >= 20000;
-      }
-
-      // Si la categoría seleccionada es "Decants"
-      if (sel.includes('decant')) {
+        categoryMatches = !cat.includes('decant') && p.price >= 20000;
+      } else if (sel.includes('decant')) {
         const catName = String(p.categoryName || p.category || '').toLowerCase().trim();
         const subName = String(p.subcategoryName || p.subcategory || '').toLowerCase().trim();
         const tercName = String(p.terceraCategoriaName || '').toLowerCase().trim();
-        return p.price < 20000 || 
-               p.isDecant === true || 
-               (p as any).is_decant === true || 
-               catName.includes('decant') || 
-               subName.includes('decant') || 
-               tercName.includes('decant');
-      }
-
-      // If we found the exact category in DB, match by ID
-      if (targetCategory && targetCategory.id) {
-        // If it's a main category (no parent)
+        categoryMatches = p.price < 20000 || 
+                          p.isDecant === true || 
+                          (p as any).is_decant === true || 
+                          catName.includes('decant') || 
+                          subName.includes('decant') || 
+                          tercName.includes('decant');
+      } else if (targetCategory && targetCategory.id) {
         if (!targetCategory.parentId || targetCategory.parentId === "") {
-          return p.category === targetCategory.id || (p as any).category_id === targetCategory.id;
+          categoryMatches = p.category === targetCategory.id || (p as any).category_id === targetCategory.id;
+        } else {
+          categoryMatches = p.subcategory === targetCategory.id || (p as any).subcategory === targetCategory.id ||
+                            p.terceraCategoria === targetCategory.id || (p as any).tercera_categoria === targetCategory.id;
         }
-        
-        // If it's a subcategory or third level category
-        return p.subcategory === targetCategory.id || (p as any).subcategory === targetCategory.id ||
-               p.terceraCategoria === targetCategory.id || (p as any).tercera_categoria === targetCategory.id;
+      } else {
+        const catName = String(p.categoryName || p.category || '').toLowerCase().trim();
+        const subName = String(p.subcategoryName || p.subcategory || '').toLowerCase().trim();
+        const tercName = String(p.terceraCategoriaName || '').toLowerCase().trim();
+
+        categoryMatches = catName.includes(sel) || sel.includes(catName) || 
+                          subName.includes(sel) || sel.includes(subName) || 
+                          tercName.includes(sel);
       }
 
-      // Fallback to name/string matching if category not found in DB
-      const catName = String(p.categoryName || p.category || '').toLowerCase().trim();
-      const subName = String(p.subcategoryName || p.subcategory || '').toLowerCase().trim();
-      const tercName = String(p.terceraCategoriaName || '').toLowerCase().trim();
+      if (!categoryMatches) return false;
 
-      // Si la categoría seleccionada o la del producto contienen 'decant', es un match
-      if (sel.includes('decant') && catName.includes('decant')) return true;
+      // 3. Filtro de género
+      if (genderParam) {
+        const text = [p.name, p.description, JSON.stringify(p.specifications || [])].join(' ').toLowerCase();
+        const gen = genderParam.toLowerCase().trim();
+        if (gen.includes('masc') || gen.includes('hombre') || gen.includes('men')) {
+          if (!/hombre|men|man|homme|masculin|unisex/i.test(text)) return false;
+        } else if (gen.includes('fem') || gen.includes('mujer') || gen.includes('women') || gen.includes('woman')) {
+          if (!/mujer|women|woman|femme|femenin|girl|unisex/i.test(text)) return false;
+        }
+      }
 
-      return catName.includes(sel) || sel.includes(catName) || 
-             subName.includes(sel) || sel.includes(subName) || 
-             tercName.includes(sel);
+      return true;
     };
-  }, [searchTerm, selectedCategory, getCategoryByIdOrNameOrSlug]);
+  }, [searchTerm, selectedCategory, getCategoryByIdOrNameOrSlug, genderParam]);
 
   const baseFiltered = useMemo(() => {
     return allProducts.filter(p => p.isPublished !== false).filter(filterFn);

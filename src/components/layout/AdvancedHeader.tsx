@@ -301,7 +301,8 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
             {mainCategoriesForNav.map((category) => {
               const isActive = selectedCategory === category;
               const subs = getSubsForMain(category);
-              const hasDropdown = subs.length > 0;
+              const isPerfumeGender = ['arabe', 'árabe', 'nicho', 'diseñador', 'decants'].includes(category.toLowerCase());
+              const hasDropdown = subs.length > 0 || isPerfumeGender;
               const isDropdownOpen = openCategoryDropdown === category;
 
               return (
@@ -367,7 +368,8 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
         {/* Dropdown Categorías (Mega-Menu) - Black Theme */}
         {openCategoryDropdown && (() => {
           const subs = getSubsForMain(openCategoryDropdown);
-          if (subs.length === 0) return null;
+          const hasPerfumeGender = ['arabe', 'árabe', 'nicho', 'diseñador', 'decants'].includes(openCategoryDropdown.toLowerCase());
+          if (subs.length === 0 && !hasPerfumeGender) return null;
 
           return (
             <div
@@ -413,6 +415,40 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                       </div>
                     );
                   })}
+
+                  {hasPerfumeGender && (
+                    <div className="flex flex-col items-center md:items-start min-w-[140px]">
+                      <h3 className="text-white text-base font-black uppercase tracking-[0.15em] mb-4 border-b-2 border-white/20 pb-1 w-fit">
+                        Género
+                      </h3>
+                      <ul className="space-y-2.5">
+                        <li>
+                          <button
+                            type="button"
+                            className="text-center md:text-left text-white/70 text-[13px] font-medium hover:text-white transition-colors w-full"
+                            onClick={() => {
+                              setOpenCategoryDropdown(null);
+                              navigate(`/categoria/${encodeURIComponent(openCategoryDropdown)}?genero=masculino`);
+                            }}
+                          >
+                            Masculino
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            type="button"
+                            className="text-center md:text-left text-white/70 text-[13px] font-medium hover:text-white transition-colors w-full"
+                            onClick={() => {
+                              setOpenCategoryDropdown(null);
+                              navigate(`/categoria/${encodeURIComponent(openCategoryDropdown)}?genero=femenino`);
+                            }}
+                          >
+                            Femenino
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
+                  )}
                 </div>
                 <div className="mt-12 pt-6 border-t border-white/10 w-full flex justify-center">
                   <button
@@ -476,14 +512,21 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
           <ul className="mt-2">
             {mainCategoriesForNav.map((category) => {
               const subs = getSubsForMain(category);
-              const hasSubs = subs.length > 0;
+              const isPerfumeGender = ['arabe', 'árabe', 'nicho', 'diseñador', 'decants'].includes(category.toLowerCase());
+              const hasSubs = subs.length > 0 || isPerfumeGender;
               const isOpen = openCategoryDropdown === category;
 
               return (
                 <li key={category} className="border-b border-white/5 last:border-0">
                   <div className="flex items-center justify-between px-6 py-4">
                     <button
-                      onClick={() => goToCategory(category)}
+                      onClick={() => {
+                        if (hasSubs) {
+                          setOpenCategoryDropdown(isOpen ? null : category);
+                        } else {
+                          goToCategory(category);
+                        }
+                      }}
                       className="flex-1 text-left text-white text-sm font-medium hover:text-orange-300 transition-colors uppercase tracking-tight"
                     >
                       {category === "Electrodomésticos" ? "Perfumería" : category}
@@ -504,16 +547,49 @@ export const AdvancedHeader: React.FC<AdvancedHeaderProps> = ({
                   {/* Subcategories (Accordion) */}
                   {hasSubs && isOpen && (
                     <div className="bg-black/10 py-1 flex flex-col">
+                      {/* Opción destacada para ver toda la categoría principal */}
+                      <button
+                        onClick={() => goToCategory(category)}
+                        className="px-10 py-3 text-[#FF6B00] text-[13px] font-black text-left hover:bg-white/5 transition-all flex items-center gap-2 uppercase tracking-wider"
+                      >
+                        <span className="w-1.5 h-1.5 bg-[#FF6B00] rounded-full"></span>
+                        Ver todo {category === "Electrodomésticos" ? "Perfumería" : category}
+                      </button>
+
                       {subs.map(sub => (
                         <button
                           key={sub.id || sub.name}
                           onClick={() => goToCategory(sub)}
                           className="px-10 py-3 text-white/80 text-[13px] font-medium text-left hover:bg-white/5 hover:text-white transition-all flex items-center gap-2"
                         >
-                          <span className="w-1 h-1 bg-white/30 rounded-full"></span>
+                          <span className="w-1.5 h-1.5 bg-white/30 rounded-full"></span>
                           {sub.name}
                         </button>
                       ))}
+                      {isPerfumeGender && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setIsMenuOpen(false);
+                              navigate(`/categoria/${encodeURIComponent(category)}?genero=masculino`);
+                            }}
+                            className="px-10 py-3 text-white/80 text-[13px] font-medium text-left hover:bg-white/5 hover:text-white transition-all flex items-center gap-2"
+                          >
+                            <span className="w-1 h-1 bg-white/30 rounded-full"></span>
+                            Masculino
+                          </button>
+                          <button
+                            onClick={() => {
+                              setIsMenuOpen(false);
+                              navigate(`/categoria/${encodeURIComponent(category)}?genero=femenino`);
+                            }}
+                            className="px-10 py-3 text-white/80 text-[13px] font-medium text-left hover:bg-white/5 hover:text-white transition-all flex items-center gap-2"
+                          >
+                            <span className="w-1 h-1 bg-white/30 rounded-full"></span>
+                            Femenino
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </li>

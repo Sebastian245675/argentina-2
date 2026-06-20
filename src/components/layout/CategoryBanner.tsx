@@ -66,7 +66,8 @@ interface CategoryBannerProps {
 }
 
 export const CategoryBanner: React.FC<CategoryBannerProps> = ({ name }) => {
-  const key = name.toLowerCase();
+  const baseName = name.split(' - ')[0];
+  const key = baseName.toLowerCase().trim();
   const config = CATEGORY_CONFIG[key] ?? DEFAULT_CONFIG;
 
   return (
